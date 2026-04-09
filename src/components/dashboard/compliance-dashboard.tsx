@@ -216,24 +216,32 @@ export function ComplianceDashboard({
       });
 
       if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
         if (response.status === 401) {
           router.push("/login?callbackUrl=/dashboard");
           return;
         }
 
-        throw new Error("Unable to start Paddle checkout.");
+        setExportNotice(
+          errorPayload?.error ?? "Unable to start Paddle checkout.",
+        );
+        return;
       }
 
       const payload = (await response.json()) as {
         message?: string;
+        premiumUnlocked?: boolean;
       };
 
-      setIsPremium(true);
-      setPremiumUnlockedAt(new Date().toISOString());
-      setExportNotice(
-        payload.message ?? "Premium export is now unlocked for this account.",
-      );
-      router.refresh();
+      setExportNotice(payload.message ?? "Paddle checkout response received.");
+
+      if (payload.premiumUnlocked) {
+        setIsPremium(true);
+        setPremiumUnlockedAt(new Date().toISOString());
+        router.refresh();
+      }
     } finally {
       setIsCheckoutPending(false);
     }

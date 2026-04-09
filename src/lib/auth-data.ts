@@ -176,6 +176,23 @@ export async function getAppUserProfileById(userId: string) {
   return mapProfile(user, profile);
 }
 
+export async function getAppUserProfileByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const user = await getNextAuthUserByEmail(normalizedEmail);
+
+  if (!user) {
+    return null;
+  }
+
+  const profile = await getUserProfileRow(user.id);
+  return mapProfile(user, profile);
+}
+
 export async function upsertUserProfileFromAuthUser(user: {
   id: string;
   email?: string | null;

@@ -79,18 +79,27 @@ export function GenerationResult() {
       });
 
       if (!response.ok) {
-        throw new Error("Unable to initialize Paddle checkout.");
+        const errorPayload = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        setUnlockLabel(
+          errorPayload?.error ?? "Unable to initialize Paddle checkout.",
+        );
+        return;
       }
 
       const payload = (await response.json()) as {
         providerMode?: string;
         message?: string;
+        premiumUnlocked?: boolean;
       };
 
       setUnlockLabel(payload.message ?? "Policy unlocked");
-      setIsPremium(true);
-      await update();
-      router.push("/dashboard");
+      if (payload.premiumUnlocked) {
+        setIsPremium(true);
+        await update();
+        router.push("/dashboard");
+      }
     } finally {
       setIsUnlocking(false);
     }
