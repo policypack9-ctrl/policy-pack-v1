@@ -1,3 +1,5 @@
+import { getPublicAppUrl } from "@/lib/site-config";
+
 export type AIProvider = "openrouter" | "mock";
 
 export const OPENROUTER_PIPELINE_MODELS = {
@@ -25,7 +27,7 @@ export function getOpenRouterConfig(): OpenRouterConfig {
     provider: process.env.OPENROUTER_API_KEY ? "openrouter" : "mock",
     apiKey: process.env.OPENROUTER_API_KEY ?? null,
     baseUrl: process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
-    siteUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    siteUrl: getPublicAppUrl(),
     siteName: process.env.NEXT_PUBLIC_APP_NAME ?? "PolicyPack",
     researchModel:
       process.env.OPENROUTER_RESEARCH_MODEL ??

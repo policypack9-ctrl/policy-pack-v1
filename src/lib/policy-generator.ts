@@ -12,6 +12,7 @@ import {
   type DashboardDocument,
   type OnboardingAnswers,
 } from "@/lib/policy-engine";
+import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
 export type PolicyDocumentType = DashboardDocument["id"];
 
@@ -392,7 +393,7 @@ function buildFallbackPolicyMarkdown(
   answers: OnboardingAnswers,
 ) {
   const productName = getProductName(answers);
-  const website = answers.websiteUrl || "https://example.com";
+  const website = answers.websiteUrl || PRODUCTION_APP_URL;
   const primaryRegion = resolvePrimaryRegion(answers);
   const snapshot = buildComplianceSnapshot(answers);
   const documentMeta =

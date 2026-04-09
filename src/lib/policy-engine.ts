@@ -1,3 +1,5 @@
+import { PRODUCTION_APP_URL } from "@/lib/site-config";
+
 export const POLICY_SESSION_STORAGE_KEY = "policypack:onboarding:v1";
 
 export type OnboardingAnswers = {
@@ -60,7 +62,7 @@ export const emptyOnboardingAnswers: OnboardingAnswers = {
 
 export const demoOnboardingAnswers: OnboardingAnswers = {
   businessName: "PolicyPack",
-  websiteUrl: "https://app.policypack.com",
+  websiteUrl: PRODUCTION_APP_URL,
   productDescription:
     "We help SaaS founders generate and maintain Privacy Policies and Terms of Service in minutes.",
   companyLocation: "United States",
@@ -214,7 +216,7 @@ export function buildComplianceSnapshot(
 
   return {
     businessName: getProductName(normalizedAnswers),
-    websiteUrl: normalizedAnswers.websiteUrl || "https://app.policypack.com",
+    websiteUrl: normalizedAnswers.websiteUrl || PRODUCTION_APP_URL,
     primaryRegion,
     monitoredRegions,
     generatedAt,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildLegalPrintHtml } from "@/lib/legal-document";
+import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     const html = buildLegalPrintHtml(body.markdown, {
       title: body.title,
       productName: body.productName ?? "PolicyPack",
-      websiteUrl: body.websiteUrl ?? "https://app.policypack.com",
+      websiteUrl: body.websiteUrl ?? PRODUCTION_APP_URL,
       generatedAt: body.generatedAt ?? new Date().toISOString(),
     });
 

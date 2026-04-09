@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { getPublicAppUrl, PRODUCTION_APP_URL } from "@/lib/site-config";
 import "./globals.css";
 
 const inter = Inter({
@@ -14,10 +15,37 @@ const jetBrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const appUrl = getPublicAppUrl();
+
 export const metadata: Metadata = {
-  title: "PolicyPack",
+  metadataBase: new URL(appUrl || PRODUCTION_APP_URL),
+  title: {
+    default: "PolicyPack",
+    template: "%s | PolicyPack",
+  },
   description:
-    "Premium policy operations interface scaffolded with Next.js, Tailwind, shadcn/ui, and Framer Motion.",
+    "PolicyPack helps SaaS teams generate and maintain Privacy Policies, Terms of Service, and compliance documents that stay current.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "PolicyPack",
+    description:
+      "Generate and maintain Privacy Policies, Terms of Service, and compliance documents for your SaaS product.",
+    url: PRODUCTION_APP_URL,
+    siteName: "PolicyPack",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PolicyPack",
+    description:
+      "Generate and maintain Privacy Policies, Terms of Service, and compliance documents for your SaaS product.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
