@@ -162,7 +162,10 @@ async function runDraftingStage(input: {
   siteUrl: string;
   model: string;
 }) {
-  const systemPrompt = buildPolicySystemPrompt(input.documentType);
+  const systemPrompt = buildPolicySystemPrompt(
+    input.documentType,
+    input.answers,
+  );
   const userPrompt = buildPolicyUserPrompt(
     input.documentType,
     input.answers,
@@ -206,7 +209,10 @@ function buildResearchUserPrompt(
   ].join("\n");
 }
 
-function buildPolicySystemPrompt(documentType: PolicyDocumentType) {
+function buildPolicySystemPrompt(
+  documentType: PolicyDocumentType,
+  answers: OnboardingAnswers,
+) {
   const baseSections =
     documentType === "privacy-policy"
       ? [
@@ -251,8 +257,12 @@ function buildPolicySystemPrompt(documentType: PolicyDocumentType) {
               "Security measures",
               "Breach notices",
               "Consumer or data subject rights",
-              "Updates and contact",
-            ];
+          "Updates and contact",
+        ];
+  const genericAiInstruction =
+    answers.aiTransparencyLevel === "Professional/Generic"
+      ? 'If transparency is set to "Generic", avoid naming specific AI models or brands; use professional technical categories instead, especially "Secure Automated Data Processors".'
+      : "If a named provider is relevant, you may identify it directly in a professional way.";
 
   return [
     "You are PolicyPack's legal drafting engine.",
@@ -261,6 +271,7 @@ function buildPolicySystemPrompt(documentType: PolicyDocumentType) {
     "Use a formal legal tone but keep it readable in plain English.",
     "Use Markdown headings for sections and numbered clauses under each section.",
     "Any custom items entered through an Other field are binding user requirements and must be reflected explicitly in the final document where relevant.",
+    genericAiInstruction,
     "Do not mention prompts, AI systems, web search, or internal reasoning.",
     "Do not fabricate laws not supported by the research stage.",
     `The document must cover these topics when relevant: ${baseSections.join(", ")}.`,
@@ -275,6 +286,7 @@ function buildPolicyUserPrompt(
   const productName = getProductName(answers);
   const documentTitle = getDocumentTitle(documentType, answers);
   const primaryRegion = resolvePrimaryRegion(answers);
+  const documentVendors = formatDocumentVendors(answers);
 
   return [
     `Task: Draft a ${documentTitle} for ${productName}.`,
@@ -285,16 +297,19 @@ function buildPolicyUserPrompt(
     `- Product name: ${productName}`,
     `- Website: ${answers.websiteUrl || "Public SaaS website"}`,
     `- Product description: ${answers.productDescription || "Software product"}`,
+    `- AI transparency level: ${answers.aiTransparencyLevel || "Named Providers"}`,
     `- Company location: ${answers.companyLocation || "Not provided"}`,
     `- Primary user region: ${primaryRegion}`,
     `- Customer regions: ${formatList(answers.customerRegions, "Not provided")}`,
     `- Data collected: ${formatList(answers.collectedData, "Not provided")}`,
-    `- Third-party vendors: ${formatList(answers.vendors, "Not provided")}`,
+    `- Third-party vendors (raw): ${formatList(answers.vendors, "Not provided")}`,
+    `- Third-party vendors (document wording): ${formatList(documentVendors, "Not provided")}`,
     `- Customer accounts: ${answers.userAccounts || "Unknown"}`,
     `- Paid plans: ${answers.acceptsPayments || "Unknown"}`,
     `- Outreach and tracking channels: ${formatList(answers.outreachChannels, "Not provided")}`,
     `- Custom user inputs: ${formatCustomInputs(answers)}`,
     "- Instruction: If a custom onboarding input appears above, include it directly in the relevant legal clauses instead of replacing it with generic wording.",
+    '- Instruction: If AI transparency is "Professional/Generic", refer to AI vendors as "Secure Automated Data Processors" instead of naming brands or model families.',
     "",
     "## Research Data",
     researchSummary,
@@ -409,7 +424,7 @@ function buildFallbackPolicyMarkdown(
     "basic account information",
   );
   const vendors = formatList(
-    answers.vendors,
+    formatDocumentVendors(answers),
     "standard hosting and analytics providers",
   );
   const channels = formatList(
@@ -582,4 +597,58 @@ function formatCustomInputs(answers: OnboardingAnswers) {
   ].filter((value): value is string => Boolean(value));
 
   return customInputs.length > 0 ? customInputs.join("; ") : "None";
+}
+
+function formatDocumentVendors(answers: OnboardingAnswers) {
+  const genericAi = answers.aiTransparencyLevel === "Professional/Generic";
+
+  if (!genericAi) {
+    return dedupeDocumentLabels(answers.vendors);
+  }
+
+  return dedupeDocumentLabels(
+    answers.vendors.map((vendor) =>
+      isAiVendorLabel(vendor) ? "Secure Automated Data Processors" : vendor,
+    ),
+  );
+}
+
+function isAiVendorLabel(vendor: string) {
+  const normalized = vendor.trim().toLocaleLowerCase("en-US");
+
+  return [
+    "openai",
+    "open router",
+    "openrouter",
+    "anthropic",
+    "claude",
+    "gemini",
+    "google ai",
+    "google gemini",
+    "deepseek",
+    "cohere",
+    "mistral",
+  ].some((needle) => normalized.includes(needle));
+}
+
+function dedupeDocumentLabels(items: string[]) {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+
+  for (const item of items) {
+    const normalized = item.trim();
+    if (!normalized) {
+      continue;
+    }
+
+    const key = normalized.toLocaleLowerCase("en-US");
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduped.push(normalized);
+  }
+
+  return deduped;
 }

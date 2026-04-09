@@ -52,8 +52,15 @@ type ChoiceOption = {
 };
 
 type WizardQuestionId = Exclude<keyof OnboardingAnswers, CustomInputField>;
-type TextQuestionId = "businessName" | "websiteUrl" | "productDescription";
-type SingleQuestionId = "companyLocation" | "userAccounts" | "acceptsPayments";
+type TextQuestionId =
+  | "businessName"
+  | "websiteUrl"
+  | "productDescription";
+type SingleQuestionId =
+  | "aiTransparencyLevel"
+  | "companyLocation"
+  | "userAccounts"
+  | "acceptsPayments";
 
 type BaseQuestion<TId extends WizardQuestionId> = {
   id: TId;
@@ -129,6 +136,26 @@ const questions: Question[] = [
     icon: Sparkles,
     placeholder:
       "We help SaaS founders generate and maintain legal documents for their product.",
+  },
+  {
+    id: "aiTransparencyLevel",
+    kind: "single",
+    title: "How should AI infrastructure be described?",
+    description:
+      "Choose whether legal documents name AI vendors directly or describe them in broader technical categories.",
+    icon: Sparkles,
+    options: [
+      {
+        value: "Named Providers",
+        label: "Detailed / Named",
+        hint: "Mention providers like OpenAI when relevant",
+      },
+      {
+        value: "Professional/Generic",
+        label: "Professional / Generic",
+        hint: "Use Secure Automated Data Processors instead",
+      },
+    ],
   },
   {
     id: "companyLocation",
@@ -438,7 +465,7 @@ export function OnboardingWizard() {
                     Policy Setup
                   </p>
                   <h1 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-white sm:text-3xl">
-                    Answer 10 quick questions to generate your first policy pack.
+                    {`Answer ${questions.length} quick questions to generate your first policy pack.`}
                   </h1>
                 </div>
                 <div className="rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-sm text-white/58">

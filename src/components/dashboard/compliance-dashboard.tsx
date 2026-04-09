@@ -239,19 +239,22 @@ export function ComplianceDashboard() {
       throw new Error("Unable to render PDF export HTML.");
     }
 
-    const html = await renderResponse.text();
+    const htmlBlob = await renderResponse.blob();
+    const blobUrl = window.URL.createObjectURL(htmlBlob);
     const printWindow = window.open(
-      "",
+      blobUrl,
       "_blank",
       "noopener,noreferrer,width=1080,height=820",
     );
 
     if (!printWindow) {
+      window.URL.revokeObjectURL(blobUrl);
       return;
     }
 
-    printWindow.document.write(html);
-    printWindow.document.close();
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(blobUrl);
+    }, 60_000);
   }
 
   return (

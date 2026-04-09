@@ -238,11 +238,22 @@ export function buildLegalPrintHtml(
       <article class="doc">${contentHtml}</article>
     </main>
     <script>
-      window.addEventListener("load", () => {
-        setTimeout(() => {
-          window.print();
-        }, 140);
-      });
+      (() => {
+        const triggerPrint = () => {
+          window.requestAnimationFrame(() => {
+            window.setTimeout(() => {
+              window.focus();
+              window.print();
+            }, 220);
+          });
+        };
+
+        if (document.readyState === "complete") {
+          triggerPrint();
+        } else {
+          window.addEventListener("load", triggerPrint, { once: true });
+        }
+      })();
     </script>
   </body>
 </html>`;

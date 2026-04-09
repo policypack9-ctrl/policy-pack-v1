@@ -29,6 +29,7 @@ export type OnboardingAnswers = {
   businessName: string;
   websiteUrl: string;
   productDescription: string;
+  aiTransparencyLevel: string;
   companyLocation: string;
   companyLocationOther: string;
   customerRegions: string[];
@@ -79,6 +80,7 @@ export const emptyOnboardingAnswers: OnboardingAnswers = {
   businessName: "",
   websiteUrl: "",
   productDescription: "",
+  aiTransparencyLevel: "Named Providers",
   companyLocation: "",
   companyLocationOther: "",
   customerRegions: [],
@@ -98,6 +100,7 @@ export const demoOnboardingAnswers: OnboardingAnswers = {
   websiteUrl: PRODUCTION_APP_URL,
   productDescription:
     "We help SaaS founders generate and maintain Privacy Policies and Terms of Service in minutes.",
+  aiTransparencyLevel: "Named Providers",
   companyLocation: "United States",
   companyLocationOther: "",
   customerRegions: ["United States", "European Union"],
@@ -321,6 +324,11 @@ export function normalizeAnswers(
     websiteUrl: typeof value?.websiteUrl === "string" ? value.websiteUrl : "",
     productDescription:
       typeof value?.productDescription === "string" ? value.productDescription : "",
+    aiTransparencyLevel:
+      typeof value?.aiTransparencyLevel === "string" &&
+      value.aiTransparencyLevel.trim().length > 0
+        ? value.aiTransparencyLevel
+        : "Named Providers",
     companyLocation: resolveCompanyLocationValue(value),
     companyLocationOther,
     customerRegions: resolveMultiAnswerValues(
@@ -514,10 +522,10 @@ function resolveMultiAnswerValues(
   );
 
   if (!customValue) {
-    return Array.from(new Set(filteredValues));
+    return dedupeAnswerItems(filteredValues);
   }
 
-  return Array.from(new Set([...filteredValues, customValue]));
+  return dedupeAnswerItems([...filteredValues, customValue]);
 }
 
 function readCustomFieldValue(
@@ -526,4 +534,26 @@ function readCustomFieldValue(
 ) {
   const customValue = value?.[field];
   return typeof customValue === "string" ? customValue.trim() : "";
+}
+
+function dedupeAnswerItems(items: string[]) {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+
+  for (const item of items) {
+    const normalized = item.trim();
+    if (!normalized) {
+      continue;
+    }
+
+    const key = normalized.toLocaleLowerCase("en-US");
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduped.push(normalized);
+  }
+
+  return deduped;
 }
