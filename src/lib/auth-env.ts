@@ -16,11 +16,17 @@ export function getAuthSecret() {
 }
 
 export function getAuthBaseUrl() {
-  return (
-    readEnvValue("AUTH_URL", "NEXTAUTH_URL", "NEXT_PUBLIC_APP_URL") ||
-    getPublicAppUrl() ||
-    PRODUCTION_APP_URL
-  );
+  const configured = readEnvValue("AUTH_URL", "NEXTAUTH_URL", "NEXT_PUBLIC_APP_URL");
+
+  if (configured) {
+    return configured;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return PRODUCTION_APP_URL;
+  }
+
+  return getPublicAppUrl() || PRODUCTION_APP_URL;
 }
 
 export function getSupabaseUrl() {
@@ -45,4 +51,3 @@ export function isGoogleAuthConfigured() {
       readEnvValue("AUTH_GOOGLE_SECRET", "GOOGLE_CLIENT_SECRET"),
   );
 }
-

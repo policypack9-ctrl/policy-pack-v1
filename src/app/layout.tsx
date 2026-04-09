@@ -26,6 +26,11 @@ export const metadata: Metadata = {
     template: "%s | PolicyPack",
   },
   description: "Generate GDPR, CCPA, and Privacy Policies in minutes.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut: ["/favicon.svg"],
+    apple: ["/favicon.svg"],
+  },
   alternates: {
     canonical: "/",
   },

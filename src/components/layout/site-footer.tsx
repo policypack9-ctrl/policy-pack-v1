@@ -3,6 +3,7 @@ import Link from "next/link";
 const footerLinks = [
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
+  { href: "/refund-policy", label: "Refund Policy" },
 ] as const;
 
 export function SiteFooter() {

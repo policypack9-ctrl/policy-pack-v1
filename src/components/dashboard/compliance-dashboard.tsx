@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Cookie,
+  CreditCard,
   Download,
   Eye,
   FileText,
@@ -53,6 +54,7 @@ const documentIcons = {
 
 type ComplianceDashboardProps = {
   initialIsPremium?: boolean;
+  initialPremiumUnlockedAt?: string | null;
   initialGeneratedDocuments?: SavedGeneratedDocument[];
   authenticatedEmail?: string | null;
 };
@@ -71,6 +73,7 @@ function buildInitialDocumentCache(
 
 export function ComplianceDashboard({
   initialIsPremium = false,
+  initialPremiumUnlockedAt = null,
   initialGeneratedDocuments = [],
   authenticatedEmail = null,
 }: ComplianceDashboardProps) {
@@ -91,7 +94,10 @@ export function ComplianceDashboard({
       loadPolicyAccount()?.session ?? loadStoredPolicySession() ?? fallbackSession
     );
   });
-  const isPremium = initialIsPremium;
+  const [isPremium, setIsPremium] = useState(initialIsPremium);
+  const [premiumUnlockedAt, setPremiumUnlockedAt] = useState<string | null>(
+    initialPremiumUnlockedAt,
+  );
   const [documentCache, setDocumentCache] = useState<
     Record<DashboardDocument["id"], SavedGeneratedDocument>
   >(() => {
@@ -123,6 +129,7 @@ export function ComplianceDashboard({
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [isDocumentLoading, setIsDocumentLoading] = useState(false);
   const [exportNotice, setExportNotice] = useState("");
+  const [isCheckoutPending, setIsCheckoutPending] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -186,6 +193,50 @@ export function ComplianceDashboard({
       setIsAuditing(false);
       auditTimeoutRef.current = null;
     }, 1800);
+  }
+
+  async function handleUpgradeToDownload() {
+    if (isCheckoutPending) {
+      return;
+    }
+
+    setIsCheckoutPending(true);
+    setExportNotice("");
+
+    try {
+      const response = await fetch("/api/checkout/paddle", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: authenticatedEmail,
+          productName,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push("/login?callbackUrl=/dashboard");
+          return;
+        }
+
+        throw new Error("Unable to start Paddle checkout.");
+      }
+
+      const payload = (await response.json()) as {
+        message?: string;
+      };
+
+      setIsPremium(true);
+      setPremiumUnlockedAt(new Date().toISOString());
+      setExportNotice(
+        payload.message ?? "Premium export is now unlocked for this account.",
+      );
+      router.refresh();
+    } finally {
+      setIsCheckoutPending(false);
+    }
   }
 
   async function ensureGeneratedDocument(documentRecord: DashboardDocument) {
@@ -254,7 +305,7 @@ export function ComplianceDashboard({
   async function handleExportPdf(documentRecord: DashboardDocument) {
     if (!isPremium) {
       setExportNotice("Premium export is locked until Paddle sandbox checkout completes.");
-      router.push("/onboarding/result");
+      await handleUpgradeToDownload();
       return;
     }
 
@@ -394,11 +445,18 @@ export function ComplianceDashboard({
                   {!isPremium ? (
                     <PremiumButton
                       type="button"
-                      onClick={() => router.push("/onboarding/result")}
+                      onClick={() => void handleUpgradeToDownload()}
+                      disabled={isCheckoutPending}
                       className="h-12 px-5 text-sm"
-                      icon={<LockKeyhole className="size-4" />}
+                      icon={
+                        isCheckoutPending ? (
+                          <LoaderCircle className="size-4 animate-spin" />
+                        ) : (
+                          <LockKeyhole className="size-4" />
+                        )
+                      }
                     >
-                      Unlock PDF Export
+                      {isCheckoutPending ? "Opening Checkout..." : "Unlock PDF Export"}
                     </PremiumButton>
                   ) : null}
 
@@ -530,11 +588,16 @@ export function ComplianceDashboard({
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => router.push("/onboarding/result")}
+                  onClick={() => void handleUpgradeToDownload()}
+                  disabled={isCheckoutPending}
                   className="h-11 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
                 >
-                  <LockKeyhole className="size-4" />
-                  Open Unlock Flow
+                  {isCheckoutPending ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : (
+                    <LockKeyhole className="size-4" />
+                  )}
+                  Upgrade to Download
                 </Button>
               </div>
               {exportNotice ? (
@@ -542,6 +605,95 @@ export function ComplianceDashboard({
               ) : null}
             </motion.section>
           ) : null}
+
+          <section className="soft-panel rounded-[30px] p-6 sm:p-8">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/72">
+                  Payment History
+                </p>
+                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-white">
+                  Billing and unlock status
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-white/60">
+                  Paddle sandbox controls whether PDF export is available for this
+                  workspace. Upgrade once to unlock the complete legal bundle.
+                </p>
+              </div>
+
+              {!isPremium ? (
+                <PremiumButton
+                  type="button"
+                  onClick={() => void handleUpgradeToDownload()}
+                  disabled={isCheckoutPending}
+                  className="h-12 px-5 text-sm"
+                  icon={
+                    isCheckoutPending ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="size-4" />
+                    )
+                  }
+                >
+                  {isCheckoutPending ? "Opening Checkout..." : "Upgrade to Download"}
+                </PremiumButton>
+              ) : null}
+            </div>
+
+            <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+              <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.02] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.26em] text-white/42">
+                  Latest Payment Event
+                </p>
+
+                {isPremium ? (
+                  <>
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100">
+                      <BadgeCheck className="size-4" />
+                      Premium unlocked
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-white/66">
+                      Paddle sandbox checkout completed and PDF export was unlocked for
+                      this account.
+                    </p>
+                    <p className="mt-3 text-sm text-white/48">
+                      {premiumUnlockedAt
+                        ? `Unlocked at ${formatDisplayDateTime(premiumUnlockedAt)}`
+                        : "Unlocked just now"}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/66">
+                      <LockKeyhole className="size-4" />
+                      No completed payments
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-white/66">
+                      This workspace is still in draft mode. Complete the sandbox upgrade
+                      to enable PDF download and formal export.
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.02] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.26em] text-white/42">
+                  Export Access
+                </p>
+                <p className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-white">
+                  {isPremium ? "Unlocked" : "Upgrade required"}
+                </p>
+                <p className="mt-4 text-sm leading-7 text-white/60">
+                  {isPremium
+                    ? "All generated documents can now be exported with the formal legal PDF renderer."
+                    : "Document viewing is available, but download remains disabled until the payment state is upgraded."}
+                </p>
+                {exportNotice ? (
+                  <p className="mt-4 text-sm text-teal-100/80">{exportNotice}</p>
+                ) : null}
+              </div>
+            </div>
+          </section>
 
           <section>
             <div className="mb-5">
@@ -599,16 +751,19 @@ export function ComplianceDashboard({
                             <Button
                               type="button"
                               variant="ghost"
-                              onClick={() => void handleExportPdf(document)}
-                              disabled={!isPremium}
+                              onClick={() =>
+                                isPremium
+                                  ? void handleExportPdf(document)
+                                  : void handleUpgradeToDownload()
+                              }
                               className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:text-white/34"
                             >
                               {isPremium ? (
                                 <Download className="size-4" />
                               ) : (
-                                <LockKeyhole className="size-4" />
+                                <CreditCard className="size-4" />
                               )}
-                              {isPremium ? "Export PDF" : "Premium Export"}
+                              {isPremium ? "Export PDF" : "Upgrade to Download"}
                             </Button>
                           </div>
                         </div>
