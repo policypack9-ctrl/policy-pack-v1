@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { auth } from "@/auth";
 import { buildLegalPrintHtml } from "@/lib/legal-document";
 import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
@@ -8,6 +9,15 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 },
+      );
+    }
+
     const body = (await request.json()) as {
       markdown?: string;
       title?: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
@@ -50,6 +51,7 @@ const documentIcons = {
 } as const;
 
 export function ComplianceDashboard() {
+  const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
   const auditTimeoutRef = useRef<number | null>(null);
   const [session, setSession] = useState<StoredPolicySession>(() => {
@@ -236,6 +238,11 @@ export function ComplianceDashboard() {
     });
 
     if (!renderResponse.ok) {
+      if (renderResponse.status === 401) {
+        router.push("/login?callbackUrl=/dashboard");
+        return;
+      }
+
       throw new Error("Unable to render PDF export HTML.");
     }
 

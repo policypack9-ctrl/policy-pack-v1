@@ -24,6 +24,7 @@ import { PremiumButton } from "@/components/ui/premium-button";
 import {
   buildSavedPolicyAccount,
   clearGeneratedDocuments,
+  clearUnlockState,
   savePolicyPackToAccount,
   saveStoredPolicySession,
 } from "@/lib/db";
@@ -319,6 +320,7 @@ export function OnboardingWizard() {
       buildSavedPolicyAccount(answers, completedAt),
     );
     clearGeneratedDocuments();
+    clearUnlockState();
 
     const intervalId = window.setInterval(() => {
       setGenerationStep((current) =>
@@ -331,7 +333,7 @@ export function OnboardingWizard() {
     }, Math.max(generationDuration - fadeDuration, 0));
 
     const timeoutId = window.setTimeout(() => {
-      router.push("/dashboard");
+      router.push("/onboarding/result");
     }, generationDuration);
 
     return () => {

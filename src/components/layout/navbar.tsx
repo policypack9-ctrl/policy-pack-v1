@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Scale } from "lucide-react";
 
+import { NavbarAuthControls } from "@/components/layout/navbar-auth-controls";
 import { PremiumButton } from "@/components/ui/premium-button";
 
 const navLinks = [
@@ -50,12 +51,7 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="text-sm font-medium text-white/65 transition-colors duration-300 hover:text-white"
-          >
-            Login
-          </Link>
+          <NavbarAuthControls />
           <PremiumButton
             render={<Link href="/onboarding" />}
             nativeButton={false}

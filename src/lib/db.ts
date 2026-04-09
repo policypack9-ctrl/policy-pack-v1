@@ -8,6 +8,7 @@ import {
 
 export const POLICY_ACCOUNT_STORAGE_KEY = "policypack:account:v1";
 export const POLICY_DOCUMENTS_STORAGE_KEY = "policypack:documents:v1";
+export const POLICY_UNLOCK_STORAGE_KEY = "policypack:unlock:v1";
 
 export type SavedGeneratedDocument = {
   id: DashboardDocument["id"];
@@ -29,6 +30,12 @@ export type SaveResult = {
   ok: boolean;
   mode: "local-storage" | "database-ready";
   savedAt: string;
+};
+
+export type SavedUnlockState = {
+  unlocked: boolean;
+  unlockedAt: string;
+  provider: "simulated-paddle" | "manual";
 };
 
 export function loadStoredPolicySession() {
@@ -191,6 +198,59 @@ export function clearGeneratedDocuments() {
   }
 
   window.localStorage.removeItem(POLICY_DOCUMENTS_STORAGE_KEY);
+}
+
+export function loadUnlockState() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(POLICY_UNLOCK_STORAGE_KEY);
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<SavedUnlockState>;
+
+    if (
+      parsed.unlocked !== true ||
+      typeof parsed.unlockedAt !== "string" ||
+      (parsed.provider !== "simulated-paddle" && parsed.provider !== "manual")
+    ) {
+      return null;
+    }
+
+    return parsed as SavedUnlockState;
+  } catch {
+    return null;
+  }
+}
+
+export function saveUnlockState(
+  provider: SavedUnlockState["provider"] = "simulated-paddle",
+) {
+  const payload: SavedUnlockState = {
+    unlocked: true,
+    unlockedAt: new Date().toISOString(),
+    provider,
+  };
+
+  if (typeof window === "undefined") {
+    return payload;
+  }
+
+  window.localStorage.setItem(POLICY_UNLOCK_STORAGE_KEY, JSON.stringify(payload));
+  return payload;
+}
+
+export function clearUnlockState() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(POLICY_UNLOCK_STORAGE_KEY);
 }
 
 export function buildSavedPolicyAccount(
