@@ -217,7 +217,7 @@ export function ComplianceDashboard({
 
       if (!response.ok) {
         const errorPayload = (await response.json().catch(() => null)) as
-          | { error?: string }
+          | { error?: string; details?: string }
           | null;
         if (response.status === 401) {
           router.push("/login?callbackUrl=/dashboard");
@@ -225,17 +225,25 @@ export function ComplianceDashboard({
         }
 
         setExportNotice(
-          errorPayload?.error ?? "Unable to start Paddle checkout.",
+          errorPayload?.error ??
+            errorPayload?.details ??
+            "Unable to start Paddle checkout.",
         );
         return;
       }
 
       const payload = (await response.json()) as {
+        checkoutUrl?: string | null;
         message?: string;
         premiumUnlocked?: boolean;
       };
 
       setExportNotice(payload.message ?? "Paddle checkout response received.");
+
+      if (payload.checkoutUrl) {
+        window.location.assign(payload.checkoutUrl);
+        return;
+      }
 
       if (payload.premiumUnlocked) {
         setIsPremium(true);
@@ -624,7 +632,7 @@ export function ComplianceDashboard({
                   Billing and unlock status
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-white/60">
-                  Paddle sandbox controls whether PDF export is available for this
+                  Paddle sandbox checkout controls whether PDF export is available for this
                   workspace. Upgrade once to unlock the complete legal bundle.
                 </p>
               </div>

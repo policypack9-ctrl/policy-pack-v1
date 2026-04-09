@@ -4,6 +4,7 @@ import { Environment } from "@paddle/paddle-node-sdk";
 import { auth } from "@/auth";
 import { setUserPremium } from "@/lib/auth-data";
 import {
+  buildPolicyPackCheckoutItems,
   getPaddleClient,
   getPaddleConfig,
   getPaddleLegalUrls,
@@ -15,6 +16,23 @@ import { getAuthBaseUrl } from "@/lib/auth-env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function formatCheckoutInitializationError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Unknown error";
+
+  if (/default payment link/i.test(message)) {
+    return {
+      error:
+        "Paddle sandbox is connected, but this account still needs a Default Payment Link in the Paddle dashboard before checkout can open.",
+      details: message,
+    };
+  }
+
+  return {
+    error: "Unable to initialize Paddle checkout.",
+    details: message,
+  };
+}
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -37,8 +55,16 @@ export async function POST(request: Request) {
     const baseUrl = getAuthBaseUrl();
     const legalUrls = getPaddleLegalUrls(baseUrl);
     let previewTotal: string | null = null;
-    let providerMode: "simulated" | "paddle-preview" | "paddle-verified" =
+    let providerMode:
+      | "simulated"
+      | "paddle-preview"
+      | "paddle-checkout"
+      | "paddle-verified" =
       "simulated";
+    const checkoutItems = buildPolicyPackCheckoutItems(
+      body.productName || "PolicyPack",
+      config.priceId || undefined,
+    );
 
     if (config.apiKey && hasPaddleEnvironmentMismatch()) {
       return NextResponse.json(
@@ -76,10 +102,10 @@ export async function POST(request: Request) {
       });
     }
 
-    if (paddle && config.priceId) {
+    if (paddle) {
       try {
         const preview = await paddle.transactions.preview({
-          items: [{ priceId: config.priceId, quantity: 1 }],
+          items: checkoutItems,
         });
         previewTotal = preview.details?.totals?.grandTotal ?? null;
         providerMode = "paddle-preview";
@@ -88,7 +114,38 @@ export async function POST(request: Request) {
       }
     }
 
-    await setUserPremium(session.user.id, true);
+    if (paddle) {
+      const transaction = await paddle.transactions.create({
+        items: checkoutItems,
+        collectionMode: "automatic",
+        customData: {
+          userId: session.user.id,
+          email: body.email ?? session.user.email ?? "",
+          productName: body.productName || "PolicyPack",
+        },
+      });
+      providerMode = "paddle-checkout";
+
+      return NextResponse.json({
+        ok: true,
+        simulated: false,
+        providerMode,
+        priceId: config.priceId || "non-catalog",
+        transactionId: transaction.id,
+        checkoutUrl: transaction.checkout?.url ?? null,
+        environment: config.environment,
+        sandbox: config.environment === Environment.sandbox,
+        previewTotal,
+        checkoutLabel: `Unlock ${body.productName || "PolicyPack"}`,
+        legalUrls,
+        verificationMode: "transaction-verified",
+        premiumUnlocked: false,
+        message:
+          transaction.checkout?.url
+            ? "Sandbox checkout created. Redirecting to Paddle now."
+            : "Checkout transaction created, but Paddle did not return a checkout URL.",
+      });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -103,16 +160,13 @@ export async function POST(request: Request) {
       verificationMode: paddle ? "transaction-verified" : "simulated",
       premiumUnlocked: false,
       message:
-        providerMode === "paddle-preview"
-          ? "Paddle checkout preview is ready. Complete checkout in Paddle and send the transaction id back for verification, or rely on the webhook route."
-          : "Paddle sandbox checkout is still in simulation mode because a valid Paddle transaction could not be verified yet.",
+        "Paddle sandbox checkout is still in simulation mode because a valid Paddle transaction could not be created.",
     });
   } catch (error) {
+    const formatted = formatCheckoutInitializationError(error);
+
     return NextResponse.json(
-      {
-        error: "Unable to initialize Paddle checkout.",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      formatted,
       { status: 500 },
     );
   }

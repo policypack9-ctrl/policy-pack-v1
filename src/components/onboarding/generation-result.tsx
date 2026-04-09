@@ -80,21 +80,29 @@ export function GenerationResult() {
 
       if (!response.ok) {
         const errorPayload = (await response.json().catch(() => null)) as
-          | { error?: string }
+          | { error?: string; details?: string }
           | null;
         setUnlockLabel(
-          errorPayload?.error ?? "Unable to initialize Paddle checkout.",
+          errorPayload?.error ??
+            errorPayload?.details ??
+            "Unable to initialize Paddle checkout.",
         );
         return;
       }
 
       const payload = (await response.json()) as {
+        checkoutUrl?: string | null;
         providerMode?: string;
         message?: string;
         premiumUnlocked?: boolean;
       };
 
       setUnlockLabel(payload.message ?? "Policy unlocked");
+      if (payload.checkoutUrl) {
+        window.location.assign(payload.checkoutUrl);
+        return;
+      }
+
       if (payload.premiumUnlocked) {
         setIsPremium(true);
         await update();

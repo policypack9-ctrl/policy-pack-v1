@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
+import type { CreateTransactionRequestBody } from "@paddle/paddle-node-sdk";
 
 import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
@@ -8,20 +9,26 @@ export type PaddleApiKeyMode = "sandbox" | "live" | "unknown";
 
 export function getPaddleConfig() {
   const apiKey = process.env.PADDLE_API_KEY?.trim() ?? "";
+  const publicEnvironment =
+    process.env.NEXT_PUBLIC_PADDLE_ENV?.trim().toLowerCase() ?? "";
 
   return {
     apiKey,
     priceId: process.env.PADDLE_PRICE_ID?.trim() ?? "",
     webhookSecret: process.env.PADDLE_WEBHOOK_SECRET?.trim() ?? "",
     environment:
-      process.env.PADDLE_ENVIRONMENT?.trim().toLowerCase() === "production"
+      (process.env.PADDLE_ENVIRONMENT?.trim().toLowerCase() || publicEnvironment) ===
+      "production"
         ? Environment.production
         : Environment.sandbox,
   } as const;
 }
 
 export function getPaddleApiKeyMode(apiKey: string): PaddleApiKeyMode {
-  if (apiKey.startsWith("pdl_sandbox_")) {
+  if (
+    apiKey.startsWith("pdl_sdbx_") ||
+    apiKey.startsWith("pdl_sandbox_")
+  ) {
     return "sandbox";
   }
 
@@ -90,4 +97,33 @@ export function getPaddleLegalUrls(baseUrl = PRODUCTION_APP_URL) {
 
 export function isVerifiedPaddleTransactionStatus(status: string | null | undefined) {
   return status === "paid" || status === "completed";
+}
+
+export function buildPolicyPackCheckoutItems(
+  productName: string,
+  priceId?: string,
+): CreateTransactionRequestBody["items"] {
+  if (priceId) {
+    return [{ priceId, quantity: 1 }];
+  }
+
+  return [
+    {
+      quantity: 1,
+      price: {
+        description: `PolicyPack premium export unlock for ${productName}`,
+        name: "PolicyPack Premium Export",
+        unitPrice: {
+          amount: "2900",
+          currencyCode: "USD",
+        },
+        product: {
+          name: "PolicyPack Premium Export",
+          taxCategory: "saas",
+          description:
+            "Premium legal document export access for PolicyPack workspaces.",
+        },
+      },
+    },
+  ];
 }
