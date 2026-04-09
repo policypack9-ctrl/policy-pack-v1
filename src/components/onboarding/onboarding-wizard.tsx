@@ -28,10 +28,18 @@ import {
   saveStoredPolicySession,
 } from "@/lib/db";
 import {
+  CUSTOM_INPUT_FIELDS,
+  CUSTOM_MULTI_INPUT_FIELDS,
+  OTHER_OPTION_VALUE,
   emptyOnboardingAnswers,
+  getResolvedCompanyLocation,
+  getResolvedMultiAnswerValues,
   getProductName,
   getGenerationMessages,
+  normalizeAnswers,
   resolvePrimaryRegion,
+  type CustomInputField,
+  type CustomMultiQuestionId,
   type OnboardingAnswers,
   type StoredPolicySession,
 } from "@/lib/policy-engine";
@@ -43,25 +51,57 @@ type ChoiceOption = {
   hint: string;
 };
 
-type BaseQuestion = {
-  id: keyof OnboardingAnswers;
+type WizardQuestionId = Exclude<keyof OnboardingAnswers, CustomInputField>;
+type TextQuestionId = "businessName" | "websiteUrl" | "productDescription";
+type SingleQuestionId = "companyLocation" | "userAccounts" | "acceptsPayments";
+
+type BaseQuestion<TId extends WizardQuestionId> = {
+  id: TId;
   title: string;
   description: string;
   icon: LucideIcon;
 };
 
-type TextQuestion = BaseQuestion & {
+type TextQuestion = BaseQuestion<TextQuestionId> & {
   kind: "text" | "textarea";
   placeholder: string;
   inputType?: "text" | "url";
 };
 
-type ChoiceQuestion = BaseQuestion & {
-  kind: "single" | "multi";
+type SingleChoiceQuestion = BaseQuestion<SingleQuestionId> & {
+  kind: "single";
   options: ChoiceOption[];
 };
 
-type Question = TextQuestion | ChoiceQuestion;
+type MultiChoiceQuestion = BaseQuestion<CustomMultiQuestionId> & {
+  kind: "multi";
+  options: ChoiceOption[];
+};
+
+type Question = TextQuestion | SingleChoiceQuestion | MultiChoiceQuestion;
+
+const customInputCopy = {
+  companyLocation: {
+    label: "Custom jurisdiction",
+    placeholder: "Egypt",
+  },
+  customerRegions: {
+    label: "Custom region",
+    placeholder: "Middle East, Australia, or LATAM",
+  },
+  collectedData: {
+    label: "Custom data category",
+    placeholder: "Phone numbers or government IDs",
+  },
+  vendors: {
+    label: "Custom third-party service",
+    placeholder: "HubSpot, Firebase, or Intercom",
+  },
+  outreachChannels: {
+    label: "Custom channel",
+    placeholder: "SMS alerts or in-app notifications",
+  },
+} as const;
 
 const questions: Question[] = [
   {
@@ -116,6 +156,7 @@ const questions: Question[] = [
       { value: "United Kingdom", label: "United Kingdom", hint: "UK customers" },
       { value: "Canada", label: "Canada", hint: "Canadian customers" },
       { value: "Global", label: "Global", hint: "Worldwide audience" },
+      { value: OTHER_OPTION_VALUE, label: "Other", hint: "Custom region" },
     ],
   },
   {
@@ -131,6 +172,7 @@ const questions: Question[] = [
       { value: "Analytics and cookies", label: "Analytics and cookies", hint: "Tracking" },
       { value: "User-generated content", label: "User content", hint: "Uploads or posts" },
       { value: "Support conversations", label: "Support data", hint: "Help desk messages" },
+      { value: OTHER_OPTION_VALUE, label: "Other", hint: "Custom data type" },
     ],
   },
   {
@@ -146,6 +188,7 @@ const questions: Question[] = [
       { value: "AWS or Vercel", label: "AWS or Vercel", hint: "Hosting" },
       { value: "Resend or SendGrid", label: "Resend or SendGrid", hint: "Transactional email" },
       { value: "Sentry or Logtail", label: "Sentry or Logtail", hint: "Error logging" },
+      { value: OTHER_OPTION_VALUE, label: "Other", hint: "Custom vendor" },
     ],
   },
   {
@@ -181,6 +224,7 @@ const questions: Question[] = [
       { value: "Marketing cookies", label: "Marketing cookies", hint: "Ad attribution" },
       { value: "Marketing emails", label: "Marketing emails", hint: "Campaigns" },
       { value: "Product update emails", label: "Product update emails", hint: "Operational messages" },
+      { value: OTHER_OPTION_VALUE, label: "Other", hint: "Custom channel" },
       { value: "None", label: "None of these", hint: "No tracking or outreach" },
     ],
   },
@@ -275,12 +319,29 @@ export function OnboardingWizard() {
     setShowValidation(false);
   }
 
-  function updateSingleAnswer(id: keyof OnboardingAnswers, value: string) {
-    setAnswers((current) => ({ ...current, [id]: value }));
+  function updateSingleAnswer(id: WizardQuestionId, value: string) {
+    setAnswers((current) => ({
+      ...current,
+      [id]: value,
+      ...(id === "companyLocation" && value !== OTHER_OPTION_VALUE
+        ? { [CUSTOM_INPUT_FIELDS.companyLocation]: "" }
+        : {}),
+    }));
     setShowValidation(false);
   }
 
-  function toggleMultiAnswer(id: keyof OnboardingAnswers, value: string) {
+  function updateCustomAnswer(
+    id: keyof typeof CUSTOM_INPUT_FIELDS,
+    value: string,
+  ) {
+    setAnswers((current) => ({
+      ...current,
+      [CUSTOM_INPUT_FIELDS[id]]: value,
+    }));
+    setShowValidation(false);
+  }
+
+  function toggleMultiAnswer(id: CustomMultiQuestionId, value: string) {
     setAnswers((current) => {
       const currentValue = current[id];
       if (!Array.isArray(currentValue)) {
@@ -289,16 +350,28 @@ export function OnboardingWizard() {
 
       const isSelected = currentValue.includes(value);
       let nextValue: string[];
+      const customField = CUSTOM_MULTI_INPUT_FIELDS[id];
 
       if (value === "None") {
         nextValue = isSelected ? [] : ["None"];
+      } else if (value === OTHER_OPTION_VALUE) {
+        nextValue = isSelected
+          ? currentValue.filter((item) => item !== value)
+          : [...currentValue.filter((item) => item !== "None"), value];
       } else if (isSelected) {
         nextValue = currentValue.filter((item) => item !== value);
       } else {
         nextValue = [...currentValue.filter((item) => item !== "None"), value];
       }
 
-      return { ...current, [id]: nextValue };
+      return {
+        ...current,
+        [id]: nextValue,
+        ...(value === OTHER_OPTION_VALUE && isSelected
+          ? { [customField]: "" }
+          : {}),
+        ...(value === "None" && !isSelected ? { [customField]: "" } : {}),
+      };
     });
     setShowValidation(false);
   }
@@ -412,6 +485,7 @@ export function OnboardingWizard() {
                     shouldReduceMotion={shouldReduceMotion}
                     updateTextAnswer={updateTextAnswer}
                     updateSingleAnswer={updateSingleAnswer}
+                    updateCustomAnswer={updateCustomAnswer}
                     toggleMultiAnswer={toggleMultiAnswer}
                   />
 
@@ -504,7 +578,8 @@ function GeneratingState({
   shouldReduceMotion,
 }: GeneratingStateProps) {
   const activeMessage = messages[generationStep];
-  const productName = getProductName(answers);
+  const normalizedAnswers = normalizeAnswers(answers);
+  const productName = getProductName(normalizedAnswers);
   const progress = ((generationStep + 1) / messages.length) * 100;
   const radius = 56;
   const circumference = 2 * Math.PI * radius;
@@ -624,16 +699,18 @@ function GeneratingState({
                 </motion.p>
               </AnimatePresence>
               <p className="mt-3 text-sm text-white/48">
-                Region focus: {resolvePrimaryRegion(answers)}.
+                Region focus: {resolvePrimaryRegion(normalizedAnswers)}.
               </p>
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               {[
-                answers.companyLocation || "Jurisdiction pending",
-                answers.vendors.length > 0 ? `${answers.vendors.length} vendors mapped` : "Vendors pending",
-                answers.collectedData.length > 0
-                  ? `${answers.collectedData.length} data categories detected`
+                normalizedAnswers.companyLocation || "Jurisdiction pending",
+                normalizedAnswers.vendors.length > 0
+                  ? `${normalizedAnswers.vendors.length} vendors mapped`
+                  : "Vendors pending",
+                normalizedAnswers.collectedData.length > 0
+                  ? `${normalizedAnswers.collectedData.length} data categories detected`
                   : "Data map pending",
               ].map((item) => (
                 <div
@@ -695,8 +772,12 @@ type QuestionContentProps = {
   answers: OnboardingAnswers;
   shouldReduceMotion: boolean;
   updateTextAnswer: (id: keyof OnboardingAnswers, value: string) => void;
-  updateSingleAnswer: (id: keyof OnboardingAnswers, value: string) => void;
-  toggleMultiAnswer: (id: keyof OnboardingAnswers, value: string) => void;
+  updateSingleAnswer: (id: WizardQuestionId, value: string) => void;
+  updateCustomAnswer: (
+    id: keyof typeof CUSTOM_INPUT_FIELDS,
+    value: string,
+  ) => void;
+  toggleMultiAnswer: (id: CustomMultiQuestionId, value: string) => void;
 };
 
 function QuestionContent({
@@ -705,6 +786,7 @@ function QuestionContent({
   shouldReduceMotion,
   updateTextAnswer,
   updateSingleAnswer,
+  updateCustomAnswer,
   toggleMultiAnswer,
 }: QuestionContentProps) {
   const CurrentIcon = question.icon;
@@ -731,6 +813,7 @@ function QuestionContent({
         shouldReduceMotion,
         updateTextAnswer,
         updateSingleAnswer,
+        updateCustomAnswer,
         toggleMultiAnswer,
       )}
     </div>
@@ -742,8 +825,12 @@ function renderField(
   answers: OnboardingAnswers,
   shouldReduceMotion: boolean,
   updateTextAnswer: (id: keyof OnboardingAnswers, value: string) => void,
-  updateSingleAnswer: (id: keyof OnboardingAnswers, value: string) => void,
-  toggleMultiAnswer: (id: keyof OnboardingAnswers, value: string) => void,
+  updateSingleAnswer: (id: WizardQuestionId, value: string) => void,
+  updateCustomAnswer: (
+    id: keyof typeof CUSTOM_INPUT_FIELDS,
+    value: string,
+  ) => void,
+  toggleMultiAnswer: (id: CustomMultiQuestionId, value: string) => void,
 ) {
   if (question.kind === "text") {
     return (
@@ -771,8 +858,105 @@ function renderField(
 
   if (question.kind === "single") {
     const currentValue = answers[question.id] as string;
+    const customQuestionId = isCustomizableQuestionId(question.id)
+      ? question.id
+      : null;
+    const shouldShowCustomInput =
+      customQuestionId !== null && currentValue === OTHER_OPTION_VALUE;
+    const customField = customQuestionId
+      ? CUSTOM_INPUT_FIELDS[customQuestionId]
+      : null;
+    const customValue = customField ? answers[customField] : "";
 
     return (
+      <div className="space-y-4">
+        <motion.div
+          className="grid gap-3 sm:grid-cols-2"
+          variants={shouldReduceMotion ? undefined : optionGroupVariants}
+          initial={shouldReduceMotion ? false : "hidden"}
+          animate={shouldReduceMotion ? undefined : "show"}
+        >
+          {question.options.map((option) => {
+            const isSelected = currentValue === option.value;
+
+            return (
+              <motion.button
+                key={option.value}
+                type="button"
+                variants={shouldReduceMotion ? undefined : optionItemVariants}
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                onClick={() => updateSingleAnswer(question.id, option.value)}
+                className={cn(
+                  "rounded-[22px] border px-4 py-4 text-left transition-colors",
+                  isSelected
+                    ? "border-teal-400/30 bg-teal-400/[0.08]"
+                    : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]",
+                )}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">{option.label}</p>
+                    <p className="mt-1 text-sm text-white/52">{option.hint}</p>
+                  </div>
+                  <span
+                    className={cn(
+                      "size-4 rounded-full border",
+                      isSelected
+                        ? "border-teal-300 bg-teal-300"
+                        : "border-white/[0.14] bg-transparent",
+                    )}
+                  />
+                </div>
+              </motion.button>
+            );
+          })}
+        </motion.div>
+
+        <AnimatePresence initial={false}>
+          {shouldShowCustomInput ? (
+            <motion.div
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <label className="mb-2 block text-xs uppercase tracking-[0.24em] text-white/42">
+                {customInputCopy[customQuestionId].label}
+              </label>
+              <input
+                type="text"
+                value={customValue}
+                onChange={(event) =>
+                  updateCustomAnswer(customQuestionId, event.target.value)
+                }
+                placeholder={customInputCopy[customQuestionId].placeholder}
+                className="soft-input h-12 w-full rounded-[20px] px-4 text-base"
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  if (question.kind !== "multi") {
+    return null;
+  }
+
+  const currentValue = answers[question.id] as string[];
+  const customQuestionId = isCustomMultiQuestionId(question.id)
+    ? question.id
+    : null;
+  const shouldShowCustomInput =
+    customQuestionId !== null && currentValue.includes(OTHER_OPTION_VALUE);
+  const customField = customQuestionId
+    ? CUSTOM_MULTI_INPUT_FIELDS[customQuestionId]
+    : null;
+  const customValue = customField ? answers[customField] : "";
+
+  return (
+    <div className="space-y-4">
       <motion.div
         className="grid gap-3 sm:grid-cols-2"
         variants={shouldReduceMotion ? undefined : optionGroupVariants}
@@ -780,7 +964,7 @@ function renderField(
         animate={shouldReduceMotion ? undefined : "show"}
       >
         {question.options.map((option) => {
-          const isSelected = currentValue === option.value;
+          const isSelected = currentValue.includes(option.value);
 
           return (
             <motion.button
@@ -789,7 +973,7 @@ function renderField(
               variants={shouldReduceMotion ? undefined : optionItemVariants}
               whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
               whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-              onClick={() => updateSingleAnswer(question.id, option.value)}
+              onClick={() => toggleMultiAnswer(question.id, option.value)}
               className={cn(
                 "rounded-[22px] border px-4 py-4 text-left transition-colors",
                 isSelected
@@ -804,71 +988,44 @@ function renderField(
                 </div>
                 <span
                   className={cn(
-                    "size-4 rounded-full border",
+                    "inline-flex size-5 items-center justify-center rounded-md border",
                     isSelected
-                      ? "border-teal-300 bg-teal-300"
-                      : "border-white/[0.14] bg-transparent",
+                      ? "border-teal-300 bg-teal-300/90 text-[#0A0A0A]"
+                      : "border-white/[0.14] bg-transparent text-transparent",
                   )}
-                />
+                >
+                  <Check className="size-3.5" />
+                </span>
               </div>
             </motion.button>
           );
         })}
       </motion.div>
-    );
-  }
 
-  if (question.kind !== "multi") {
-    return null;
-  }
-
-  const currentValue = answers[question.id] as string[];
-
-  return (
-    <motion.div
-      className="grid gap-3 sm:grid-cols-2"
-      variants={shouldReduceMotion ? undefined : optionGroupVariants}
-      initial={shouldReduceMotion ? false : "hidden"}
-      animate={shouldReduceMotion ? undefined : "show"}
-    >
-      {question.options.map((option) => {
-        const isSelected = currentValue.includes(option.value);
-
-        return (
-          <motion.button
-            key={option.value}
-            type="button"
-            variants={shouldReduceMotion ? undefined : optionItemVariants}
-            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
-            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-            onClick={() => toggleMultiAnswer(question.id, option.value)}
-            className={cn(
-              "rounded-[22px] border px-4 py-4 text-left transition-colors",
-              isSelected
-                ? "border-teal-400/30 bg-teal-400/[0.08]"
-                : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]",
-            )}
+      <AnimatePresence initial={false}>
+        {shouldShowCustomInput ? (
+          <motion.div
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-white">{option.label}</p>
-                <p className="mt-1 text-sm text-white/52">{option.hint}</p>
-              </div>
-              <span
-                className={cn(
-                  "inline-flex size-5 items-center justify-center rounded-md border",
-                  isSelected
-                    ? "border-teal-300 bg-teal-300/90 text-[#0A0A0A]"
-                    : "border-white/[0.14] bg-transparent text-transparent",
-                )}
-              >
-                <Check className="size-3.5" />
-              </span>
-            </div>
-          </motion.button>
-        );
-      })}
-    </motion.div>
+            <label className="mb-2 block text-xs uppercase tracking-[0.24em] text-white/42">
+              {customInputCopy[customQuestionId].label}
+            </label>
+            <input
+              type="text"
+              value={customValue}
+              onChange={(event) =>
+                updateCustomAnswer(customQuestionId, event.target.value)
+              }
+              placeholder={customInputCopy[customQuestionId].placeholder}
+              className="soft-input h-12 w-full rounded-[20px] px-4 text-base"
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -876,19 +1033,45 @@ function questionHasAnswer(question: Question, answers: OnboardingAnswers) {
   const value = answers[question.id];
 
   if (question.kind === "multi") {
+    if (isCustomMultiQuestionId(question.id)) {
+      return getResolvedMultiAnswerValues(answers, question.id).length > 0;
+    }
+
     return Array.isArray(value) && value.length > 0;
+  }
+
+  if (
+    question.kind === "single" &&
+    question.id === "companyLocation" &&
+    value === OTHER_OPTION_VALUE
+  ) {
+    return getResolvedCompanyLocation(answers).length > 0;
   }
 
   return typeof value === "string" && value.trim().length > 0;
 }
 
 function compactSnapshot(answers: OnboardingAnswers) {
+  const normalizedAnswers = normalizeAnswers(answers);
+
   return [
-    { label: "Product", value: formatValue(answers.businessName) },
-    { label: "Website", value: formatValue(answers.websiteUrl) },
-    { label: "Region", value: formatValue(answers.customerRegions) },
-    { label: "Location", value: formatValue(answers.companyLocation) },
+    { label: "Product", value: formatValue(normalizedAnswers.businessName) },
+    { label: "Website", value: formatValue(normalizedAnswers.websiteUrl) },
+    { label: "Region", value: formatValue(normalizedAnswers.customerRegions) },
+    { label: "Location", value: formatValue(normalizedAnswers.companyLocation) },
   ];
+}
+
+function isCustomizableQuestionId(
+  id: WizardQuestionId,
+): id is keyof typeof CUSTOM_INPUT_FIELDS {
+  return Object.hasOwn(CUSTOM_INPUT_FIELDS, id);
+}
+
+function isCustomMultiQuestionId(
+  id: WizardQuestionId,
+): id is CustomMultiQuestionId {
+  return Object.hasOwn(CUSTOM_MULTI_INPUT_FIELDS, id);
 }
 
 function formatValue(value: string | string[]) {

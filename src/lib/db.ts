@@ -197,14 +197,18 @@ export function buildSavedPolicyAccount(
   answers: OnboardingAnswers,
   completedAt: string,
 ) {
-  const primaryRegion = answers.customerRegions[0] || answers.companyLocation || "your market";
+  const normalizedAnswers = normalizeAnswers(answers);
+  const primaryRegion =
+    normalizedAnswers.customerRegions[0] ||
+    normalizedAnswers.companyLocation ||
+    "your market";
 
   return {
-    productName: answers.businessName.trim() || "PolicyPack",
+    productName: normalizedAnswers.businessName.trim() || "PolicyPack",
     primaryRegion,
     lastSavedAt: completedAt,
     session: {
-      answers: normalizeAnswers(answers),
+      answers: normalizedAnswers,
       completedAt,
     },
   } satisfies SavedPolicyAccount;

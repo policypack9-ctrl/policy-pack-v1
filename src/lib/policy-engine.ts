@@ -1,18 +1,46 @@
 import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
 export const POLICY_SESSION_STORAGE_KEY = "policypack:onboarding:v1";
+export const OTHER_OPTION_VALUE = "Other";
+
+export const CUSTOM_INPUT_FIELDS = {
+  companyLocation: "companyLocationOther",
+  customerRegions: "customerRegionsOther",
+  collectedData: "collectedDataOther",
+  vendors: "vendorsOther",
+  outreachChannels: "outreachChannelsOther",
+} as const;
+
+export const CUSTOM_MULTI_INPUT_FIELDS = {
+  customerRegions: "customerRegionsOther",
+  collectedData: "collectedDataOther",
+  vendors: "vendorsOther",
+  outreachChannels: "outreachChannelsOther",
+} as const;
+
+export type CustomizableQuestionId = keyof typeof CUSTOM_INPUT_FIELDS;
+export type CustomInputField =
+  (typeof CUSTOM_INPUT_FIELDS)[CustomizableQuestionId];
+export type CustomMultiQuestionId = keyof typeof CUSTOM_MULTI_INPUT_FIELDS;
+export type CustomMultiInputField =
+  (typeof CUSTOM_MULTI_INPUT_FIELDS)[CustomMultiQuestionId];
 
 export type OnboardingAnswers = {
   businessName: string;
   websiteUrl: string;
   productDescription: string;
   companyLocation: string;
+  companyLocationOther: string;
   customerRegions: string[];
+  customerRegionsOther: string;
   collectedData: string[];
+  collectedDataOther: string;
   vendors: string[];
+  vendorsOther: string;
   userAccounts: string;
   acceptsPayments: string;
   outreachChannels: string[];
+  outreachChannelsOther: string;
 };
 
 export type StoredPolicySession = {
@@ -52,12 +80,17 @@ export const emptyOnboardingAnswers: OnboardingAnswers = {
   websiteUrl: "",
   productDescription: "",
   companyLocation: "",
+  companyLocationOther: "",
   customerRegions: [],
+  customerRegionsOther: "",
   collectedData: [],
+  collectedDataOther: "",
   vendors: [],
+  vendorsOther: "",
   userAccounts: "",
   acceptsPayments: "",
   outreachChannels: [],
+  outreachChannelsOther: "",
 };
 
 export const demoOnboardingAnswers: OnboardingAnswers = {
@@ -66,34 +99,40 @@ export const demoOnboardingAnswers: OnboardingAnswers = {
   productDescription:
     "We help SaaS founders generate and maintain Privacy Policies and Terms of Service in minutes.",
   companyLocation: "United States",
+  companyLocationOther: "",
   customerRegions: ["United States", "European Union"],
+  customerRegionsOther: "",
   collectedData: ["Names and emails", "Billing details", "Analytics and cookies"],
+  collectedDataOther: "",
   vendors: ["Stripe", "OpenAI", "AWS or Vercel"],
+  vendorsOther: "",
   userAccounts: "Yes",
   acceptsPayments: "Yes",
   outreachChannels: ["Analytics cookies", "Product update emails"],
+  outreachChannelsOther: "",
 };
 
 export function getGenerationMessages(answers: OnboardingAnswers) {
-  const productName = getProductName(answers);
+  const normalizedAnswers = normalizeAnswers(answers);
+  const productName = getProductName(normalizedAnswers);
   const messages = [
     `Analyzing ${productName} data structures...`,
     "Mapping regulatory updates...",
   ];
 
-  if (hasEuropeanCoverage(answers)) {
+  if (hasEuropeanCoverage(normalizedAnswers)) {
     messages.push("Matching GDPR Article 13 compliance protocols...");
   }
 
-  if (hasUnitedStatesCoverage(answers)) {
+  if (hasUnitedStatesCoverage(normalizedAnswers)) {
     messages.push("Syncing CCPA & California Privacy requirements...");
   }
 
-  if (collectsPaymentInfo(answers)) {
+  if (collectsPaymentInfo(normalizedAnswers)) {
     messages.push("Verifying PCI-DSS data handling clauses...");
   }
 
-  if (usesAiServices(answers)) {
+  if (usesAiServices(normalizedAnswers)) {
     messages.push("Reviewing AI processor and model disclosure layers...");
   }
 
@@ -232,7 +271,9 @@ export function buildComplianceSnapshot(
 }
 
 export function resolvePrimaryRegion(answers: OnboardingAnswers) {
-  const candidate = answers.customerRegions[0] || answers.companyLocation;
+  const normalizedAnswers = normalizeAnswers(answers);
+  const candidate =
+    normalizedAnswers.customerRegions[0] || normalizedAnswers.companyLocation;
 
   if (!candidate) {
     return "your market";
@@ -252,18 +293,77 @@ export function getProductName(answers: OnboardingAnswers) {
 export function normalizeAnswers(
   value?: Partial<OnboardingAnswers> | null,
 ): OnboardingAnswers {
+  const companyLocationOther = readCustomFieldValue(
+    value,
+    CUSTOM_INPUT_FIELDS.companyLocation,
+  );
+  const customerRegionsOther = readCustomFieldValue(
+    value,
+    CUSTOM_MULTI_INPUT_FIELDS.customerRegions,
+  );
+  const collectedDataOther = readCustomFieldValue(
+    value,
+    CUSTOM_MULTI_INPUT_FIELDS.collectedData,
+  );
+  const vendorsOther = readCustomFieldValue(
+    value,
+    CUSTOM_MULTI_INPUT_FIELDS.vendors,
+  );
+  const outreachChannelsOther = readCustomFieldValue(
+    value,
+    CUSTOM_MULTI_INPUT_FIELDS.outreachChannels,
+  );
+
   return {
     ...emptyOnboardingAnswers,
     ...value,
-    customerRegions: Array.isArray(value?.customerRegions)
-      ? value.customerRegions
-      : [],
-    collectedData: Array.isArray(value?.collectedData) ? value.collectedData : [],
-    vendors: Array.isArray(value?.vendors) ? value.vendors : [],
-    outreachChannels: Array.isArray(value?.outreachChannels)
-      ? value.outreachChannels
-      : [],
+    businessName: typeof value?.businessName === "string" ? value.businessName : "",
+    websiteUrl: typeof value?.websiteUrl === "string" ? value.websiteUrl : "",
+    productDescription:
+      typeof value?.productDescription === "string" ? value.productDescription : "",
+    companyLocation: resolveCompanyLocationValue(value),
+    companyLocationOther,
+    customerRegions: resolveMultiAnswerValues(
+      value,
+      "customerRegions",
+      customerRegionsOther,
+    ),
+    customerRegionsOther,
+    collectedData: resolveMultiAnswerValues(
+      value,
+      "collectedData",
+      collectedDataOther,
+    ),
+    collectedDataOther,
+    vendors: resolveMultiAnswerValues(value, "vendors", vendorsOther),
+    vendorsOther,
+    userAccounts: typeof value?.userAccounts === "string" ? value.userAccounts : "",
+    acceptsPayments:
+      typeof value?.acceptsPayments === "string" ? value.acceptsPayments : "",
+    outreachChannels: resolveMultiAnswerValues(
+      value,
+      "outreachChannels",
+      outreachChannelsOther,
+    ),
+    outreachChannelsOther,
   };
+}
+
+export function getResolvedCompanyLocation(
+  answers: Partial<OnboardingAnswers> | OnboardingAnswers,
+) {
+  return resolveCompanyLocationValue(answers);
+}
+
+export function getResolvedMultiAnswerValues(
+  answers: Partial<OnboardingAnswers> | OnboardingAnswers,
+  questionId: CustomMultiQuestionId,
+) {
+  return resolveMultiAnswerValues(
+    answers,
+    questionId,
+    readCustomFieldValue(answers, CUSTOM_MULTI_INPUT_FIELDS[questionId]),
+  );
 }
 
 export function parseStoredPolicySession(raw: string | null) {
@@ -387,4 +487,43 @@ function sortDocumentsWithPrimaryFirst(
 
     return 0;
   });
+}
+
+function resolveCompanyLocationValue(value?: Partial<OnboardingAnswers> | null) {
+  const selectedValue =
+    typeof value?.companyLocation === "string" ? value.companyLocation.trim() : "";
+
+  if (selectedValue !== OTHER_OPTION_VALUE) {
+    return selectedValue;
+  }
+
+  return readCustomFieldValue(value, CUSTOM_INPUT_FIELDS.companyLocation);
+}
+
+function resolveMultiAnswerValues(
+  value: Partial<OnboardingAnswers> | null | undefined,
+  questionId: CustomMultiQuestionId,
+  customValue: string,
+) {
+  const rawValues = Array.isArray(value?.[questionId]) ? value[questionId] : [];
+  const filteredValues = rawValues.filter(
+    (item): item is string =>
+      typeof item === "string" &&
+      item.trim().length > 0 &&
+      item !== OTHER_OPTION_VALUE,
+  );
+
+  if (!customValue) {
+    return Array.from(new Set(filteredValues));
+  }
+
+  return Array.from(new Set([...filteredValues, customValue]));
+}
+
+function readCustomFieldValue(
+  value: Partial<OnboardingAnswers> | null | undefined,
+  field: CustomInputField | CustomMultiInputField,
+) {
+  const customValue = value?.[field];
+  return typeof customValue === "string" ? customValue.trim() : "";
 }

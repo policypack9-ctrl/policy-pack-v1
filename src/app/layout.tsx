@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { getPublicAppUrl, PRODUCTION_APP_URL } from "@/lib/site-config";
 import "./globals.css";
 
@@ -60,6 +61,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col overflow-x-hidden bg-background text-foreground">
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

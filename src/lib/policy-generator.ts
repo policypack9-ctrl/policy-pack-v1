@@ -123,6 +123,7 @@ async function runResearchStage(input: {
     `Prompt version: ${POLICY_PROMPT_VERSION}.`,
     "Search the web and summarize only the most relevant legal clauses or disclosure changes from the last 12 months.",
     "Prioritize 2026-relevant guidance and law updates that affect the user's region, payment handling, tracking, AI usage, and SaaS operations.",
+    "If the onboarding data includes custom values entered through an Other field, treat them as first-class facts and search for requirements that apply to them.",
     "Return Markdown with these headings only: # Research Summary, ## Key Updates, ## Clauses To Include, ## Sources.",
     "Under ## Sources, include concise bullet links with source title and URL.",
     "Do not draft the full legal document in this stage.",
@@ -200,6 +201,7 @@ function buildResearchUserPrompt(
     `Third-party vendors: ${formatList(answers.vendors, "Not provided")}`,
     `Paid plans: ${answers.acceptsPayments || "Unknown"}`,
     `Tracking and outreach: ${formatList(answers.outreachChannels, "Not provided")}`,
+    `Custom user inputs: ${formatCustomInputs(answers)}`,
     "Find only the most relevant legal clauses for this region and product that changed in the last 12 months.",
   ].join("\n");
 }
@@ -258,6 +260,7 @@ function buildPolicySystemPrompt(documentType: PolicyDocumentType) {
     "Take the research data and the user's onboarding answers to draft a professional legal document in Markdown.",
     "Use a formal legal tone but keep it readable in plain English.",
     "Use Markdown headings for sections and numbered clauses under each section.",
+    "Any custom items entered through an Other field are binding user requirements and must be reflected explicitly in the final document where relevant.",
     "Do not mention prompts, AI systems, web search, or internal reasoning.",
     "Do not fabricate laws not supported by the research stage.",
     `The document must cover these topics when relevant: ${baseSections.join(", ")}.`,
@@ -290,6 +293,8 @@ function buildPolicyUserPrompt(
     `- Customer accounts: ${answers.userAccounts || "Unknown"}`,
     `- Paid plans: ${answers.acceptsPayments || "Unknown"}`,
     `- Outreach and tracking channels: ${formatList(answers.outreachChannels, "Not provided")}`,
+    `- Custom user inputs: ${formatCustomInputs(answers)}`,
+    "- Instruction: If a custom onboarding input appears above, include it directly in the relevant legal clauses instead of replacing it with generic wording.",
     "",
     "## Research Data",
     researchSummary,
@@ -557,4 +562,24 @@ function formatList(items: string[], fallback: string) {
   }
 
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function formatCustomInputs(answers: OnboardingAnswers) {
+  const customInputs = [
+    answers.companyLocationOther
+      ? `Business location: ${answers.companyLocationOther}`
+      : null,
+    answers.customerRegionsOther
+      ? `Customer region: ${answers.customerRegionsOther}`
+      : null,
+    answers.collectedDataOther
+      ? `Data collected: ${answers.collectedDataOther}`
+      : null,
+    answers.vendorsOther ? `Third-party service: ${answers.vendorsOther}` : null,
+    answers.outreachChannelsOther
+      ? `Channel: ${answers.outreachChannelsOther}`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return customInputs.length > 0 ? customInputs.join("; ") : "None";
 }
