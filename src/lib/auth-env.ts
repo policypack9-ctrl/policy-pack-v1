@@ -11,6 +11,11 @@ function readEnvValue(...keys: string[]) {
   return "";
 }
 
+export type AuthEnvStatus = {
+  isConfigured: boolean;
+  missingKeys: string[];
+};
+
 export function getAuthSecret() {
   return readEnvValue("AUTH_SECRET", "NEXTAUTH_SECRET");
 }
@@ -38,16 +43,55 @@ export function getSupabaseAnonKey() {
 }
 
 export function getSupabaseServiceRoleKey() {
-  return readEnvValue("SUPABASE_SERVICE_ROLE_KEY", "NEXTAUTH_SECRET");
+  return readEnvValue("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY");
+}
+
+export function getSupabaseConfigStatus(): AuthEnvStatus {
+  const missingKeys: string[] = [];
+
+  if (!getSupabaseUrl()) {
+    missingKeys.push("SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  if (!getSupabaseServiceRoleKey()) {
+    missingKeys.push("SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  return {
+    isConfigured: missingKeys.length === 0,
+    missingKeys,
+  };
 }
 
 export function isSupabaseConfigured() {
-  return Boolean(getSupabaseUrl() && getSupabaseServiceRoleKey());
+  return getSupabaseConfigStatus().isConfigured;
+}
+
+export function getGoogleAuthConfig() {
+  const clientId = readEnvValue("AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID");
+  const clientSecret = readEnvValue(
+    "AUTH_GOOGLE_SECRET",
+    "GOOGLE_CLIENT_SECRET",
+  );
+
+  return {
+    clientId,
+    clientSecret,
+  };
 }
 
 export function isGoogleAuthConfigured() {
-  return Boolean(
-    readEnvValue("AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID") &&
-      readEnvValue("AUTH_GOOGLE_SECRET", "GOOGLE_CLIENT_SECRET"),
-  );
+  const config = getGoogleAuthConfig();
+  return Boolean(config.clientId && config.clientSecret);
+}
+
+export function getAuthSecretStatus(): AuthEnvStatus {
+  const missingKeys = getAuthSecret()
+    ? []
+    : ["AUTH_SECRET or NEXTAUTH_SECRET"];
+
+  return {
+    isConfigured: missingKeys.length === 0,
+    missingKeys,
+  };
 }

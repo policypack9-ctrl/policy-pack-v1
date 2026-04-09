@@ -3,7 +3,12 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { createClient } from "@supabase/supabase-js";
 
-import { getSupabaseServiceRoleKey, getSupabaseUrl, isSupabaseConfigured } from "@/lib/auth-env";
+import {
+  getSupabaseConfigStatus,
+  getSupabaseServiceRoleKey,
+  getSupabaseUrl,
+  isSupabaseConfigured,
+} from "@/lib/auth-env";
 import type { SavedGeneratedDocument } from "@/lib/db";
 import type { GeneratedPolicyDocument, PolicyDocumentType } from "@/lib/policy-generator";
 
@@ -58,6 +63,18 @@ export type CredentialsUserInput = {
   password: string;
 };
 
+export type SupabaseAuthHealth =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      code: "missing-env" | "next-auth-schema" | "user-profiles-table";
+      message: string;
+      details?: string;
+      missingKeys?: string[];
+    };
+
 function getSupabaseAdminClient() {
   if (!isSupabaseConfigured()) {
     return null;
@@ -69,6 +86,77 @@ function getSupabaseAdminClient() {
       persistSession: false,
     },
   });
+}
+
+function formatSupabaseAuthError(error: unknown, fallbackMessage: string) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+
+  if (/invalid schema:\s*next_auth/i.test(message)) {
+    return new Error(
+      "Supabase auth schema `next_auth` is not accessible. Expose the `next_auth` schema in Supabase Data API settings and apply `supabase/schema.sql` to the project database.",
+    );
+  }
+
+  return new Error(message || fallbackMessage);
+}
+
+export async function getSupabaseAuthHealth(): Promise<SupabaseAuthHealth> {
+  const configStatus = getSupabaseConfigStatus();
+
+  if (!configStatus.isConfigured) {
+    return {
+      ok: false,
+      code: "missing-env",
+      message:
+        "Supabase registration is unavailable because the server-side Supabase environment variables are incomplete.",
+      missingKeys: configStatus.missingKeys,
+    };
+  }
+
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return {
+      ok: false,
+      code: "missing-env",
+      message:
+        "Supabase registration is unavailable because the server-side Supabase client could not be created.",
+      missingKeys: configStatus.missingKeys,
+    };
+  }
+
+  const nextAuthSchemaCheck = await supabase
+    .schema("next_auth")
+    .from("users")
+    .select("id")
+    .limit(1);
+
+  if (nextAuthSchemaCheck.error) {
+    return {
+      ok: false,
+      code: "next-auth-schema",
+      message:
+        "Supabase auth tables are not reachable. Expose the `next_auth` schema in Supabase Data API settings and run `supabase/schema.sql` on this project.",
+      details: nextAuthSchemaCheck.error.message,
+    };
+  }
+
+  const userProfilesCheck = await supabase
+    .from("user_profiles")
+    .select("user_id")
+    .limit(1);
+
+  if (userProfilesCheck.error) {
+    return {
+      ok: false,
+      code: "user-profiles-table",
+      message:
+        "The `public.user_profiles` table is not reachable from the Supabase service role key.",
+      details: userProfilesCheck.error.message,
+    };
+  }
+
+  return { ok: true };
 }
 
 function mapProfile(
@@ -103,7 +191,7 @@ async function getNextAuthUserById(userId: string) {
     .maybeSingle();
 
   if (error) {
-    throw error;
+    throw formatSupabaseAuthError(error, "Unable to read next_auth.users by id.");
   }
 
   return (data as NextAuthUserRow | null) ?? null;
@@ -124,7 +212,10 @@ async function getNextAuthUserByEmail(email: string) {
     .maybeSingle();
 
   if (error) {
-    throw error;
+    throw formatSupabaseAuthError(
+      error,
+      "Unable to read next_auth.users by email.",
+    );
   }
 
   return (data as NextAuthUserRow | null) ?? null;
@@ -146,7 +237,10 @@ async function getUserProfileRow(userId: string) {
     .maybeSingle();
 
   if (error) {
-    throw error;
+    throw formatSupabaseAuthError(
+      error,
+      "Unable to read public.user_profiles.",
+    );
   }
 
   return (data as UserProfileRow | null) ?? null;
@@ -254,7 +348,10 @@ export async function createCredentialsUser(input: CredentialsUserInput) {
     .single();
 
   if (userError) {
-    throw userError;
+    throw formatSupabaseAuthError(
+      userError,
+      "Unable to create a user in next_auth.users.",
+    );
   }
 
   const { error: profileError } = await supabase.from("user_profiles").upsert(
@@ -272,7 +369,10 @@ export async function createCredentialsUser(input: CredentialsUserInput) {
 
   if (profileError) {
     await supabase.schema("next_auth").from("users").delete().eq("id", user.id);
-    throw profileError;
+    throw formatSupabaseAuthError(
+      profileError,
+      "Unable to create a user profile in public.user_profiles.",
+    );
   }
 
   return {
@@ -328,7 +428,10 @@ export async function setUserPremium(userId: string, isPremium = true) {
     );
 
   if (error) {
-    throw error;
+    throw formatSupabaseAuthError(
+      error,
+      "Unable to update premium status in public.user_profiles.",
+    );
   }
 
   return getAppUserProfileById(userId);
@@ -360,7 +463,10 @@ export async function saveGeneratedDocumentForUser(
   );
 
   if (error) {
-    throw error;
+    throw formatSupabaseAuthError(
+      error,
+      "Unable to save generated document.",
+    );
   }
 
   return true;
@@ -382,7 +488,10 @@ export async function listGeneratedDocumentsForUser(userId: string) {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    throw error;
+    throw formatSupabaseAuthError(
+      error,
+      "Unable to list generated documents.",
+    );
   }
 
   return ((data as GeneratedDocumentRow[] | null) ?? []).map((document) => ({

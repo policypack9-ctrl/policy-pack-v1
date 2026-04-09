@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { RegisterForm } from "@/components/auth/register-form";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { isGoogleAuthConfigured } from "@/lib/auth-env";
 
 export default async function RegisterPage({
   searchParams,
@@ -12,6 +13,7 @@ export default async function RegisterPage({
   const resolvedSearchParams = (await searchParams) ?? {};
   const callbackUrl = resolvedSearchParams.callbackUrl || "/dashboard";
   const session = await auth();
+  const googleEnabled = isGoogleAuthConfigured();
 
   if (session?.user) {
     redirect(callbackUrl);
@@ -26,7 +28,7 @@ export default async function RegisterPage({
       footerHref={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
       footerAction="Login"
     >
-      <RegisterForm callbackUrl={callbackUrl} />
+      <RegisterForm callbackUrl={callbackUrl} showGoogle={googleEnabled} />
     </AuthShell>
   );
 }

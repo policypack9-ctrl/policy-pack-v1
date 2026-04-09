@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { AppProviders } from "@auth/core/providers";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { SupabaseAdapter } from "@auth/supabase-adapter";
@@ -9,12 +10,55 @@ import {
   upsertUserProfileFromAuthUser,
   verifyCredentials,
 } from "@/lib/auth-data";
-import { getAuthBaseUrl, getAuthSecret } from "@/lib/auth-env";
+import {
+  getAuthBaseUrl,
+  getAuthSecret,
+  getGoogleAuthConfig,
+  isGoogleAuthConfigured,
+} from "@/lib/auth-env";
 import { PRIMARY_DOMAIN, PRODUCTION_APP_URL, WWW_DOMAIN } from "@/lib/site-config";
 
 const supabaseAdapterConfig = getSupabaseAdapterConfig();
 const authBaseUrl = getAuthBaseUrl();
 const authSecret = getAuthSecret();
+const googleAuthConfig = getGoogleAuthConfig();
+const providers: AppProviders = [
+  Credentials({
+    name: "Email & Password",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      const email =
+        typeof credentials?.email === "string"
+          ? credentials.email.trim().toLowerCase()
+          : "";
+      const password =
+        typeof credentials?.password === "string" ? credentials.password : "";
+
+      if (!email || !password) {
+        return null;
+      }
+
+      return verifyCredentials(email, password);
+    },
+  }),
+];
+
+if (isGoogleAuthConfigured()) {
+  providers.push(
+    Google({
+      clientId: googleAuthConfig.clientId,
+      clientSecret: googleAuthConfig.clientSecret,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
+    }),
+  );
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: supabaseAdapterConfig
@@ -27,6 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -105,34 +150,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
     },
   },
-  providers: [
-    Credentials({
-      name: "Email & Password",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email =
-          typeof credentials?.email === "string"
-            ? credentials.email.trim().toLowerCase()
-            : "";
-        const password =
-          typeof credentials?.password === "string" ? credentials.password : "";
-
-        if (!email || !password) {
-          return null;
-        }
-
-        return verifyCredentials(email, password);
-      },
-    }),
-    Google({
-      authorization: {
-        params: {
-          prompt: "select_account",
-        },
-      },
-    }),
-  ],
+  providers,
 });

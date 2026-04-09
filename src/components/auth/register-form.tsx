@@ -10,9 +10,13 @@ import { PremiumButton } from "@/components/ui/premium-button";
 
 type RegisterFormProps = {
   callbackUrl: string;
+  showGoogle?: boolean;
 };
 
-export function RegisterForm({ callbackUrl }: RegisterFormProps) {
+export function RegisterForm({
+  callbackUrl,
+  showGoogle = true,
+}: RegisterFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -47,10 +51,15 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
 
       const payload = (await response.json()) as {
         error?: string;
+        details?: string;
       };
 
       if (!response.ok) {
-        setError(payload.error ?? "Unable to create account.");
+        setError(
+          payload.details
+            ? `${payload.error ?? "Unable to create account."} ${payload.details}`
+            : (payload.error ?? "Unable to create account."),
+        );
         return;
       }
 
@@ -174,19 +183,28 @@ export function RegisterForm({ callbackUrl }: RegisterFormProps) {
         </PremiumButton>
       </form>
 
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-white/[0.08]" />
-        <span className="text-xs uppercase tracking-[0.24em] text-white/34">
-          Or continue with
-        </span>
-        <div className="h-px flex-1 bg-white/[0.08]" />
-      </div>
+      {showGoogle ? (
+        <>
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-white/[0.08]" />
+            <span className="text-xs uppercase tracking-[0.24em] text-white/34">
+              Or continue with
+            </span>
+            <div className="h-px flex-1 bg-white/[0.08]" />
+          </div>
 
-      <GoogleSignInButton
-        callbackUrl={callbackUrl}
-        className="w-full justify-center"
-        label="Continue with Google"
-      />
+          <GoogleSignInButton
+            callbackUrl={callbackUrl}
+            className="w-full justify-center"
+            label="Continue with Google"
+          />
+        </>
+      ) : (
+        <div className="mt-6 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white/58">
+          Google OAuth is currently disabled until the production credentials are
+          configured on the server.
+        </div>
+      )}
     </>
   );
 }

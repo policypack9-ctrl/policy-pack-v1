@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { createCredentialsUser } from "@/lib/auth-data";
-import { isSupabaseConfigured } from "@/lib/auth-env";
+import { createCredentialsUser, getSupabaseAuthHealth } from "@/lib/auth-data";
+import { getSupabaseConfigStatus } from "@/lib/auth-env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,9 +31,27 @@ function validateRegistrationInput(body: {
 }
 
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured()) {
+  const configStatus = getSupabaseConfigStatus();
+
+  if (!configStatus.isConfigured) {
     return NextResponse.json(
-      { error: "Supabase is not configured for registration yet." },
+      {
+        error:
+          "Supabase registration is unavailable because required server environment variables are missing.",
+        details: `Missing: ${configStatus.missingKeys.join(", ")}`,
+      },
+      { status: 503 },
+    );
+  }
+
+  const authHealth = await getSupabaseAuthHealth();
+
+  if (!authHealth.ok) {
+    return NextResponse.json(
+      {
+        error: authHealth.message,
+        details: authHealth.details ?? authHealth.missingKeys?.join(", "),
+      },
       { status: 503 },
     );
   }
@@ -71,10 +89,12 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "Unable to create account.",
-        details: error instanceof Error ? error.message : "Unknown error",
+        details:
+          error instanceof Error
+            ? error.message
+            : "Unknown error",
       },
       { status: 500 },
     );
   }
 }
-

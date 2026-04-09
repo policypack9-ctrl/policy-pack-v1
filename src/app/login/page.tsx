@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { LoginForm } from "@/components/auth/login-form";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { isGoogleAuthConfigured } from "@/lib/auth-env";
 
 export default async function LoginPage({
   searchParams,
@@ -14,8 +15,11 @@ export default async function LoginPage({
   const error =
     resolvedSearchParams.error === "CredentialsSignin"
       ? "Invalid email or password."
+      : resolvedSearchParams.error === "Configuration"
+        ? "Authentication is temporarily unavailable. Check AUTH_SECRET, NEXTAUTH_URL, Google OAuth variables, and Supabase auth schema access."
       : "";
   const session = await auth();
+  const googleEnabled = isGoogleAuthConfigured();
 
   if (session?.user) {
     redirect(callbackUrl);
@@ -30,7 +34,11 @@ export default async function LoginPage({
       footerHref={`/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
       footerAction="Create account"
     >
-      <LoginForm callbackUrl={callbackUrl} initialError={error} />
+      <LoginForm
+        callbackUrl={callbackUrl}
+        initialError={error}
+        showGoogle={googleEnabled}
+      />
     </AuthShell>
   );
 }

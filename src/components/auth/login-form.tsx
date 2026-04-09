@@ -13,9 +13,14 @@ import { PremiumButton } from "@/components/ui/premium-button";
 type LoginFormProps = {
   callbackUrl: string;
   initialError?: string;
+  showGoogle?: boolean;
 };
 
-export function LoginForm({ callbackUrl, initialError }: LoginFormProps) {
+export function LoginForm({
+  callbackUrl,
+  initialError,
+  showGoogle = true,
+}: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -123,20 +128,29 @@ export function LoginForm({ callbackUrl, initialError }: LoginFormProps) {
         </PremiumButton>
       </form>
 
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-white/[0.08]" />
-        <span className="text-xs uppercase tracking-[0.24em] text-white/34">
-          Or continue with
-        </span>
-        <div className="h-px flex-1 bg-white/[0.08]" />
-      </div>
+      {showGoogle ? (
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-white/[0.08]" />
+          <span className="text-xs uppercase tracking-[0.24em] text-white/34">
+            Or continue with
+          </span>
+          <div className="h-px flex-1 bg-white/[0.08]" />
+        </div>
+      ) : (
+        <div className="mt-6 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white/58">
+          Google OAuth is currently disabled until the production credentials are
+          configured on the server.
+        </div>
+      )}
 
-      <div className="space-y-3">
-        <GoogleSignInButton
-          callbackUrl={callbackUrl}
-          className="w-full justify-center"
-          label="Sign in with Google"
-        />
+      <div className="mt-6 space-y-3">
+        {showGoogle ? (
+          <GoogleSignInButton
+            callbackUrl={callbackUrl}
+            className="w-full justify-center"
+            label="Sign in with Google"
+          />
+        ) : null}
         <Button
           type="button"
           variant="ghost"
