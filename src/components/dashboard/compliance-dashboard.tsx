@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { CheckoutEventNames, initializePaddle, type Environments, type Paddle, type PaddleEventData } from "@paddle/paddle-js";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
@@ -20,6 +20,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { LegalDocumentModal } from "@/components/legal/legal-document-modal";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,17 @@ type ComplianceDashboardProps = {
   initialPremiumUnlockedAt?: string | null;
   initialGeneratedDocuments?: SavedGeneratedDocument[];
   authenticatedEmail?: string | null;
+  initialPaddleTransactionId?: string | null;
 };
+
+type PaddleCheckoutState =
+  | "idle"
+  | "initializing"
+  | "ready"
+  | "opening"
+  | "verifying"
+  | "success"
+  | "error";
 
 function buildInitialDocumentCache(
   documents: SavedGeneratedDocument[] = [],
@@ -71,15 +82,36 @@ function buildInitialDocumentCache(
   );
 }
 
+function waitFor(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 export function ComplianceDashboard({
   initialIsPremium = false,
   initialPremiumUnlockedAt = null,
   initialGeneratedDocuments = [],
   authenticatedEmail = null,
+  initialPaddleTransactionId = null,
 }: ComplianceDashboardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const shouldReduceMotion = Boolean(useReducedMotion());
   const auditTimeoutRef = useRef<number | null>(null);
+  const paddleRef = useRef<Paddle | null>(null);
+  const paddleInitPromiseRef = useRef<Promise<Paddle | null> | null>(null);
+  const activeTransactionIdRef = useRef<string | null>(null);
+  const queryTransactionHandledRef = useRef(false);
+  const verificationInFlightRef = useRef<string | null>(null);
+  const pendingDocumentExportRef = useRef<DashboardDocument["id"] | null>(null);
+  const paddleEventHandlerRef = useRef<(event: PaddleEventData) => void>(() => {});
+  const openPaddleOverlayRef = useRef<(transactionId: string) => Promise<boolean>>(
+    async () => false,
+  );
+  const verifyTransactionAccessRef = useRef<(transactionId: string) => Promise<void>>(
+    async () => {},
+  );
   const [session, setSession] = useState<StoredPolicySession>(() => {
     const fallbackSession: StoredPolicySession = {
       answers: demoOnboardingAnswers,
@@ -130,14 +162,26 @@ export function ComplianceDashboard({
   const [isDocumentLoading, setIsDocumentLoading] = useState(false);
   const [exportNotice, setExportNotice] = useState("");
   const [isCheckoutPending, setIsCheckoutPending] = useState(false);
+  const [checkoutState, setCheckoutState] =
+    useState<PaddleCheckoutState>("idle");
 
   useEffect(() => {
     return () => {
       if (auditTimeoutRef.current) {
         window.clearTimeout(auditTimeoutRef.current);
       }
+
+      paddleRef.current?.Checkout.close();
     };
   }, []);
+
+  useEffect(() => {
+    setIsPremium(initialIsPremium);
+  }, [initialIsPremium]);
+
+  useEffect(() => {
+    setPremiumUnlockedAt(initialPremiumUnlockedAt);
+  }, [initialPremiumUnlockedAt]);
 
   const snapshot = buildComplianceSnapshot(session.answers, session.completedAt);
   const productName = getProductName(session.answers);
@@ -145,6 +189,25 @@ export function ComplianceDashboard({
     snapshot.documents.find((document) => document.id === activeDocumentId) ??
     snapshot.documents[0];
   const activeGeneratedDocument = documentCache[activeDocument.id];
+  const isCheckoutBusy =
+    isCheckoutPending ||
+    checkoutState === "initializing" ||
+    checkoutState === "opening" ||
+    checkoutState === "verifying";
+  const checkoutNoticeClassName =
+    checkoutState === "success"
+      ? "text-emerald-100/84"
+      : checkoutState === "error"
+        ? "text-amber-100/82"
+        : "text-teal-100/80";
+  const checkoutButtonLabel =
+    checkoutState === "initializing"
+      ? "Preparing Checkout..."
+      : checkoutState === "opening"
+        ? "Opening Overlay..."
+        : checkoutState === "verifying"
+          ? "Finalizing Access..."
+          : "Upgrade to Download";
 
   async function persistToAccount(nextCompletedAt = new Date().toISOString()) {
     const nextSession: StoredPolicySession = {
@@ -193,66 +256,6 @@ export function ComplianceDashboard({
       setIsAuditing(false);
       auditTimeoutRef.current = null;
     }, 1800);
-  }
-
-  async function handleUpgradeToDownload() {
-    if (isCheckoutPending) {
-      return;
-    }
-
-    setIsCheckoutPending(true);
-    setExportNotice("");
-
-    try {
-      const response = await fetch("/api/checkout/paddle", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: authenticatedEmail,
-          productName,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorPayload = (await response.json().catch(() => null)) as
-          | { error?: string; details?: string }
-          | null;
-        if (response.status === 401) {
-          router.push("/login?callbackUrl=/dashboard");
-          return;
-        }
-
-        setExportNotice(
-          errorPayload?.error ??
-            errorPayload?.details ??
-            "Unable to start Paddle checkout.",
-        );
-        return;
-      }
-
-      const payload = (await response.json()) as {
-        checkoutUrl?: string | null;
-        message?: string;
-        premiumUnlocked?: boolean;
-      };
-
-      setExportNotice(payload.message ?? "Paddle checkout response received.");
-
-      if (payload.checkoutUrl) {
-        window.location.assign(payload.checkoutUrl);
-        return;
-      }
-
-      if (payload.premiumUnlocked) {
-        setIsPremium(true);
-        setPremiumUnlockedAt(new Date().toISOString());
-        router.refresh();
-      }
-    } finally {
-      setIsCheckoutPending(false);
-    }
   }
 
   async function ensureGeneratedDocument(documentRecord: DashboardDocument) {
@@ -318,13 +321,7 @@ export function ComplianceDashboard({
     await ensureGeneratedDocument(documentRecord);
   }
 
-  async function handleExportPdf(documentRecord: DashboardDocument) {
-    if (!isPremium) {
-      setExportNotice("Premium export is locked until Paddle sandbox checkout completes.");
-      await handleUpgradeToDownload();
-      return;
-    }
-
+  async function exportPdfForDocument(documentRecord: DashboardDocument) {
     const generated = await ensureGeneratedDocument(documentRecord);
     const renderResponse = await fetch("/api/render-policy-html", {
       method: "POST",
@@ -372,6 +369,349 @@ export function ComplianceDashboard({
     window.setTimeout(() => {
       window.URL.revokeObjectURL(blobUrl);
     }, 60_000);
+  }
+
+  async function finalizeUnlockedWorkspace() {
+    setIsPremium(true);
+    setPremiumUnlockedAt(new Date().toISOString());
+    setCheckoutState("success");
+    setIsCheckoutPending(false);
+    setExportNotice("Payment confirmed. PDF export is now unlocked.");
+    activeTransactionIdRef.current = null;
+    router.replace(pathname);
+    router.refresh();
+
+    const pendingDocumentId = pendingDocumentExportRef.current;
+    pendingDocumentExportRef.current = null;
+
+    if (pendingDocumentId) {
+      const pendingDocument = snapshot.documents.find(
+        (document) => document.id === pendingDocumentId,
+      );
+
+      if (pendingDocument) {
+        setExportNotice("Payment confirmed. Preparing your PDF export...");
+        await exportPdfForDocument(pendingDocument);
+      }
+    }
+  }
+
+  async function verifyTransactionAccess(transactionId: string) {
+    if (verificationInFlightRef.current === transactionId) {
+      return;
+    }
+
+    verificationInFlightRef.current = transactionId;
+    setCheckoutState("verifying");
+    setIsCheckoutPending(true);
+    setExportNotice("Waiting for Paddle to confirm the sandbox payment...");
+
+    try {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const response = await fetch("/api/checkout/paddle", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            transactionId,
+          }),
+        });
+
+        if (response.status === 401) {
+          router.push("/login?callbackUrl=/dashboard");
+          return;
+        }
+
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              error?: string;
+              details?: string;
+              premiumUnlocked?: boolean;
+              verifiedStatus?: string;
+            }
+          | null;
+
+        if (!response.ok) {
+          setCheckoutState("error");
+          setExportNotice(
+            payload?.error ??
+              payload?.details ??
+              "Unable to verify the Paddle transaction.",
+          );
+          return;
+        }
+
+        if (payload?.premiumUnlocked) {
+          await finalizeUnlockedWorkspace();
+          return;
+        }
+
+        if (attempt < 11) {
+          setExportNotice(
+            payload?.verifiedStatus
+              ? `Transaction is ${payload.verifiedStatus}. Waiting for final payment confirmation...`
+              : "Payment submitted. Waiting for final confirmation...",
+          );
+          await waitFor(2500);
+        }
+      }
+
+      setCheckoutState("ready");
+      setExportNotice(
+        "Checkout finished, but the payment is still processing. Refresh this dashboard in a few seconds if PDF export stays locked.",
+      );
+    } finally {
+      verificationInFlightRef.current = null;
+      setIsCheckoutPending(false);
+    }
+  }
+
+  async function initializePaddleOverlay() {
+    if (paddleRef.current) {
+      return paddleRef.current;
+    }
+
+    if (paddleInitPromiseRef.current) {
+      return paddleInitPromiseRef.current;
+    }
+
+    setCheckoutState("initializing");
+    setExportNotice("Preparing Paddle sandbox checkout...");
+
+    paddleInitPromiseRef.current = (async () => {
+      const response = await fetch("/api/checkout/paddle/client-token", {
+        cache: "no-store",
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            token?: string;
+            environment?: Environments;
+          }
+        | null;
+
+      if (!response.ok || !payload?.token || !payload.environment) {
+        setCheckoutState("error");
+        setExportNotice(
+          payload?.error ??
+            "Paddle.js client token is unavailable. Add PADDLE_CLIENT_TOKEN to the server environment or grant client_token.write to the API key.",
+        );
+        return null;
+      }
+
+      const paddle = await initializePaddle({
+        token: payload.token,
+        environment: payload.environment,
+        checkout: {
+          settings: {
+            displayMode: "overlay",
+            theme: "dark",
+            successUrl: `${window.location.origin}/dashboard`,
+          },
+        },
+        eventCallback: (event) => {
+          paddleEventHandlerRef.current(event);
+        },
+      });
+
+      if (!paddle) {
+        setCheckoutState("error");
+        setExportNotice("Unable to initialize Paddle.js on this browser.");
+        return null;
+      }
+
+      paddleRef.current = paddle;
+      setCheckoutState("ready");
+      return paddle;
+    })().finally(() => {
+      paddleInitPromiseRef.current = null;
+    });
+
+    return paddleInitPromiseRef.current;
+  }
+
+  async function openPaddleOverlay(transactionId: string) {
+    const paddle = await initializePaddleOverlay();
+
+    if (!paddle) {
+      return false;
+    }
+
+    activeTransactionIdRef.current = transactionId;
+    setCheckoutState("opening");
+    setIsCheckoutPending(true);
+    setExportNotice("Opening Paddle sandbox checkout...");
+
+    paddle.Checkout.open({
+      transactionId,
+      settings: {
+        displayMode: "overlay",
+        theme: "dark",
+        successUrl: `${window.location.origin}/dashboard?_ptxn=${transactionId}`,
+      },
+    });
+
+    return true;
+  }
+
+  paddleEventHandlerRef.current = (event) => {
+    switch (event.name) {
+      case CheckoutEventNames.CHECKOUT_LOADED:
+        setCheckoutState("opening");
+        setExportNotice("Paddle sandbox checkout is ready.");
+        break;
+      case CheckoutEventNames.CHECKOUT_PAYMENT_INITIATED:
+        setCheckoutState("verifying");
+        setExportNotice("Payment submitted. Waiting for final confirmation...");
+        break;
+      case CheckoutEventNames.CHECKOUT_COMPLETED: {
+        const completedTransactionId =
+          event.data?.transaction_id ?? activeTransactionIdRef.current;
+
+        if (completedTransactionId) {
+          void verifyTransactionAccess(completedTransactionId);
+        }
+        break;
+      }
+      case CheckoutEventNames.CHECKOUT_CLOSED:
+        if (!isPremium && checkoutState !== "success") {
+          setCheckoutState("ready");
+          setIsCheckoutPending(false);
+          setExportNotice("Checkout closed. You can reopen it any time.");
+        }
+        break;
+      case CheckoutEventNames.CHECKOUT_FAILED:
+      case CheckoutEventNames.CHECKOUT_ERROR:
+      case CheckoutEventNames.CHECKOUT_PAYMENT_ERROR:
+      case CheckoutEventNames.CHECKOUT_PAYMENT_FAILED:
+        setCheckoutState("error");
+        setIsCheckoutPending(false);
+        setExportNotice(
+          event.detail || "Paddle checkout encountered an error. Please try again.",
+        );
+        break;
+      default:
+        break;
+    }
+  };
+
+  openPaddleOverlayRef.current = openPaddleOverlay;
+  verifyTransactionAccessRef.current = verifyTransactionAccess;
+
+  useEffect(() => {
+    if (!initialPaddleTransactionId || queryTransactionHandledRef.current) {
+      return;
+    }
+
+    queryTransactionHandledRef.current = true;
+    if (isPremium) {
+      router.replace(pathname);
+      return;
+    }
+
+    activeTransactionIdRef.current = initialPaddleTransactionId;
+    void (async () => {
+      const opened = await openPaddleOverlayRef.current(initialPaddleTransactionId);
+
+      if (!opened) {
+        await verifyTransactionAccessRef.current(initialPaddleTransactionId);
+      }
+    })();
+  }, [initialPaddleTransactionId, isPremium, pathname, router]);
+
+  async function handleUpgradeToDownload(
+    pendingDocumentId?: DashboardDocument["id"],
+  ) {
+    if (isCheckoutBusy) {
+      return;
+    }
+
+    if (pendingDocumentId) {
+      pendingDocumentExportRef.current = pendingDocumentId;
+    }
+
+    setIsCheckoutPending(true);
+    setCheckoutState("initializing");
+    setExportNotice("");
+
+    try {
+      const response = await fetch("/api/checkout/paddle", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: authenticatedEmail,
+          productName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => null)) as
+          | { error?: string; details?: string }
+          | null;
+        if (response.status === 401) {
+          router.push("/login?callbackUrl=/dashboard");
+          return;
+        }
+
+        setCheckoutState("error");
+        setExportNotice(
+          errorPayload?.error ??
+            errorPayload?.details ??
+            "Unable to start Paddle checkout.",
+        );
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        checkoutUrl?: string | null;
+        transactionId?: string;
+        message?: string;
+        premiumUnlocked?: boolean;
+      };
+
+      setExportNotice(payload.message ?? "Paddle checkout response received.");
+
+      if (payload.premiumUnlocked) {
+        await finalizeUnlockedWorkspace();
+        return;
+      }
+
+      if (payload.transactionId) {
+        const opened = await openPaddleOverlay(payload.transactionId);
+
+        if (opened) {
+          return;
+        }
+      }
+
+      if (payload.checkoutUrl) {
+        window.location.assign(payload.checkoutUrl);
+        return;
+      }
+
+      setCheckoutState("error");
+      setExportNotice(
+        "A Paddle transaction was created, but checkout could not be opened on this device.",
+      );
+    } finally {
+      if (!activeTransactionIdRef.current && !verificationInFlightRef.current) {
+        setIsCheckoutPending(false);
+      }
+    }
+  }
+
+  async function handleExportPdf(documentRecord: DashboardDocument) {
+    if (!isPremium) {
+      setExportNotice("Premium export is locked until Paddle sandbox checkout completes.");
+      await handleUpgradeToDownload(documentRecord.id);
+      return;
+    }
+
+    await exportPdfForDocument(documentRecord);
   }
 
   return (
@@ -462,17 +802,17 @@ export function ComplianceDashboard({
                     <PremiumButton
                       type="button"
                       onClick={() => void handleUpgradeToDownload()}
-                      disabled={isCheckoutPending}
+                      disabled={isCheckoutBusy}
                       className="h-12 px-5 text-sm"
                       icon={
-                        isCheckoutPending ? (
+                        isCheckoutBusy ? (
                           <LoaderCircle className="size-4 animate-spin" />
                         ) : (
                           <LockKeyhole className="size-4" />
                         )
                       }
                     >
-                      {isCheckoutPending ? "Opening Checkout..." : "Unlock PDF Export"}
+                      {isCheckoutBusy ? checkoutButtonLabel : "Unlock PDF Export"}
                     </PremiumButton>
                   ) : null}
 
@@ -605,19 +945,19 @@ export function ComplianceDashboard({
                   type="button"
                   variant="ghost"
                   onClick={() => void handleUpgradeToDownload()}
-                  disabled={isCheckoutPending}
+                  disabled={isCheckoutBusy}
                   className="h-11 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
                 >
-                  {isCheckoutPending ? (
+                  {isCheckoutBusy ? (
                     <LoaderCircle className="size-4 animate-spin" />
                   ) : (
                     <LockKeyhole className="size-4" />
                   )}
-                  Upgrade to Download
+                  {checkoutButtonLabel}
                 </Button>
               </div>
               {exportNotice ? (
-                <p className="mt-4 text-sm text-amber-100/82">{exportNotice}</p>
+                <p className={`mt-4 text-sm ${checkoutNoticeClassName}`}>{exportNotice}</p>
               ) : null}
             </motion.section>
           ) : null}
@@ -641,17 +981,17 @@ export function ComplianceDashboard({
                 <PremiumButton
                   type="button"
                   onClick={() => void handleUpgradeToDownload()}
-                  disabled={isCheckoutPending}
+                  disabled={isCheckoutBusy}
                   className="h-12 px-5 text-sm"
                   icon={
-                    isCheckoutPending ? (
+                    isCheckoutBusy ? (
                       <LoaderCircle className="size-4 animate-spin" />
                     ) : (
                       <CreditCard className="size-4" />
                     )
                   }
                 >
-                  {isCheckoutPending ? "Opening Checkout..." : "Upgrade to Download"}
+                  {checkoutButtonLabel}
                 </PremiumButton>
               ) : null}
             </div>
@@ -705,7 +1045,7 @@ export function ComplianceDashboard({
                     : "Document viewing is available, but download remains disabled until the payment state is upgraded."}
                 </p>
                 {exportNotice ? (
-                  <p className="mt-4 text-sm text-teal-100/80">{exportNotice}</p>
+                  <p className={`mt-4 text-sm ${checkoutNoticeClassName}`}>{exportNotice}</p>
                 ) : null}
               </div>
             </div>
@@ -770,7 +1110,7 @@ export function ComplianceDashboard({
                               onClick={() =>
                                 isPremium
                                   ? void handleExportPdf(document)
-                                  : void handleUpgradeToDownload()
+                                  : void handleUpgradeToDownload(document.id)
                               }
                               className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:text-white/34"
                             >

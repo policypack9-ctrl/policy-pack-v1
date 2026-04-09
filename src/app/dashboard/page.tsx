@@ -7,8 +7,13 @@ import {
   listGeneratedDocumentsForUser,
 } from "@/lib/auth-data";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ _ptxn?: string }>;
+}) {
   const session = await auth();
+  const resolvedSearchParams = (await searchParams) ?? {};
 
   if (!session?.user) {
     redirect("/login?callbackUrl=/dashboard");
@@ -25,6 +30,7 @@ export default async function DashboardPage() {
       initialPremiumUnlockedAt={profile?.premiumUnlockedAt ?? null}
       initialGeneratedDocuments={generatedDocuments}
       authenticatedEmail={session.user.email ?? null}
+      initialPaddleTransactionId={resolvedSearchParams._ptxn ?? null}
     />
   );
 }

@@ -6,6 +6,14 @@ import type { CreateTransactionRequestBody } from "@paddle/paddle-node-sdk";
 import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
 export type PaddleApiKeyMode = "sandbox" | "live" | "unknown";
+type PaddleClientTokenSource = "env" | "api";
+
+type PaddleClientTokenResult = {
+  token: string;
+  source: PaddleClientTokenSource;
+};
+
+let cachedPaddleClientToken: PaddleClientTokenResult | null = null;
 
 export function getPaddleConfig() {
   const apiKey = process.env.PADDLE_API_KEY?.trim() ?? "";
@@ -14,6 +22,10 @@ export function getPaddleConfig() {
 
   return {
     apiKey,
+    clientToken:
+      process.env.PADDLE_CLIENT_TOKEN?.trim() ??
+      process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim() ??
+      "",
     priceId: process.env.PADDLE_PRICE_ID?.trim() ?? "",
     webhookSecret: process.env.PADDLE_WEBHOOK_SECRET?.trim() ?? "",
     environment:
@@ -97,6 +109,47 @@ export function getPaddleLegalUrls(baseUrl = PRODUCTION_APP_URL) {
 
 export function isVerifiedPaddleTransactionStatus(status: string | null | undefined) {
   return status === "paid" || status === "completed";
+}
+
+export function getConfiguredPaddleClientToken() {
+  return getPaddleConfig().clientToken;
+}
+
+export async function getOrCreatePaddleClientToken() {
+  const configuredToken = getConfiguredPaddleClientToken();
+
+  if (configuredToken) {
+    return {
+      token: configuredToken,
+      source: "env",
+    } satisfies PaddleClientTokenResult;
+  }
+
+  if (cachedPaddleClientToken) {
+    return cachedPaddleClientToken;
+  }
+
+  const paddle = getPaddleClient();
+
+  if (!paddle) {
+    return null;
+  }
+
+  try {
+    const generatedToken = await paddle.clientTokens.create({
+      name: `PolicyPack Dashboard ${Date.now()}`,
+      description: "Temporary Paddle.js client token for the PolicyPack dashboard.",
+    });
+
+    cachedPaddleClientToken = {
+      token: generatedToken.token,
+      source: "api",
+    };
+
+    return cachedPaddleClientToken;
+  } catch {
+    return null;
+  }
 }
 
 export function buildPolicyPackCheckoutItems(
