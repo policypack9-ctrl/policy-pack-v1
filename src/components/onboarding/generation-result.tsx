@@ -16,11 +16,7 @@ import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { PremiumButton } from "@/components/ui/premium-button";
-import {
-  loadStoredPolicySession,
-  loadUnlockState,
-  saveUnlockState,
-} from "@/lib/db";
+import { loadStoredPolicySession } from "@/lib/db";
 import {
   normalizeAnswers,
   resolvePrimaryRegion,
@@ -30,24 +26,44 @@ import {
 export function GenerationResult() {
   const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
-  const { data: session } = useSession();
+  const { data: session, status, update } = useSession();
   const [storedSession, setStoredSession] = useState<StoredPolicySession | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const [unlockLabel, setUnlockLabel] = useState<string>("Simulated Paddle checkout");
+  const [unlockLabel, setUnlockLabel] = useState<string>(
+    "Paddle sandbox checkout is ready for this account.",
+  );
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     setStoredSession(loadStoredPolicySession());
   }, []);
 
+  useEffect(() => {
+    setIsPremium(Boolean(session?.user?.isPremium));
+  }, [session?.user?.isPremium]);
+
   const answers = useMemo(
     () => normalizeAnswers(storedSession?.answers),
     [storedSession],
   );
-  const unlockState = useMemo(() => loadUnlockState(), []);
   const productName = answers.businessName || "PolicyPack";
   const region = resolvePrimaryRegion(answers);
 
   async function handleUnlock() {
+    if (status === "loading") {
+      return;
+    }
+
+    if (!session?.user) {
+      router.push("/login?callbackUrl=/onboarding/result");
+      return;
+    }
+
+    if (isPremium) {
+      router.push("/dashboard");
+      return;
+    }
+
     setIsUnlocking(true);
 
     try {
@@ -71,9 +87,10 @@ export function GenerationResult() {
         message?: string;
       };
 
-      saveUnlockState("simulated-paddle");
       setUnlockLabel(payload.message ?? "Policy unlocked");
-      router.push(session?.user ? "/dashboard" : "/login?callbackUrl=/dashboard");
+      setIsPremium(true);
+      await update();
+      router.push("/dashboard");
     } finally {
       setIsUnlocking(false);
     }
@@ -119,8 +136,8 @@ export function GenerationResult() {
                 Draft complete
               </div>
               <p className="mt-4 text-sm leading-7 text-white/60">
-                {unlockState?.unlocked
-                  ? "This browser already has an unlocked checkout simulation."
+                {isPremium
+                  ? "This account already has premium export access."
                   : unlockLabel}
               </p>
             </div>
@@ -155,8 +172,9 @@ export function GenerationResult() {
                 Pay to Unlock
               </h2>
               <p className="mt-3 text-sm leading-7 text-white/60">
-                Paddle is wired in placeholder mode. This button simulates the production
-                checkout architecture so the launch flow is ready for real pricing.
+                Paddle is running in sandbox mode. This unlock keeps the production
+                architecture intact while simulating the paid upgrade on your authenticated
+                Supabase profile.
               </p>
 
               <div className="mt-6 space-y-3">
@@ -168,12 +186,22 @@ export function GenerationResult() {
                   icon={
                     isUnlocking ? (
                       <LoaderCircle className="size-4 animate-spin" />
+                    ) : !session?.user ? (
+                      <LockKeyhole className="size-4" />
+                    ) : isPremium ? (
+                      <ShieldCheck className="size-4" />
                     ) : (
                       <CreditCard className="size-4" />
                     )
                   }
                 >
-                  {isUnlocking ? "Launching checkout..." : "Pay to Unlock"}
+                  {isUnlocking
+                    ? "Launching checkout..."
+                    : !session?.user
+                      ? "Login to Unlock"
+                      : isPremium
+                        ? "Go to Dashboard"
+                        : "Pay to Unlock"}
                 </PremiumButton>
 
                 <Button

@@ -2,6 +2,10 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { ComplianceDashboard } from "@/components/dashboard/compliance-dashboard";
+import {
+  getAppUserProfileById,
+  listGeneratedDocumentsForUser,
+} from "@/lib/auth-data";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -10,5 +14,16 @@ export default async function DashboardPage() {
     redirect("/login?callbackUrl=/dashboard");
   }
 
-  return <ComplianceDashboard />;
+  const [profile, generatedDocuments] = await Promise.all([
+    getAppUserProfileById(session.user.id),
+    listGeneratedDocumentsForUser(session.user.id),
+  ]);
+
+  return (
+    <ComplianceDashboard
+      initialIsPremium={profile?.isPremium ?? false}
+      initialGeneratedDocuments={generatedDocuments}
+      authenticatedEmail={session.user.email ?? null}
+    />
+  );
 }

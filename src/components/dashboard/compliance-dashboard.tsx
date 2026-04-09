@@ -12,6 +12,7 @@ import {
   FileText,
   Globe2,
   LoaderCircle,
+  LockKeyhole,
   Save,
   ScanSearch,
   ShieldCheck,
@@ -50,7 +51,29 @@ const documentIcons = {
   "gdpr-addendum": Globe2,
 } as const;
 
-export function ComplianceDashboard() {
+type ComplianceDashboardProps = {
+  initialIsPremium?: boolean;
+  initialGeneratedDocuments?: SavedGeneratedDocument[];
+  authenticatedEmail?: string | null;
+};
+
+function buildInitialDocumentCache(
+  documents: SavedGeneratedDocument[] = [],
+): Record<DashboardDocument["id"], SavedGeneratedDocument> {
+  return documents.reduce(
+    (cache, document) => ({
+      ...cache,
+      [document.id]: document,
+    }),
+    {} as Record<DashboardDocument["id"], SavedGeneratedDocument>,
+  );
+}
+
+export function ComplianceDashboard({
+  initialIsPremium = false,
+  initialGeneratedDocuments = [],
+  authenticatedEmail = null,
+}: ComplianceDashboardProps) {
   const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
   const auditTimeoutRef = useRef<number | null>(null);
@@ -68,14 +91,20 @@ export function ComplianceDashboard() {
       loadPolicyAccount()?.session ?? loadStoredPolicySession() ?? fallbackSession
     );
   });
+  const isPremium = initialIsPremium;
   const [documentCache, setDocumentCache] = useState<
     Record<DashboardDocument["id"], SavedGeneratedDocument>
   >(() => {
+    const serverCache = buildInitialDocumentCache(initialGeneratedDocuments);
+
     if (typeof window === "undefined") {
-      return {} as Record<DashboardDocument["id"], SavedGeneratedDocument>;
+      return serverCache;
     }
 
-    return loadGeneratedDocuments();
+    return {
+      ...serverCache,
+      ...loadGeneratedDocuments(),
+    };
   });
   const [isAuditing, setIsAuditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -87,12 +116,13 @@ export function ComplianceDashboard() {
     const account = loadPolicyAccount();
     return account
       ? `Saved locally at ${formatDisplayDateTime(account.lastSavedAt)}`
-      : "Save to account not run yet";
+      : "Workspace snapshot not saved yet";
   });
   const [activeDocumentId, setActiveDocumentId] =
     useState<DashboardDocument["id"]>("gdpr-addendum");
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [isDocumentLoading, setIsDocumentLoading] = useState(false);
+  const [exportNotice, setExportNotice] = useState("");
 
   useEffect(() => {
     return () => {
@@ -222,6 +252,12 @@ export function ComplianceDashboard() {
   }
 
   async function handleExportPdf(documentRecord: DashboardDocument) {
+    if (!isPremium) {
+      setExportNotice("Premium export is locked until Paddle sandbox checkout completes.");
+      router.push("/onboarding/result");
+      return;
+    }
+
     const generated = await ensureGeneratedDocument(documentRecord);
     const renderResponse = await fetch("/api/render-policy-html", {
       method: "POST",
@@ -240,6 +276,13 @@ export function ComplianceDashboard() {
     if (!renderResponse.ok) {
       if (renderResponse.status === 401) {
         router.push("/login?callbackUrl=/dashboard");
+        return;
+      }
+
+      if (renderResponse.status === 402) {
+        setExportNotice(
+          "PDF export is locked for draft accounts. Unlock premium access first.",
+        );
         return;
       }
 
@@ -334,6 +377,11 @@ export function ComplianceDashboard() {
                 <p className="mt-4 text-xs uppercase tracking-[0.24em] text-white/34">
                   {saveLabel}
                 </p>
+                {authenticatedEmail ? (
+                  <p className="mt-2 text-xs uppercase tracking-[0.22em] text-white/28">
+                    Signed in as {authenticatedEmail}
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex flex-col gap-3 sm:items-end">
@@ -343,6 +391,17 @@ export function ComplianceDashboard() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {!isPremium ? (
+                    <PremiumButton
+                      type="button"
+                      onClick={() => router.push("/onboarding/result")}
+                      className="h-12 px-5 text-sm"
+                      icon={<LockKeyhole className="size-4" />}
+                    >
+                      Unlock PDF Export
+                    </PremiumButton>
+                  ) : null}
+
                   <Button
                     type="button"
                     variant="ghost"
@@ -355,7 +414,7 @@ export function ComplianceDashboard() {
                     ) : (
                       <Save className="size-4" />
                     )}
-                    Save to Account
+                    Save Workspace
                   </Button>
 
                   <PremiumButton
@@ -445,6 +504,45 @@ export function ComplianceDashboard() {
             </div>
           </motion.section>
 
+          {!isPremium ? (
+            <motion.section
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+              className="rounded-[28px] border border-white/[0.08] bg-white/[0.03] px-5 py-4 shadow-[0_20px_50px_-34px_rgba(0,0,0,0.9)]"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-teal-200">
+                    <LockKeyhole className="size-4" />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/52">
+                      Draft Mode
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-white/72">
+                      Your documents are readable and stored, but formal PDF export
+                      stays locked until Paddle sandbox checkout marks this account as
+                      premium.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => router.push("/onboarding/result")}
+                  className="h-11 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
+                >
+                  <LockKeyhole className="size-4" />
+                  Open Unlock Flow
+                </Button>
+              </div>
+              {exportNotice ? (
+                <p className="mt-4 text-sm text-amber-100/82">{exportNotice}</p>
+              ) : null}
+            </motion.section>
+          ) : null}
+
           <section>
             <div className="mb-5">
               <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/72">
@@ -460,54 +558,71 @@ export function ComplianceDashboard() {
                 const DocumentIcon = documentIcons[document.id];
 
                 return (
-                  <GradientCard
+                  <div
                     key={document.id}
-                    icon={DocumentIcon}
-                    eyebrow={document.isPrimary ? "Primary document" : "Managed document"}
-                    title={document.title}
-                    description={document.summary}
-                    delay={index * 0.05}
-                    className={document.isPrimary ? "lg:col-span-2" : undefined}
-                    visual={
-                      <div className="flex flex-wrap gap-2.5">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100">
-                          <BadgeCheck className="size-3.5" />
-                          Status: {document.status}
+                    className={`relative ${document.isPrimary ? "lg:col-span-2" : ""}`}
+                  >
+                    <GradientCard
+                      icon={DocumentIcon}
+                      eyebrow={document.isPrimary ? "Primary document" : "Managed document"}
+                      title={document.title}
+                      description={document.summary}
+                      delay={index * 0.05}
+                      className="h-full"
+                      visual={
+                        <div className="flex flex-wrap gap-2.5">
+                          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100">
+                            <BadgeCheck className="size-3.5" />
+                            Status: {document.status}
+                          </div>
+                          <div className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/62">
+                            Last Audit: {document.lastAuditLabel}
+                          </div>
                         </div>
-                        <div className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/62">
-                          Last Audit: {document.lastAuditLabel}
+                      }
+                      contentClassName="gap-5"
+                      footerContent={
+                        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-xs uppercase tracking-[0.24em] text-white/38">
+                            Audited {document.refreshedAt}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => void handleViewDocument(document)}
+                              className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
+                            >
+                              <Eye className="size-4" />
+                              View Document
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => void handleExportPdf(document)}
+                              disabled={!isPremium}
+                              className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:text-white/34"
+                            >
+                              {isPremium ? (
+                                <Download className="size-4" />
+                              ) : (
+                                <LockKeyhole className="size-4" />
+                              )}
+                              {isPremium ? "Export PDF" : "Premium Export"}
+                            </Button>
+                          </div>
+                        </div>
+                      }
+                    />
+
+                    {!isPremium ? (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-[26px]">
+                        <div className="rounded-full border border-white/[0.08] bg-black/38 px-7 py-3 text-sm font-semibold tracking-[0.42em] text-white/18 sm:text-base">
+                          DRAFT
                         </div>
                       </div>
-                    }
-                    contentClassName="gap-5"
-                    footerContent={
-                      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="text-xs uppercase tracking-[0.24em] text-white/38">
-                          Audited {document.refreshedAt}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => void handleViewDocument(document)}
-                            className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
-                          >
-                            <Eye className="size-4" />
-                            View Document
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => void handleExportPdf(document)}
-                            className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
-                          >
-                            <Download className="size-4" />
-                            Export PDF
-                          </Button>
-                        </div>
-                      </div>
-                    }
-                  />
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
@@ -530,6 +645,7 @@ export function ComplianceDashboard() {
             : snapshot.generatedAt
         }
         isLoading={isDocumentLoading}
+        canExport={isPremium}
         onClose={() => setIsDocumentModalOpen(false)}
         onExport={() => void handleExportPdf(activeDocument)}
       />

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { getAppUserProfileById } from "@/lib/auth-data";
 import { buildLegalPrintHtml } from "@/lib/legal-document";
 import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
@@ -15,6 +16,17 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Authentication required." },
         { status: 401 },
+      );
+    }
+
+    const profile = session.user.id
+      ? await getAppUserProfileById(session.user.id)
+      : null;
+
+    if (!profile?.isPremium) {
+      return NextResponse.json(
+        { error: "Premium access is required for PDF export." },
+        { status: 402 },
       );
     }
 

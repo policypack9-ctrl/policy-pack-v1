@@ -13,6 +13,7 @@ type LegalDocumentModalProps = {
   providerLabel: string;
   generatedAt: string;
   isLoading: boolean;
+  canExport: boolean;
   onClose: () => void;
   onExport: () => void;
 };
@@ -24,6 +25,7 @@ export function LegalDocumentModal({
   providerLabel,
   generatedAt,
   isLoading,
+  canExport,
   onClose,
   onExport,
 }: LegalDocumentModalProps) {
@@ -104,11 +106,11 @@ export function LegalDocumentModal({
                   type="button"
                   variant="ghost"
                   onClick={onExport}
-                  disabled={isLoading}
+                  disabled={isLoading || !canExport}
                   className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
                 >
                   <Download className="size-4" />
-                  Export PDF
+                  {canExport ? "Export PDF" : "Premium Export"}
                 </Button>
               </div>
             </div>

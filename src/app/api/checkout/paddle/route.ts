@@ -1,11 +1,23 @@
 import { NextResponse } from "next/server";
+import { Environment } from "@paddle/paddle-node-sdk";
 
+import { auth } from "@/auth";
+import { setUserPremium } from "@/lib/auth-data";
 import { getPaddleClient, getPaddleConfig } from "@/lib/paddle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { error: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
   try {
     const body = (await request.json()) as {
       email?: string;
@@ -28,16 +40,19 @@ export async function POST(request: Request) {
       }
     }
 
+    await setUserPremium(session.user.id, true);
+
     return NextResponse.json({
       ok: true,
       simulated: true,
       providerMode,
       priceId: config.priceId || "price_mock_policypack",
       environment: config.environment,
+      sandbox: config.environment === Environment.sandbox,
       previewTotal,
       checkoutLabel: `Unlock ${body.productName || "PolicyPack"}`,
       message:
-        "Paddle checkout foundation is connected. This response simulates the unlock flow until production prices are configured.",
+        "Paddle sandbox checkout completed. Premium export is now unlocked for this account.",
     });
   } catch (error) {
     return NextResponse.json(

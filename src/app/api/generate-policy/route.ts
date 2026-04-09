@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { auth } from "@/auth";
+import { saveGeneratedDocumentForUser } from "@/lib/auth-data";
 import {
   generatePolicyDocument,
   type PolicyDocumentType,
@@ -31,6 +33,15 @@ export async function POST(request: Request) {
       documentType: body.documentType,
       answers: normalizeAnswers(body.answers as object | undefined),
     });
+    const session = await auth();
+
+    if (session?.user?.id) {
+      await saveGeneratedDocumentForUser(
+        session.user.id,
+        body.documentType,
+        generated,
+      );
+    }
 
     return NextResponse.json(generated);
   } catch (error) {
