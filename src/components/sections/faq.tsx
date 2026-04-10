@@ -36,7 +36,7 @@ export function FaqSection() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section id="faq" className="scroll-mt-24 bg-[#0A0A0A] py-16 sm:py-20">
+    <section id="faq" className="scroll-mt-24 bg-black py-24 sm:py-28 lg:py-32">
       <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-12">
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
@@ -60,7 +60,7 @@ export function FaqSection() {
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-          className="soft-panel mx-auto mt-10 max-w-3xl rounded-[28px] p-3 sm:p-4"
+          className="soft-panel mx-auto mt-14 max-w-3xl rounded-[28px] p-3 sm:p-4"
         >
           <Accordion defaultValue={["item-0"]} multiple>
             {faqItems.map((item, index) => (

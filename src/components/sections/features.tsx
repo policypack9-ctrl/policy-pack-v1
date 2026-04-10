@@ -54,7 +54,7 @@ export function FeaturesSection() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section id="features" className="scroll-mt-24 bg-[#0A0A0A] py-16 sm:py-20">
+    <section id="features" className="scroll-mt-24 bg-black py-24 sm:py-28 lg:py-32">
       <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-12">
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
@@ -74,7 +74,7 @@ export function FeaturesSection() {
           </p>
         </motion.div>
 
-        <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4 xl:auto-rows-[minmax(190px,1fr)]">
+        <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-4 xl:auto-rows-[minmax(190px,1fr)] xl:gap-8">
           {features.map((feature, index) => (
             <GradientCard
               key={feature.title}

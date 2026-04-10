@@ -27,7 +27,7 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
     : "Claim Launch Access";
 
   return (
-    <section id="pricing" className="scroll-mt-24 bg-[#0A0A0A] py-16 sm:py-20">
+    <section id="pricing" className="scroll-mt-24 bg-zinc-950 py-24 sm:py-28 lg:py-32">
       <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-12">
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
@@ -54,7 +54,7 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-          className="soft-panel mx-auto mt-10 max-w-xl rounded-[28px] p-6 sm:p-8"
+          className="soft-panel mx-auto mt-14 max-w-xl rounded-[28px] p-6 sm:p-8"
         >
           <div className="flex items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-teal-100/76">

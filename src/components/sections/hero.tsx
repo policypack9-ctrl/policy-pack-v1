@@ -52,7 +52,7 @@ export function HeroSection({ launchSnapshot }: HeroSectionProps) {
     <AuroraBackground className="border-b border-white/10">
       <section
         id="hero"
-        className="mx-auto max-w-7xl scroll-mt-28 px-6 py-16 sm:px-10 sm:py-20 lg:px-12"
+        className="mx-auto max-w-7xl scroll-mt-28 px-6 py-24 sm:px-10 sm:py-28 lg:px-12 lg:py-32"
       >
         <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)] lg:gap-12">
           <motion.div

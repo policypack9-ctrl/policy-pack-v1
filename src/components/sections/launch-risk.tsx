@@ -213,7 +213,7 @@ export function LaunchRiskSection({
   return (
     <section
       id="launch-risk"
-      className="scroll-mt-24 border-b border-white/[0.08] bg-[#0A0A0A] py-16 sm:py-20"
+      className="scroll-mt-24 bg-zinc-950 py-24 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-12">
         <motion.div
@@ -235,7 +235,7 @@ export function LaunchRiskSection({
           </p>
         </motion.div>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {proofMetrics.map((metric, index) => (
             <motion.div
               key={metric.label}
@@ -258,8 +258,8 @@ export function LaunchRiskSection({
           ))}
         </div>
 
-        <div className="mt-10 grid gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-          <div className="grid gap-4">
+        <div className="mt-14 grid gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+          <div className="grid gap-6">
             {problemCards.map((card, index) => {
               const Icon = card.icon;
 
@@ -299,10 +299,10 @@ export function LaunchRiskSection({
           <BlockedDashboardMock />
         </div>
 
-        <div className="mt-10 grid gap-4 xl:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)]">
+        <div className="mt-14 grid gap-8 xl:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)]">
           <LaunchRiskCalculator />
 
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             <div className="soft-panel rounded-[28px] p-5 sm:p-6">
               <div className="flex items-start gap-4">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-teal-200">
@@ -402,7 +402,7 @@ export function LaunchRiskSection({
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="mt-14 flex flex-col gap-3 sm:flex-row sm:items-center">
           <AuthAwarePremiumButton
             authenticatedHref="/onboarding"
             callbackHref="/onboarding"
