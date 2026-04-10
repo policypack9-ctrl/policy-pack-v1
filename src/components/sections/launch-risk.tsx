@@ -206,9 +206,31 @@ export function LaunchRiskSection({
   launchSnapshot,
 }: LaunchRiskSectionProps) {
   const shouldReduceMotion = useReducedMotion();
+  const [platform, setPlatform] = React.useState<PlatformKey>("paddle");
+  const [market, setMarket] = React.useState<MarketKey>("global");
   const primaryCtaLabel = launchSnapshot.freeGenerationClosed
     ? "Unlock Approval-Ready Pack"
     : "Generate My Approval-Ready Pack";
+  const selectedPlatform = platformOptions[platform];
+  const selectedMarket = marketOptions[market];
+  const pages = Array.from(
+    new Set([...selectedPlatform.pages, ...selectedMarket.pages]),
+  );
+  const complexityBonus = Math.min(
+    10,
+    Math.max(0, pages.length - 3) * 2 +
+      (platform === "apple" || platform === "googlePlay" || platform === "paddle"
+        ? 2
+        : 0),
+  );
+  const riskScore = Math.min(
+    100,
+    selectedPlatform.baseScore + selectedMarket.modifier + complexityBonus,
+  );
+  const riskBand = getRiskBand(riskScore);
+  const actionPlan = getActionPlan(platform, market, pages);
+  const priorityPage = getPriorityPage(platform, market);
+  const likelyBlocker = getLikelyBlocker(platform, market);
 
   return (
     <section
@@ -300,7 +322,19 @@ export function LaunchRiskSection({
         </div>
 
         <div className="mt-10 grid items-start gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)]">
-          <LaunchRiskCalculator />
+          <LaunchRiskCalculator
+            platform={platform}
+            market={market}
+            selectedPlatform={selectedPlatform}
+            selectedMarket={selectedMarket}
+            pages={pages}
+            riskScore={riskScore}
+            riskBand={riskBand}
+            priorityPage={priorityPage}
+            likelyBlocker={likelyBlocker}
+            onPlatformChange={setPlatform}
+            onMarketChange={setMarket}
+          />
 
           <div className="space-y-4 sm:space-y-5">
             <div className="soft-panel rounded-[28px] p-5 sm:p-6">
@@ -401,6 +435,8 @@ export function LaunchRiskSection({
             </div>
           </div>
         </div>
+
+        <ActionPlanCard actionPlan={actionPlan} />
 
         <p className="mt-4 max-w-3xl text-xs leading-6 text-white/42">
           Based on published platform requirements and common review signals.
@@ -591,31 +627,32 @@ function BlockedDashboardMock() {
   );
 }
 
-function LaunchRiskCalculator() {
+function LaunchRiskCalculator({
+  platform,
+  market,
+  selectedPlatform,
+  selectedMarket,
+  pages,
+  riskScore,
+  riskBand,
+  priorityPage,
+  likelyBlocker,
+  onPlatformChange,
+  onMarketChange,
+}: {
+  platform: PlatformKey;
+  market: MarketKey;
+  selectedPlatform: (typeof platformOptions)[PlatformKey];
+  selectedMarket: (typeof marketOptions)[MarketKey];
+  pages: string[];
+  riskScore: number;
+  riskBand: ReturnType<typeof getRiskBand>;
+  priorityPage: string;
+  likelyBlocker: string;
+  onPlatformChange: (value: PlatformKey) => void;
+  onMarketChange: (value: MarketKey) => void;
+}) {
   const shouldReduceMotion = useReducedMotion();
-  const [platform, setPlatform] = React.useState<PlatformKey>("paddle");
-  const [market, setMarket] = React.useState<MarketKey>("global");
-
-  const selectedPlatform = platformOptions[platform];
-  const selectedMarket = marketOptions[market];
-  const pages = Array.from(
-    new Set([...selectedPlatform.pages, ...selectedMarket.pages]),
-  );
-  const complexityBonus = Math.min(
-    10,
-    Math.max(0, pages.length - 3) * 2 +
-      (platform === "apple" || platform === "googlePlay" || platform === "paddle"
-        ? 2
-        : 0),
-  );
-  const riskScore = Math.min(
-    100,
-    selectedPlatform.baseScore + selectedMarket.modifier + complexityBonus,
-  );
-  const riskBand = getRiskBand(riskScore);
-  const actionPlan = getActionPlan(platform, market, pages);
-  const priorityPage = getPriorityPage(platform, market);
-  const likelyBlocker = getLikelyBlocker(platform, market);
 
   return (
     <motion.div
@@ -657,7 +694,7 @@ function LaunchRiskCalculator() {
             title="Platform"
             items={platformOptions}
             value={platform}
-            onChange={setPlatform}
+            onChange={onPlatformChange}
           />
         </div>
         <div>
@@ -665,7 +702,7 @@ function LaunchRiskCalculator() {
             title="Target market"
             items={marketOptions}
             value={market}
-            onChange={setMarket}
+            onChange={onMarketChange}
           />
         </div>
       </div>
@@ -696,20 +733,20 @@ function LaunchRiskCalculator() {
               {selectedPlatform.summary} {selectedMarket.summary}
             </p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 space-y-2">
               <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-3.5 py-3">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/42">
                   Most likely blocker
                 </p>
-                <p className="mt-2 text-sm leading-6 text-white/76">
+                <p className="mt-1 text-sm leading-6 text-white/76">
                   {likelyBlocker}
                 </p>
               </div>
               <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-3.5 py-3">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/42">
                   Publish first
                 </p>
-                <p className="mt-2 text-sm leading-6 text-white/76">
+                <p className="mt-1 text-sm leading-6 text-white/76">
                   {priorityPage}
                 </p>
               </div>
@@ -737,25 +774,36 @@ function LaunchRiskCalculator() {
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-teal-300/16 bg-teal-300/[0.07] p-4">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-teal-200/76">
-            Action plan
-          </p>
-          <div className="mt-3 space-y-2.5">
-            {actionPlan.map((step, index) => (
-              <div
-                key={step}
-                className="flex items-start gap-3 rounded-[18px] border border-white/[0.08] bg-[#0D0D0D]/70 px-3.5 py-3"
-              >
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-white/66">
-                  {index + 1}
-                </span>
-                <p className="text-sm leading-6 text-white/76">{step}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      </div>
+    </motion.div>
+  );
+}
 
+function ActionPlanCard({ actionPlan }: { actionPlan: string[] }) {
+  const shouldReduceMotion = useReducedMotion();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      className="mt-6 rounded-[28px] border border-teal-300/16 bg-teal-300/[0.07] p-5 sm:p-6"
+    >
+      <p className="text-[11px] uppercase tracking-[0.24em] text-teal-200/76">
+        Action plan
+      </p>
+      <div className="mt-4 space-y-3">
+        {actionPlan.map((step, index) => (
+          <div
+            key={step}
+            className="flex items-start gap-3 rounded-[20px] border border-white/[0.08] bg-[#0D0D0D]/70 px-4 py-4"
+          >
+            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-white/66">
+              {index + 1}
+            </span>
+            <p className="text-base leading-8 text-white/82">{step}</p>
+          </div>
+        ))}
       </div>
     </motion.div>
   );
