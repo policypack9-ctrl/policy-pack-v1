@@ -24,11 +24,13 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { LegalDocumentModal } from "@/components/legal/legal-document-modal";
+import { PlanSelectionDialog } from "@/components/billing/plan-selection-dialog";
 import { Button } from "@/components/ui/button";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { PremiumButton } from "@/components/ui/premium-button";
 import {
   buildSavedPolicyAccount,
+  clearPolicyWorkspace,
   clearGeneratedDocuments,
   loadGeneratedDocuments,
   loadPolicyAccount,
@@ -38,6 +40,7 @@ import {
   saveStoredPolicySession,
   type SavedGeneratedDocument,
 } from "@/lib/db";
+import { type BillingPlanId } from "@/lib/billing-plans";
 import {
   buildComplianceSnapshot,
   demoOnboardingAnswers,
@@ -168,6 +171,7 @@ export function ComplianceDashboard({
   const [isCheckoutPending, setIsCheckoutPending] = useState(false);
   const [checkoutState, setCheckoutState] =
     useState<PaddleCheckoutState>("idle");
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -207,15 +211,15 @@ export function ComplianceDashboard({
         ? "Launch batch closed"
         : "Upgrade required for more drafts";
   const complimentarySummary = canGenerateComplimentaryDocument
-    ? "This verified launch account can still generate one complimentary legal document before secure checkout becomes mandatory."
+    ? "This verified launch account can still generate one complimentary legal document before billing becomes mandatory."
     : hasUnlockedComplimentaryDraft
-      ? "Your complimentary launch draft is already available in this workspace. Generate more documents by upgrading with secure checkout."
+      ? "Your complimentary launch draft is already available in this workspace. Generate more documents by choosing a package."
       : launchSnapshot.freeGenerationClosed
-        ? "The first 50 complimentary launch slots are gone. New workspaces now unlock generation through Paddle checkout."
-        : "This account has already used its complimentary launch draft. Premium checkout unlocks the rest of the document suite.";
+        ? "The first 50 complimentary launch slots are gone. New workspaces now choose a package before generation starts."
+        : "This account has already used its complimentary launch draft. Choose a package to unlock the rest of the document suite.";
   const workspaceActionLabel = canGenerateComplimentaryDocument
     ? "Generate Complimentary Draft"
-    : "Unlock Full Bundle";
+    : "Choose a Package";
   const WorkspaceActionIcon = canGenerateComplimentaryDocument
     ? Eye
     : LockKeyhole;
@@ -232,12 +236,12 @@ export function ComplianceDashboard({
         : "text-teal-100/80";
   const checkoutButtonLabel =
     checkoutState === "initializing"
-      ? "Preparing Checkout..."
+      ? "Preparing Billing..."
       : checkoutState === "opening"
-        ? "Opening Overlay..."
+        ? "Opening Billing..."
         : checkoutState === "verifying"
           ? "Finalizing Access..."
-          : "Upgrade to Download";
+          : "Choose a Package";
 
   async function persistToAccount(nextCompletedAt = new Date().toISOString()) {
     const nextSession: StoredPolicySession = {
@@ -319,7 +323,7 @@ export function ComplianceDashboard({
         if (response.status === 402) {
           setExportNotice(
             errorPayload?.error ??
-              "Premium checkout is required before generating another document.",
+              "Choose a package before generating another document.",
           );
           return null;
         }
@@ -369,7 +373,7 @@ export function ComplianceDashboard({
       !canGenerateComplimentaryDocument
     ) {
       setExportNotice(complimentarySummary);
-      await handleUpgradeToDownload(documentRecord.id);
+      await handleUpgradeToDownload(undefined, documentRecord.id);
       return;
     }
 
@@ -525,7 +529,7 @@ export function ComplianceDashboard({
 
       setCheckoutState("ready");
       setExportNotice(
-        "Checkout finished, but your payment is still processing. Refresh this page in a few seconds if downloads stay locked.",
+        "Billing finished, but your payment is still processing. Refresh this page in a few seconds if downloads stay locked.",
       );
     } finally {
       verificationInFlightRef.current = null;
@@ -543,7 +547,7 @@ export function ComplianceDashboard({
     }
 
     setCheckoutState("initializing");
-    setExportNotice("Preparing secure checkout...");
+    setExportNotice("Preparing billing...");
 
     paddleInitPromiseRef.current = (async () => {
       const response = await fetch("/api/checkout/paddle/client-token", {
@@ -562,7 +566,7 @@ export function ComplianceDashboard({
         setCheckoutState("error");
         setExportNotice(
           payload?.error ??
-            "Secure checkout is temporarily unavailable. Please try again in a moment.",
+            "Billing is temporarily unavailable. Please try again in a moment.",
         );
         return null;
       }
@@ -584,7 +588,7 @@ export function ComplianceDashboard({
 
       if (!paddle) {
         setCheckoutState("error");
-        setExportNotice("Secure checkout could not be opened on this browser.");
+        setExportNotice("Billing could not be opened on this browser.");
         return null;
       }
 
@@ -608,7 +612,7 @@ export function ComplianceDashboard({
     activeTransactionIdRef.current = transactionId;
     setCheckoutState("opening");
     setIsCheckoutPending(true);
-    setExportNotice("Opening secure checkout...");
+    setExportNotice("Opening billing...");
 
     paddle.Checkout.open({
       transactionId,
@@ -626,7 +630,7 @@ export function ComplianceDashboard({
     switch (event.name) {
       case CheckoutEventNames.CHECKOUT_LOADED:
         setCheckoutState("opening");
-        setExportNotice("Checkout is ready.");
+        setExportNotice("Billing is ready.");
         break;
       case CheckoutEventNames.CHECKOUT_PAYMENT_INITIATED:
         setCheckoutState("verifying");
@@ -645,7 +649,7 @@ export function ComplianceDashboard({
         if (!isPremium && checkoutState !== "success") {
           setCheckoutState("ready");
           setIsCheckoutPending(false);
-          setExportNotice("Checkout closed. You can reopen it any time.");
+          setExportNotice("Billing was closed. You can reopen it any time.");
         }
         break;
       case CheckoutEventNames.CHECKOUT_FAILED:
@@ -688,14 +692,24 @@ export function ComplianceDashboard({
   }, [initialPaddleTransactionId, isPremium, pathname, router]);
 
   async function handleUpgradeToDownload(
+    planId?: BillingPlanId,
     pendingDocumentId?: DashboardDocument["id"],
   ) {
     if (isCheckoutBusy) {
       return;
     }
 
+    if (!pendingDocumentId) {
+      pendingDocumentExportRef.current = null;
+    }
+
     if (pendingDocumentId) {
       pendingDocumentExportRef.current = pendingDocumentId;
+    }
+
+    if (!planId) {
+      setIsPlanDialogOpen(true);
+      return;
     }
 
     setIsCheckoutPending(true);
@@ -711,6 +725,7 @@ export function ComplianceDashboard({
         body: JSON.stringify({
           email: authenticatedEmail,
           productName,
+          planId,
         }),
       });
 
@@ -727,7 +742,7 @@ export function ComplianceDashboard({
         setExportNotice(
           errorPayload?.error ??
             errorPayload?.details ??
-            "Unable to start secure checkout.",
+            "Unable to start billing.",
         );
         return;
       }
@@ -739,7 +754,8 @@ export function ComplianceDashboard({
         premiumUnlocked?: boolean;
       };
 
-      setExportNotice(payload.message ?? "Checkout is ready.");
+      setExportNotice(payload.message ?? "Billing is ready.");
+      setIsPlanDialogOpen(false);
 
       if (payload.premiumUnlocked) {
         await finalizeUnlockedWorkspace();
@@ -761,7 +777,7 @@ export function ComplianceDashboard({
 
       setCheckoutState("error");
       setExportNotice(
-        "Your checkout was created, but it could not be opened on this device.",
+        "Your billing session was created, but it could not be opened on this device.",
       );
     } finally {
       if (!activeTransactionIdRef.current && !verificationInFlightRef.current) {
@@ -772,12 +788,17 @@ export function ComplianceDashboard({
 
   async function handleExportPdf(documentRecord: DashboardDocument) {
     if (!isPremium) {
-      setExportNotice("Downloads unlock right after checkout is complete.");
-      await handleUpgradeToDownload(documentRecord.id);
+      setExportNotice("Downloads unlock right after payment is complete.");
+      await handleUpgradeToDownload(undefined, documentRecord.id);
       return;
     }
 
     await exportPdfForDocument(documentRecord);
+  }
+
+  function startNewWorkspace() {
+    clearPolicyWorkspace();
+    router.push("/onboarding");
   }
 
   return (
@@ -895,6 +916,16 @@ export function ComplianceDashboard({
                       {isCheckoutBusy ? checkoutButtonLabel : workspaceActionLabel}
                     </PremiumButton>
                   ) : null}
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={startNewWorkspace}
+                    className="h-12 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
+                  >
+                    <ArrowLeft className="size-4" />
+                    New Generation
+                  </Button>
 
                   <Button
                     type="button"
@@ -1137,8 +1168,8 @@ export function ComplianceDashboard({
                   {isPremium
                     ? "All generated documents are ready to export as polished legal PDFs."
                     : canGenerateComplimentaryDocument
-                      ? "You can still open one complimentary draft. PDF downloads remain gated until premium checkout is complete."
-                      : "New document generation and PDF downloads now unlock through secure checkout."}
+                      ? "You can still open one complimentary draft. PDF downloads remain gated until payment is complete."
+                      : "New document generation and PDF downloads now unlock after you choose a package."}
                 </p>
                 {exportNotice ? (
                   <p className={`mt-4 text-sm ${checkoutNoticeClassName}`}>{exportNotice}</p>
@@ -1167,7 +1198,7 @@ export function ComplianceDashboard({
                     ? "View Draft"
                     : canGenerateComplimentaryDocument
                       ? "Use Free Draft"
-                      : "Unlock with Paddle";
+                      : "Choose a Package";
                 const overlayLabel = isPremium
                   ? null
                   : hasGeneratedDraft
@@ -1210,9 +1241,9 @@ export function ComplianceDashboard({
                               type="button"
                               variant="ghost"
                               onClick={() =>
-                                hasGeneratedDraft || canGenerateComplimentaryDocument || isPremium
-                                  ? void handleViewDocument(document)
-                                  : void handleUpgradeToDownload(document.id)
+                                  hasGeneratedDraft || canGenerateComplimentaryDocument || isPremium
+                                    ? void handleViewDocument(document)
+                                    : void handleUpgradeToDownload(undefined, document.id)
                               }
                               className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
                             >
@@ -1228,10 +1259,10 @@ export function ComplianceDashboard({
                             <Button
                               type="button"
                               variant="ghost"
-                              onClick={() =>
-                                isPremium
-                                  ? void handleExportPdf(document)
-                                  : void handleUpgradeToDownload(document.id)
+                                onClick={() =>
+                                  isPremium
+                                    ? void handleExportPdf(document)
+                                    : void handleUpgradeToDownload(undefined, document.id)
                               }
                               className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:text-white/34"
                             >
@@ -1240,7 +1271,7 @@ export function ComplianceDashboard({
                               ) : (
                                 <CreditCard className="size-4" />
                               )}
-                              {isPremium ? "Export PDF" : "Upgrade to Download"}
+                              {isPremium ? "Export PDF" : "Choose a Package"}
                             </Button>
                           </div>
                         </div>
@@ -1276,6 +1307,15 @@ export function ComplianceDashboard({
         canExport={isPremium}
         onClose={() => setIsDocumentModalOpen(false)}
         onExport={() => void handleExportPdf(activeDocument)}
+      />
+
+      <PlanSelectionDialog
+        isOpen={isPlanDialogOpen}
+        onClose={() => setIsPlanDialogOpen(false)}
+        onSelectPlan={(planId) => void handleUpgradeToDownload(planId, pendingDocumentExportRef.current ?? undefined)}
+        isSubmitting={isCheckoutBusy}
+        title="Choose the package you want for this workspace"
+        description="Select the one-time starter pack or the full workspace before continuing."
       />
     </>
   );

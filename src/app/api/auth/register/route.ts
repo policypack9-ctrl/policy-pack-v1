@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createCredentialsUser, getSupabaseAuthHealth } from "@/lib/auth-data";
 import { getSupabaseConfigStatus } from "@/lib/auth-env";
+import { sendAdminNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,6 +76,25 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+
+    void sendAdminNotification({
+      kind: "registration",
+      subject: "New PolicyPack registration",
+      summary:
+        "A new account has been created on PolicyPack and is ready for follow-up.",
+      details: [
+        { label: "Name", value: result.profile?.name ?? validated.name },
+        { label: "Email", value: result.profile?.email ?? validated.email },
+        {
+          label: "User ID",
+          value: result.profile?.userId ?? "Not returned",
+        },
+        {
+          label: "Created At",
+          value: new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }),
+        },
+      ],
+    }).catch(() => {});
 
     return NextResponse.json({
       ok: true,

@@ -39,7 +39,7 @@ export async function GET() {
     return NextResponse.json(
       {
         error:
-          "Paddle.js client token is unavailable. Set PADDLE_CLIENT_TOKEN or grant client_token.write to the Paddle sandbox API key.",
+          "Billing setup is unavailable right now. Please check the billing settings and try again.",
       },
       { status: 503 },
     );

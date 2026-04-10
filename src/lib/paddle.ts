@@ -4,6 +4,7 @@ import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import type { CreateTransactionRequestBody } from "@paddle/paddle-node-sdk";
 
 import { PRODUCTION_APP_URL } from "@/lib/site-config";
+import { type BillingPlanId } from "@/lib/billing-plans";
 
 export type PaddleApiKeyMode = "sandbox" | "live" | "unknown";
 type PaddleClientTokenSource = "env" | "api";
@@ -27,6 +28,14 @@ export function getPaddleConfig() {
       process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim() ??
       "",
     priceId: process.env.PADDLE_PRICE_ID?.trim() ?? "",
+    starterPriceId:
+      process.env.PADDLE_STARTER_PRICE_ID?.trim() ??
+      process.env.PADDLE_PRICE_ID?.trim() ??
+      "",
+    premiumPriceId:
+      process.env.PADDLE_PREMIUM_PRICE_ID?.trim() ??
+      process.env.PADDLE_PRICE_ID?.trim() ??
+      "",
     webhookSecret: process.env.PADDLE_WEBHOOK_SECRET?.trim() ?? "",
     environment:
       (process.env.PADDLE_ENVIRONMENT?.trim().toLowerCase() || publicEnvironment) ===
@@ -154,8 +163,40 @@ export async function getOrCreatePaddleClientToken() {
 
 export function buildPolicyPackCheckoutItems(
   productName: string,
+  planId: BillingPlanId,
   priceId?: string,
 ): CreateTransactionRequestBody["items"] {
+  const fallbackPrice =
+    planId === "starter"
+      ? {
+          description: `PolicyPack starter pages for ${productName}`,
+          name: "PolicyPack Starter Pages",
+          unitPrice: {
+            amount: "3900",
+            currencyCode: "USD" as const,
+          },
+          product: {
+            name: "PolicyPack Starter Pages",
+            taxCategory: "saas" as const,
+            description:
+              "A one-time three-page legal starter pack for PolicyPack workspaces.",
+          },
+        }
+      : {
+          description: `PolicyPack premium workspace for ${productName}`,
+          name: "PolicyPack Premium Workspace",
+          unitPrice: {
+            amount: "2900",
+            currencyCode: "USD" as const,
+          },
+          product: {
+            name: "PolicyPack Premium Workspace",
+            taxCategory: "saas" as const,
+            description:
+              "Full workspace access with exports, monitoring, and premium legal coverage.",
+          },
+        };
+
   if (priceId) {
     return [{ priceId, quantity: 1 }];
   }
@@ -163,20 +204,7 @@ export function buildPolicyPackCheckoutItems(
   return [
     {
       quantity: 1,
-      price: {
-        description: `PolicyPack premium export unlock for ${productName}`,
-        name: "PolicyPack Premium Export",
-        unitPrice: {
-          amount: "2900",
-          currencyCode: "USD",
-        },
-        product: {
-          name: "PolicyPack Premium Export",
-          taxCategory: "saas",
-          description:
-            "Premium legal document export access for PolicyPack workspaces.",
-        },
-      },
+      price: fallbackPrice,
     },
   ];
 }

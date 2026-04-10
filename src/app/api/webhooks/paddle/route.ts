@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAppUserProfileByEmail, setUserPremium } from "@/lib/auth-data";
+import { sendAdminNotification } from "@/lib/notifications";
 import {
   getPaddleClient,
   getPaddleConfig,
@@ -20,6 +21,8 @@ type PaddleTransactionWebhookData = {
     user_id?: string;
     email?: string;
     productName?: string;
+    planId?: string;
+    planName?: string;
   } | null;
 };
 
@@ -106,6 +109,35 @@ export async function POST(request: Request) {
 
     if (isPaid && userId) {
       await setUserPremium(userId, true);
+
+      void sendAdminNotification({
+        kind: "payment",
+        subject: "New PolicyPack payment confirmed",
+        summary:
+          "A customer payment was verified successfully and workspace access was unlocked.",
+        details: [
+          { label: "User ID", value: userId },
+          {
+            label: "Email",
+            value:
+              readWebhookEmail(transactionData) ||
+              verifiedTransaction.customer?.email ||
+              "Unknown",
+          },
+          {
+            label: "Package",
+            value:
+              transactionData.customData?.planName ??
+              transactionData.customData?.planId ??
+              "Not specified",
+          },
+          { label: "Transaction ID", value: transactionId },
+          {
+            label: "Status",
+            value: verifiedTransaction.status ?? "Unknown",
+          },
+        ],
+      }).catch(() => {});
     }
 
     return NextResponse.json({

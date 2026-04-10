@@ -3,6 +3,7 @@ import { Environment } from "@paddle/paddle-node-sdk";
 
 import { auth } from "@/auth";
 import { setUserPremium } from "@/lib/auth-data";
+import { getBillingPlan, type BillingPlanId } from "@/lib/billing-plans";
 import {
   buildPolicyPackCheckoutItems,
   getPaddleClient,
@@ -23,13 +24,13 @@ function formatCheckoutInitializationError(error: unknown) {
   if (/default payment link/i.test(message)) {
     return {
       error:
-        "Paddle sandbox is connected, but this account still needs a Default Payment Link in the Paddle dashboard before checkout can open.",
+        "Billing is connected, but this account still needs a default return link before the payment window can open.",
       details: message,
     };
   }
 
   return {
-    error: "Unable to initialize Paddle checkout.",
+    error: "Unable to initialize billing.",
     details: message,
   };
 }
@@ -49,11 +50,19 @@ export async function POST(request: Request) {
       email?: string;
       productName?: string;
       transactionId?: string;
+      planId?: BillingPlanId;
     };
     const config = getPaddleConfig();
     const paddle = getPaddleClient();
     const baseUrl = getAuthBaseUrl();
     const legalUrls = getPaddleLegalUrls(baseUrl);
+    const planId: BillingPlanId =
+      body.planId === "starter" || body.planId === "premium"
+        ? body.planId
+        : "premium";
+    const selectedPlan = getBillingPlan(planId);
+    const selectedPriceId =
+      planId === "starter" ? config.starterPriceId : config.premiumPriceId;
     let previewTotal: string | null = null;
     let providerMode:
       | "simulated"
@@ -63,7 +72,8 @@ export async function POST(request: Request) {
       "simulated";
     const checkoutItems = buildPolicyPackCheckoutItems(
       body.productName || "PolicyPack",
-      config.priceId || undefined,
+      planId,
+      selectedPriceId || undefined,
     );
 
     if (config.apiKey && hasPaddleEnvironmentMismatch()) {
@@ -97,7 +107,7 @@ export async function POST(request: Request) {
         sandbox: config.environment === Environment.sandbox,
         legalUrls,
         message: isVerified
-          ? "Paddle transaction verified. Premium export is now unlocked for this account."
+          ? "Payment verified. Export access is now unlocked for this account."
           : `Transaction ${verifiedTransaction.id} is ${verifiedTransaction.status} and not ready to unlock premium access yet.`,
       });
     }
@@ -122,6 +132,8 @@ export async function POST(request: Request) {
           userId: session.user.id,
           email: body.email ?? session.user.email ?? "",
           productName: body.productName || "PolicyPack",
+          planId,
+          planName: selectedPlan.name,
         },
       });
       providerMode = "paddle-checkout";
@@ -130,20 +142,22 @@ export async function POST(request: Request) {
         ok: true,
         simulated: false,
         providerMode,
-        priceId: config.priceId || "non-catalog",
+        priceId: selectedPriceId || "non-catalog",
+        planId,
+        planName: selectedPlan.name,
         transactionId: transaction.id,
         checkoutUrl: transaction.checkout?.url ?? null,
         environment: config.environment,
         sandbox: config.environment === Environment.sandbox,
         previewTotal,
-        checkoutLabel: `Unlock ${body.productName || "PolicyPack"}`,
+        checkoutLabel: `Unlock ${selectedPlan.name}`,
         legalUrls,
         verificationMode: "transaction-verified",
         premiumUnlocked: false,
         message:
           transaction.checkout?.url
-            ? "Sandbox checkout created. Redirecting to Paddle now."
-            : "Checkout transaction created, but Paddle did not return a checkout URL.",
+            ? "Billing is ready. Opening your selected package now."
+            : "Billing session was created, but the payment link was not returned.",
       });
     }
 
@@ -151,16 +165,18 @@ export async function POST(request: Request) {
       ok: true,
       simulated: true,
       providerMode,
-      priceId: config.priceId || "price_mock_policypack",
+      priceId: selectedPriceId || "price_mock_policypack",
+      planId,
+      planName: selectedPlan.name,
       environment: config.environment,
       sandbox: config.environment === Environment.sandbox,
       previewTotal,
-      checkoutLabel: `Unlock ${body.productName || "PolicyPack"}`,
+      checkoutLabel: `Unlock ${selectedPlan.name}`,
       legalUrls,
       verificationMode: paddle ? "transaction-verified" : "simulated",
       premiumUnlocked: false,
       message:
-        "Paddle sandbox checkout is still in simulation mode because a valid Paddle transaction could not be created.",
+        "Billing is currently running in simulation mode because a live checkout session could not be created.",
     });
   } catch (error) {
     const formatted = formatCheckoutInitializationError(error);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 
 import { PremiumButton } from "@/components/ui/premium-button";
+import { loadStoredPolicySession } from "@/lib/db";
 import {
   buildAuthRedirectHref,
   type AuthEntryRoute,
@@ -16,18 +17,26 @@ type AuthAwarePremiumButtonProps = Omit<
   authenticatedHref: string;
   unauthenticatedRoute?: AuthEntryRoute;
   callbackHref?: string;
+  preferSavedWorkspaceHref?: string;
 };
 
 export function AuthAwarePremiumButton({
   authenticatedHref,
   unauthenticatedRoute = "register",
   callbackHref,
+  preferSavedWorkspaceHref,
   children,
   ...props
 }: AuthAwarePremiumButtonProps) {
   const { data: session } = useSession();
+  const savedSession =
+    typeof window === "undefined" ? null : loadStoredPolicySession();
+  const resolvedAuthenticatedHref =
+    session?.user && savedSession && preferSavedWorkspaceHref
+      ? preferSavedWorkspaceHref
+      : authenticatedHref;
   const href = session?.user
-    ? authenticatedHref
+    ? resolvedAuthenticatedHref
     : buildAuthRedirectHref(
         unauthenticatedRoute,
         callbackHref ?? authenticatedHref,

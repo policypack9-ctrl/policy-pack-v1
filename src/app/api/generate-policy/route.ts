@@ -50,8 +50,8 @@ export async function POST(request: Request) {
 
     if (!profile?.isPremium && !launchSnapshot.canGenerateComplimentaryDocument) {
       const errorMessage = launchSnapshot.freeGenerationClosed
-        ? "The complimentary launch batch is full. Secure checkout is now required before document generation."
-        : "Your complimentary launch document has already been used. Upgrade with secure checkout to generate more documents.";
+        ? "The complimentary launch batch is full. Choose a package before document generation."
+        : "Your complimentary launch document has already been used. Choose a package to generate more documents.";
 
       return NextResponse.json(
         {

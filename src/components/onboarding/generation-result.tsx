@@ -16,7 +16,9 @@ import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { PremiumButton } from "@/components/ui/premium-button";
+import { PlanSelectionDialog } from "@/components/billing/plan-selection-dialog";
 import { loadStoredPolicySession } from "@/lib/db";
+import { type BillingPlanId } from "@/lib/billing-plans";
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 import {
   normalizeAnswers,
@@ -37,9 +39,10 @@ export function GenerationResult({
   const [storedSession, setStoredSession] = useState<StoredPolicySession | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [unlockLabel, setUnlockLabel] = useState<string>(
-    "Secure checkout is ready for this account.",
+    "Your package choices are ready for this account.",
   );
   const [isPremium, setIsPremium] = useState(false);
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
 
   useEffect(() => {
     setStoredSession(loadStoredPolicySession());
@@ -63,12 +66,12 @@ export function GenerationResult({
       ? "Complimentary launch access is closed."
       : "Your complimentary draft has already been used.";
   const unlockSummary = canClaimComplimentaryDocument
-    ? "This account is inside the launch cohort and can still generate one complimentary document before premium checkout becomes required."
+    ? "This account is inside the launch cohort and can still generate one complimentary document before billing becomes required."
     : initialLaunchSnapshot.freeGenerationClosed
-      ? "The first 50 complimentary launch accounts have been claimed. New workspaces now unlock generation through secure checkout."
-      : "Your account already used its complimentary launch document. Secure checkout unlocks the rest of the legal stack immediately.";
+      ? "The first 50 complimentary launch accounts have been claimed. New workspaces now choose a package before generation starts."
+      : "Your account already used its complimentary launch document. Choose a package to unlock the rest of the legal stack.";
 
-  async function handleUnlock() {
+  async function handleUnlock(planId?: BillingPlanId) {
     if (status === "loading") {
       return;
     }
@@ -83,6 +86,11 @@ export function GenerationResult({
       return;
     }
 
+    if (!planId) {
+      setIsPlanDialogOpen(true);
+      return;
+    }
+
     setIsUnlocking(true);
 
     try {
@@ -94,6 +102,7 @@ export function GenerationResult({
         body: JSON.stringify({
           email: session.user.email ?? null,
           productName,
+          planId,
         }),
       });
 
@@ -104,7 +113,7 @@ export function GenerationResult({
         setUnlockLabel(
           errorPayload?.error ??
             errorPayload?.details ??
-            "Unable to initialize secure checkout.",
+            "Unable to initialize billing.",
         );
         return;
       }
@@ -116,6 +125,7 @@ export function GenerationResult({
       };
 
       setUnlockLabel(payload.message ?? "Policy unlocked");
+      setIsPlanDialogOpen(false);
       if (payload.checkoutUrl) {
         window.location.assign(payload.checkoutUrl);
         return;
@@ -190,13 +200,13 @@ export function GenerationResult({
                 What unlocks
               </p>
               <div className="mt-4 space-y-3">
-                {[
-                  canClaimComplimentaryDocument
-                    ? "One complimentary launch document is still available on this account"
-                    : "Secure checkout is required before new document generation begins",
-                  "A personal dashboard with live document viewing and saved workspace history",
-                  "Polished PDF downloads unlock immediately after checkout",
-                ].map((item) => (
+                  {[
+                    canClaimComplimentaryDocument
+                      ? "One complimentary launch document is still available on this account"
+                      : "Choose a package before new document generation begins",
+                    "A personal dashboard with live document viewing and saved workspace history",
+                    "Polished PDF downloads unlock right after payment",
+                  ].map((item) => (
                   <div
                     key={item}
                     className="rounded-[20px] border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white/70"
@@ -242,8 +252,8 @@ export function GenerationResult({
                     )
                   }
                 >
-                  {isUnlocking
-                    ? "Opening checkout..."
+                    {isUnlocking
+                    ? "Opening billing..."
                     : !session?.user
                       ? initialLaunchSnapshot.freeGenerationClosed
                         ? "Create Account to Continue"
@@ -252,7 +262,7 @@ export function GenerationResult({
                         ? "Go to Dashboard"
                         : canClaimComplimentaryDocument
                           ? "Open My Complimentary Document"
-                          : "Pay to Unlock"}
+                          : "Choose a Package"}
                 </PremiumButton>
 
                 <Button
@@ -273,6 +283,15 @@ export function GenerationResult({
           </div>
         </motion.section>
       </div>
+
+      <PlanSelectionDialog
+        isOpen={isPlanDialogOpen}
+        onClose={() => setIsPlanDialogOpen(false)}
+        onSelectPlan={(planId) => void handleUnlock(planId)}
+        isSubmitting={isUnlocking}
+        title="Choose the package you want to unlock"
+        description="Pick the simpler one-time pack or the full workspace before continuing to billing."
+      />
     </main>
   );
 }

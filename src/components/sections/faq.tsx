@@ -13,7 +13,7 @@ const faqItems = [
   {
     question: "What documents do I get with PolicyPack?",
     answer:
-      "You get an AI-generated Privacy Policy and Terms of Service tailored to how your SaaS collects data, uses vendors, and serves customers.",
+      "You get expert-guided legal pages tailored to how your SaaS collects data, uses vendors, and serves customers, starting with the pages most likely to matter first.",
   },
   {
     question: "How do automatic updates work?",
@@ -21,9 +21,9 @@ const faqItems = [
       "PolicyPack monitors relevant privacy and disclosure changes, then prepares document refreshes so your legal pages do not drift out of date.",
   },
   {
-    question: "Is this meant to replace a lawyer entirely?",
+    question: "Do I still need a lawyer review?",
     answer:
-      "It replaces a large amount of routine drafting and monitoring work. For specialized or high-risk legal questions, you can still escalate to counsel.",
+      "Yes, the pages are generated using the recommendations of leading legal experts and current compliance patterns. If you want extra reassurance, you can still ask a lawyer to review the final text before publishing.",
   },
   {
     question: "Who is this best for?",
@@ -44,6 +44,21 @@ const faqItems = [
     question: "Does PolicyPack support app launches as well as websites?",
     answer:
       "Yes. The drafting logic is built for websites, SaaS products, and app launches where privacy disclosures, payment readiness, and platform review all matter.",
+  },
+  {
+    question: "Are the pages written in hard legal jargon?",
+    answer:
+      "No. PolicyPack aims for clear, founder-friendly language first, while still keeping the structure and disclosures strong enough for launch reviews and customer trust.",
+  },
+  {
+    question: "Can I ask for a fresh set later without redoing everything?",
+    answer:
+      "Yes. Your last setup stays saved to your workspace, so you can generate again from the same answers or start a brand-new setup whenever you want.",
+  },
+  {
+    question: "Can I start simple and upgrade later?",
+    answer:
+      "Yes. You can begin with a smaller one-time pack, then move to the full workspace whenever you need more pages, recurring alerts, or broader compliance coverage.",
   },
 ];
 

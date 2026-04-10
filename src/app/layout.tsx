@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { Navbar } from "@/components/layout/navbar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { AuthSessionProvider } from "@/components/providers/auth-session-provider";
 import { getPublicAppUrl, PRODUCTION_APP_URL } from "@/lib/site-config";
@@ -64,6 +65,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col overflow-x-hidden bg-background text-foreground">
         <AuthSessionProvider>
+          <Navbar />
           {children}
           <SiteFooter />
         </AuthSessionProvider>

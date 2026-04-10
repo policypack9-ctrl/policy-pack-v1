@@ -67,7 +67,7 @@ export function buildLaunchCampaignSnapshot({
   let bannerTone: LaunchBannerTone = "launch";
   let bannerText = `Free generation for the first ${FREE_GENERATION_USER_LIMIT} users`;
   let bannerDescription =
-    "Each eligible launch account can generate one complimentary legal document before secure checkout unlocks the full document suite.";
+    "Each eligible launch account can generate one complimentary legal document before package selection unlocks the full document suite.";
   let calloutLabel = "One complimentary document per verified account";
 
   if (showUrgencyBanner) {
@@ -77,16 +77,16 @@ export function buildLaunchCampaignSnapshot({
         ? `Due to high demand, only ${freeSpotsRemaining} free generation spot${freeSpotsRemaining === 1 ? "" : "s"} remaining. Act now.`
         : `Due to high demand, ${freeSpotsRemaining} complimentary launch spots remain.`;
     bannerDescription =
-      "Launch access is moving quickly. Verified accounts inside the first 50 registrations still receive one complimentary draft before premium checkout becomes mandatory.";
+      "Launch access is moving quickly. Verified accounts inside the first 50 registrations still receive one complimentary draft before package selection becomes mandatory.";
     calloutLabel = `${freeSpotsRemaining} complimentary launch spots left`;
   }
 
   if (freeGenerationClosed) {
     bannerTone = "closed";
     bannerText =
-      "The complimentary launch batch is now full. Secure checkout unlocks PolicyPack immediately.";
+      "The complimentary launch batch is now full. Choose a package to unlock PolicyPack immediately.";
     bannerDescription =
-      "All new accounts now enter the Paddle payment wall before any document generation begins. Existing launch users keep their single complimentary draft until it is used.";
+      "All new accounts now choose a package before any document generation begins. Existing launch users keep their single complimentary draft until it is used.";
     calloutLabel = "Launch batch closed";
   }
 

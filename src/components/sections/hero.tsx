@@ -89,8 +89,8 @@ export function HeroSection({ launchSnapshot }: HeroSectionProps) {
             </h1>
 
             <p className="text-balance mt-5 max-w-2xl text-base leading-7 text-white/68 sm:text-lg">
-              Skip the $3,000 lawyer. AI-generated Privacy Policy and Terms of
-              Service that update automatically when laws change.
+              Skip the $3,000 lawyer bill. Expert-guided Privacy Policy and Terms
+              of Service drafts that stay aligned when rules change.
             </p>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/54">
               {launchSnapshot.bannerDescription}
@@ -99,6 +99,7 @@ export function HeroSection({ launchSnapshot }: HeroSectionProps) {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <AuthAwarePremiumButton
                 authenticatedHref="/onboarding"
+                preferSavedWorkspaceHref="/dashboard"
                 callbackHref="/onboarding"
                 className="h-12 px-5 text-sm sm:text-base"
               >

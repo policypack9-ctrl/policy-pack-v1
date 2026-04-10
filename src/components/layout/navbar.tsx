@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import { Scale } from "lucide-react";
 
@@ -14,6 +15,8 @@ const navLinks = [
 
 export function Navbar() {
   const shouldReduceMotion = useReducedMotion();
+  const pathname = usePathname();
+  const isHomePage = pathname === "/";
 
   return (
     <motion.header
@@ -41,7 +44,7 @@ export function Navbar() {
           {navLinks.map((link) => (
             <Link
               key={link.label}
-              href={link.href}
+              href={isHomePage ? link.href : `/${link.href}`}
               className="text-sm font-medium text-white/60 transition-colors duration-300 hover:text-teal-200"
             >
               {link.label}

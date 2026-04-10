@@ -23,8 +23,10 @@ import { Button } from "@/components/ui/button";
 import { PremiumButton } from "@/components/ui/premium-button";
 import {
   buildSavedPolicyAccount,
+  clearPolicyWorkspace,
   clearGeneratedDocuments,
   clearUnlockState,
+  loadStoredPolicySession,
   savePolicyPackToAccount,
   saveStoredPolicySession,
 } from "@/lib/db";
@@ -141,20 +143,20 @@ const questions: Question[] = [
   {
     id: "aiTransparencyLevel",
     kind: "single",
-    title: "How should AI infrastructure be described?",
+    title: "How should specialist processing partners be described?",
     description:
-      "Choose whether legal documents name AI vendors directly or describe them in broader technical categories.",
+      "Choose whether your pages name specialist partners directly or describe them in broader professional categories.",
     icon: Sparkles,
     options: [
       {
         value: "Named Providers",
         label: "Detailed / Named",
-        hint: "Mention providers like OpenAI when relevant",
+        hint: "List key partners directly when relevant",
       },
       {
         value: "Professional/Generic",
         label: "Professional / Generic",
-        hint: "Use Secure Automated Data Processors instead",
+        hint: "Use broader professional categories instead",
       },
     ],
   },
@@ -211,7 +213,11 @@ const questions: Question[] = [
     icon: PlugZap,
     options: [
       { value: "Stripe", label: "Stripe", hint: "Payments" },
-      { value: "OpenAI", label: "OpenAI", hint: "AI features" },
+      {
+        value: "Advanced automation providers",
+        label: "Advanced automation partners",
+        hint: "Specialist generation or processing",
+      },
       { value: "Google Analytics", label: "Google Analytics", hint: "Traffic analytics" },
       { value: "AWS or Vercel", label: "AWS or Vercel", hint: "Hosting" },
       { value: "Resend or SendGrid", label: "Resend or SendGrid", hint: "Transactional email" },
@@ -287,7 +293,13 @@ const optionItemVariants = {
 export function OnboardingWizard() {
   const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
-  const [answers, setAnswers] = useState<OnboardingAnswers>(emptyOnboardingAnswers);
+  const [answers, setAnswers] = useState<OnboardingAnswers>(() => {
+    if (typeof window === "undefined") {
+      return emptyOnboardingAnswers;
+    }
+
+    return loadStoredPolicySession()?.answers ?? emptyOnboardingAnswers;
+  });
   const [stepIndex, setStepIndex] = useState(0);
   const [showValidation, setShowValidation] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -414,6 +426,16 @@ export function OnboardingWizard() {
     setShowValidation(false);
   }
 
+  function startFreshGeneration() {
+    clearPolicyWorkspace();
+    setAnswers(emptyOnboardingAnswers);
+    setStepIndex(0);
+    setShowValidation(false);
+    setIsGenerating(false);
+    setGenerationStep(0);
+    setIsTransitioningOut(false);
+  }
+
   function goNext() {
     if (!canContinue) {
       setShowValidation(true);
@@ -461,8 +483,8 @@ export function OnboardingWizard() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="soft-panel rounded-[30px] p-5 sm:p-7">
             <div className="flex flex-col gap-4 border-b border-white/[0.08] pb-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
                   <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/72">
                     Policy Setup
                   </p>
@@ -470,10 +492,24 @@ export function OnboardingWizard() {
                     {`Answer ${questions.length} quick questions to generate your first policy pack.`}
                   </h1>
                 </div>
-                <div className="rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-sm text-white/58">
-                  {`Step ${stepIndex + 1} of ${questions.length}`}
+                  <div className="rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-sm text-white/58">
+                    {`Step ${stepIndex + 1} of ${questions.length}`}
+                  </div>
                 </div>
-              </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-white/44">
+                    Your latest setup stays saved to this workspace until you start a fresh one.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={startFreshGeneration}
+                    className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
+                  >
+                    Start New Setup
+                  </Button>
+                </div>
 
               <div>
                 <div className="mb-2 flex items-center justify-between text-sm text-white/50">
@@ -555,7 +591,7 @@ export function OnboardingWizard() {
                 {[
                   "Privacy Policy tailored to your product and stack",
                   "Terms of Service aligned to accounts and billing",
-                  "Automated monitoring for global privacy and AI changes",
+                  "Automated monitoring for global privacy and platform changes",
                 ].map((item) => (
                   <div
                     key={item}

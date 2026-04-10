@@ -23,7 +23,7 @@ export default function LegalDisclaimerPage() {
     <LegalPageShell
       eyebrow="PolicyPack Legal"
       title="Legal Disclaimer"
-      description="A clear notice describing the professional boundary between AI-generated documents and licensed legal advice."
+      description="A clear notice describing the professional boundary between expert-guided document generation and licensed legal advice."
       markdown={getLegalDisclaimerMarkdown()}
       lastUpdated={SITE_LEGAL_LAST_UPDATED}
     />

@@ -23,7 +23,7 @@ export default function AboutUsPage() {
     <LegalPageShell
       eyebrow="PolicyPack Company"
       title="About Us"
-      description="The company story behind PolicyPack and our focus on AI-powered legal automation."
+      description="The company story behind PolicyPack and our focus on expert-guided legal automation."
       markdown={getAboutUsMarkdown()}
       lastUpdated={SITE_LEGAL_LAST_UPDATED}
     />

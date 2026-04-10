@@ -13,7 +13,7 @@ import { GradientCard } from "@/components/ui/gradient-card";
 
 const features = [
   {
-    eyebrow: "AI-Powered Generation",
+    eyebrow: "Expert-Guided Generation",
     title: "Generate a complete policy pack from your product inputs.",
     description:
       "Turn your stack, data flows, and product behavior into publish-ready legal documents in minutes.",
