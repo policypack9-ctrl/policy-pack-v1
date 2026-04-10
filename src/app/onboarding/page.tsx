@@ -1,5 +1,15 @@
-import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { redirect } from "next/navigation";
 
-export default function OnboardingPage() {
+import { auth } from "@/auth";
+import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { buildAuthRedirectHref } from "@/lib/auth-routing";
+
+export default async function OnboardingPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect(buildAuthRedirectHref("register", "/onboarding"));
+  }
+
   return <OnboardingWizard />;
 }

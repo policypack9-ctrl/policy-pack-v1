@@ -20,8 +20,8 @@ import {
   WalletCards,
 } from "lucide-react";
 
+import { AuthAwarePremiumButton } from "@/components/auth/auth-aware-premium-button";
 import { Button } from "@/components/ui/button";
-import { PremiumButton } from "@/components/ui/premium-button";
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 import { cn } from "@/lib/utils";
 
@@ -403,13 +403,13 @@ export function LaunchRiskSection({
         </div>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <PremiumButton
-            render={<Link href="/onboarding" />}
-            nativeButton={false}
+          <AuthAwarePremiumButton
+            authenticatedHref="/onboarding"
+            callbackHref="/onboarding"
             className="h-12 px-5 text-sm sm:text-base"
           >
             {primaryCtaLabel}
-          </PremiumButton>
+          </AuthAwarePremiumButton>
 
           <Button
             render={<Link href="#features" />}

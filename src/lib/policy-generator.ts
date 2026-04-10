@@ -48,7 +48,8 @@ type GeneratePolicyInput = {
 
 const POLICY_PROMPT_VERSION = "policypack-openrouter-two-stage-v2";
 const OPENROUTER_MODEL_COMPATIBILITY_FALLBACKS: Record<string, string[]> = {
-  "anthropic/claude-3.5-sonnet": ["anthropic/claude-sonnet-4.5"],
+  "anthropic/claude-3.5-sonnet": ["anthropic/claude-3.7-sonnet"],
+  "anthropic/claude-3.5-sonnet-20241022": ["anthropic/claude-3.7-sonnet"],
 };
 
 export async function generatePolicyDocument({

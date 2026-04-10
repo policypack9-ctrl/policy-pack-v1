@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import * as React from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   BadgeCheck,
+  CalendarClock,
   CirclePlay,
+  CircleX,
   Clock3,
   LockKeyhole,
   ShieldCheck,
@@ -13,9 +15,9 @@ import {
 } from "lucide-react";
 
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
+import { AuthAwarePremiumButton } from "@/components/auth/auth-aware-premium-button";
 import { AuroraBackground } from "@/components/ui/aurora-background";
 import { Button } from "@/components/ui/button";
-import { PremiumButton } from "@/components/ui/premium-button";
 
 const proofPoints = [
   "Privacy Policy + Terms",
@@ -29,12 +31,13 @@ type HeroSectionProps = {
 
 export function HeroSection({ launchSnapshot }: HeroSectionProps) {
   const shouldReduceMotion = useReducedMotion();
+  const [isDemoOpen, setIsDemoOpen] = React.useState(false);
   const bannerToneClassName =
     launchSnapshot.bannerTone === "closed"
-      ? "border-amber-200/16 bg-amber-200/10 text-amber-50"
+      ? "border-amber-200/18 bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(251,191,36,0.08))] text-amber-50"
       : launchSnapshot.bannerTone === "urgency"
-        ? "border-amber-200/16 bg-amber-200/10 text-amber-50"
-        : "border-white/10 bg-white/[0.04] text-teal-100/78";
+        ? "border-amber-200/18 bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(245,158,11,0.08))] text-amber-50"
+        : "border-teal-300/18 bg-[linear-gradient(135deg,rgba(45,212,191,0.18),rgba(45,212,191,0.07),rgba(255,255,255,0.04))] text-teal-100";
   const BannerIcon =
     launchSnapshot.bannerTone === "launch"
       ? Sparkles
@@ -58,12 +61,25 @@ export function HeroSection({ launchSnapshot }: HeroSectionProps) {
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
             <div
-              className={`inline-flex max-w-full items-center gap-2 rounded-full px-3.5 py-2 text-[11px] font-medium uppercase tracking-[0.24em] ${bannerToneClassName}`}
+              className={`inline-flex max-w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left shadow-[0_18px_48px_-28px_rgba(0,0,0,0.88)] ${bannerToneClassName}`}
             >
-              <BannerIcon
-                className={`size-4 ${launchSnapshot.bannerTone === "launch" ? "text-teal-200" : "text-amber-100"}`}
-              />
-              <span className="truncate">{launchSnapshot.bannerText}</span>
+              <span
+                className={`flex size-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 ${
+                  launchSnapshot.bannerTone === "launch"
+                    ? "bg-teal-300/10 text-teal-100"
+                    : "bg-amber-300/10 text-amber-100"
+                }`}
+              >
+                <BannerIcon className="size-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[10px] uppercase tracking-[0.28em] text-white/56">
+                  Limited launch offer
+                </span>
+                <span className="mt-1 block text-sm font-medium tracking-[0.02em] text-current sm:text-[15px]">
+                  {launchSnapshot.bannerText}
+                </span>
+              </span>
             </div>
 
             <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-[0.98] tracking-[-0.06em] text-white sm:text-5xl lg:text-6xl">
@@ -81,19 +97,19 @@ export function HeroSection({ launchSnapshot }: HeroSectionProps) {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <PremiumButton
-                render={<Link href="/onboarding" />}
-                nativeButton={false}
+              <AuthAwarePremiumButton
+                authenticatedHref="/onboarding"
+                callbackHref="/onboarding"
                 className="h-12 px-5 text-sm sm:text-base"
               >
                 {primaryCtaLabel}
-              </PremiumButton>
+              </AuthAwarePremiumButton>
 
               <Button
-                render={<Link href="#faq" />}
-                nativeButton={false}
+                type="button"
                 variant="ghost"
                 size="lg"
+                onClick={() => setIsDemoOpen(true)}
                 className="h-12 rounded-[18px] border border-white/10 bg-white/[0.02] px-5 text-sm font-medium text-white/78 hover:bg-white/[0.06] hover:text-white"
               >
                 <CirclePlay className="size-4" />
@@ -135,6 +151,11 @@ export function HeroSection({ launchSnapshot }: HeroSectionProps) {
           <DocumentPreview />
         </div>
       </section>
+
+      <WatchDemoDialog
+        isOpen={isDemoOpen}
+        onClose={() => setIsDemoOpen(false)}
+      />
     </AuroraBackground>
   );
 }
@@ -222,5 +243,125 @@ function DocumentPreview() {
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function WatchDemoDialog({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const shouldReduceMotion = useReducedMotion();
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isOpen, onClose]);
+
+  return (
+    <AnimatePresence>
+      {isOpen ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/72 px-6 backdrop-blur-md"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16, scale: shouldReduceMotion ? 1 : 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : 12, scale: shouldReduceMotion ? 1 : 0.98 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            onClick={(event) => event.stopPropagation()}
+            className="soft-panel w-full max-w-3xl rounded-[32px] p-5 sm:p-6"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="max-w-xl">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-teal-200/72">
+                  Demo Preview
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
+                  Product walkthrough coming soon
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-white/62">
+                  We are preparing a short guided demo that shows the onboarding
+                  flow, approval-ready document generation, and the compliance
+                  dashboard in one pass.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex size-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-white/62 transition-colors hover:bg-white/[0.06] hover:text-white"
+                aria-label="Close demo dialog"
+              >
+                <CircleX className="size-4" />
+              </button>
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#111111]">
+              <div className="aspect-video bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-5 sm:p-7">
+                <div className="flex h-full flex-col justify-between rounded-[24px] border border-white/[0.08] bg-black/20 p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">
+                        Video Placeholder
+                      </p>
+                      <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-white">
+                        90-second guided walkthrough
+                      </p>
+                    </div>
+                    <span className="inline-flex size-12 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-teal-200">
+                      <CirclePlay className="size-5" />
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {[
+                      "See the onboarding flow",
+                      "Watch the policy engine work",
+                      "Preview the compliance dashboard",
+                    ].map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-[18px] border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white/72"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-2 text-xs text-white/58">
+                <CalendarClock className="size-4 text-teal-200" />
+                Video coming soon
+              </div>
+              <p className="text-sm text-white/48">
+                Until the video is live, the best next step is to create an
+                account and run the product yourself.
+              </p>
+            </div>
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }

@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { BadgeCheck, ShieldCheck, Sparkles } from "lucide-react";
 
-import { PremiumButton } from "@/components/ui/premium-button";
+import { AuthAwarePremiumButton } from "@/components/auth/auth-aware-premium-button";
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 
 const planFeatures = [
@@ -94,13 +93,13 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
           </div>
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:items-start">
-            <PremiumButton
-              render={<Link href="/onboarding" />}
-              nativeButton={false}
+            <AuthAwarePremiumButton
+              authenticatedHref="/onboarding"
+              callbackHref="/onboarding"
               className="h-12 px-5 text-sm sm:text-base"
             >
               {pricingCtaLabel}
-            </PremiumButton>
+            </AuthAwarePremiumButton>
             <p className="text-sm text-white/48">
               {launchSnapshot.freeGenerationClosed
                 ? "No setup fee. No annual contract required."

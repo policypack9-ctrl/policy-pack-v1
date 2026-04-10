@@ -13,11 +13,12 @@ const outputPath = path.join(
   "site-page-content.generated.json",
 );
 const INTERNAL_OPENROUTER_MODELS = {
-  research: "anthropic/claude-3.5-sonnet",
-  drafting: "anthropic/claude-3.5-sonnet",
+  research: "anthropic/claude-3.7-sonnet",
+  drafting: "anthropic/claude-3.7-sonnet",
 };
 const OPENROUTER_MODEL_COMPATIBILITY_FALLBACKS = {
-  "anthropic/claude-3.5-sonnet": ["anthropic/claude-sonnet-4.5"],
+  "anthropic/claude-3.5-sonnet": ["anthropic/claude-3.7-sonnet"],
+  "anthropic/claude-3.5-sonnet-20241022": ["anthropic/claude-3.7-sonnet"],
 };
 
 const SITE_PROFILE = {

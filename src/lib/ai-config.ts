@@ -9,12 +9,12 @@ export const OPENROUTER_MODEL_PROFILES = {
     drafting: "deepseek/deepseek-chat",
   },
   premium: {
-    research: "anthropic/claude-3.5-sonnet",
-    drafting: "anthropic/claude-3.5-sonnet",
+    research: "anthropic/claude-3.7-sonnet",
+    drafting: "anthropic/claude-3.7-sonnet",
   },
   internal: {
-    research: "anthropic/claude-3.5-sonnet",
-    drafting: "anthropic/claude-3.5-sonnet",
+    research: "anthropic/claude-3.7-sonnet",
+    drafting: "anthropic/claude-3.7-sonnet",
   },
 } as const;
 
