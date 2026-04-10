@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       getAppUserProfileById(session.user.id),
       getLaunchCampaignSnapshot(session.user.id),
     ]);
+    const generationTier = profile?.isPremium ? "premium" : "free";
 
     if (!profile?.isPremium && !launchSnapshot.canGenerateComplimentaryDocument) {
       const errorMessage = launchSnapshot.freeGenerationClosed
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
     const generated = await generatePolicyDocument({
       documentType: body.documentType,
       answers: normalizeAnswers(body.answers as object | undefined),
+      generationTier,
     });
 
     await saveGeneratedDocumentForUser(

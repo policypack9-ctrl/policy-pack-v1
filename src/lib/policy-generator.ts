@@ -3,6 +3,7 @@ import "server-only";
 import {
   getOpenRouterConfig,
   type AIProvider,
+  type OpenRouterGenerationTier,
 } from "@/lib/ai-config";
 import {
   COMPANY_BRAND_NAME,
@@ -29,6 +30,7 @@ export type GeneratedPolicyDocument = {
   markdown: string;
   provider: AIProvider;
   model: string;
+  generationTier: OpenRouterGenerationTier;
   usedFallback: boolean;
   title: string;
   generatedAt: string;
@@ -41,16 +43,21 @@ export type GeneratedPolicyDocument = {
 type GeneratePolicyInput = {
   answers: OnboardingAnswers;
   documentType: PolicyDocumentType;
+  generationTier?: OpenRouterGenerationTier;
 };
 
 const POLICY_PROMPT_VERSION = "policypack-openrouter-two-stage-v2";
+const OPENROUTER_MODEL_COMPATIBILITY_FALLBACKS: Record<string, string[]> = {
+  "anthropic/claude-3.5-sonnet": ["anthropic/claude-sonnet-4.5"],
+};
 
 export async function generatePolicyDocument({
   answers,
   documentType,
+  generationTier = "free",
 }: GeneratePolicyInput): Promise<GeneratedPolicyDocument> {
   const normalizedAnswers = normalizeAnswers(answers);
-  const config = getOpenRouterConfig();
+  const config = getOpenRouterConfig(generationTier);
   const title = getDocumentTitle(documentType, normalizedAnswers);
   const generatedAt = new Date().toISOString();
 
@@ -59,6 +66,7 @@ export async function generatePolicyDocument({
       markdown: buildFallbackPolicyMarkdown(documentType, normalizedAnswers),
       provider: "mock",
       model: "template-fallback",
+      generationTier,
       usedFallback: true,
       title,
       generatedAt,
@@ -70,7 +78,7 @@ export async function generatePolicyDocument({
   }
 
   try {
-    const researchSummary = await runResearchStage({
+    const researchStage = await runResearchStage({
       answers: normalizedAnswers,
       documentType,
       apiKey: config.apiKey,
@@ -79,10 +87,10 @@ export async function generatePolicyDocument({
       siteUrl: config.siteUrl,
       model: config.researchModel,
     });
-    const markdown = await runDraftingStage({
+    const draftingStage = await runDraftingStage({
       answers: normalizedAnswers,
       documentType,
-      researchSummary,
+      researchSummary: researchStage.content,
       apiKey: config.apiKey,
       baseUrl: config.baseUrl,
       siteName: config.siteName,
@@ -91,15 +99,16 @@ export async function generatePolicyDocument({
     });
 
     return {
-      markdown: normalizeMarkdown(markdown, title),
+      markdown: normalizeMarkdown(draftingStage.content, title),
       provider: "openrouter",
-      model: config.draftingModel,
+      model: draftingStage.model,
+      generationTier,
       usedFallback: false,
       title,
       generatedAt,
       research: {
-        model: config.researchModel,
-        summary: researchSummary,
+        model: researchStage.model,
+        summary: researchStage.content,
       },
     };
   } catch {
@@ -107,6 +116,7 @@ export async function generatePolicyDocument({
       markdown: buildFallbackPolicyMarkdown(documentType, normalizedAnswers),
       provider: "mock",
       model: "template-fallback",
+      generationTier,
       usedFallback: true,
       title,
       generatedAt,
@@ -369,35 +379,56 @@ async function callOpenRouterChat(input: {
   temperature: number;
   plugins?: Array<Record<string, unknown>>;
 }) {
-  const response = await fetch(`${input.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": input.siteUrl,
-      "X-Title": input.siteName,
-    },
-    body: JSON.stringify({
-      model: input.model,
-      temperature: input.temperature,
-      max_tokens: input.maxTokens,
-      plugins: input.plugins,
-      messages: [
-        { role: "system", content: input.systemPrompt },
-        { role: "user", content: input.userPrompt },
-      ],
-    }),
-  });
+  const modelsToTry = [
+    input.model,
+    ...getCompatibleFallbackModels(input.model),
+  ];
+  let lastError: string | null = null;
 
-  if (!response.ok) {
-    throw new Error(await safeErrorText(response));
+  for (const model of modelsToTry) {
+    const response = await fetch(`${input.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": input.siteUrl,
+        "X-Title": input.siteName,
+      },
+      body: JSON.stringify({
+        model,
+        temperature: input.temperature,
+        max_tokens: input.maxTokens,
+        plugins: input.plugins,
+        messages: [
+          { role: "system", content: input.systemPrompt },
+          { role: "user", content: input.userPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      lastError = await safeErrorText(response);
+      if (
+        model !== input.model ||
+        !shouldRetryWithCompatibleModel(input.model, lastError)
+      ) {
+        break;
+      }
+
+      continue;
+    }
+
+    const json = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+
+    return {
+      content: json.choices?.[0]?.message?.content ?? "",
+      model,
+    };
   }
 
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  return json.choices?.[0]?.message?.content ?? "";
+  throw new Error(lastError ?? "OpenRouter request failed.");
 }
 
 async function safeErrorText(response: Response) {
@@ -406,6 +437,17 @@ async function safeErrorText(response: Response) {
   } catch {
     return `${response.status} ${response.statusText}`;
   }
+}
+
+function getCompatibleFallbackModels(model: string) {
+  return OPENROUTER_MODEL_COMPATIBILITY_FALLBACKS[model] ?? [];
+}
+
+function shouldRetryWithCompatibleModel(model: string, errorText: string) {
+  return (
+    getCompatibleFallbackModels(model).length > 0 &&
+    errorText.toLocaleLowerCase("en-US").includes("no endpoints found")
+  );
 }
 
 function normalizeMarkdown(markdown: string, title: string) {

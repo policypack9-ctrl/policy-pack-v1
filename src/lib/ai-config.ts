@@ -1,15 +1,21 @@
 import { getPublicAppUrl } from "@/lib/site-config";
 
 export type AIProvider = "openrouter" | "mock";
+export type OpenRouterGenerationTier = "free" | "premium" | "internal";
 
-export const OPENROUTER_PIPELINE_MODELS = {
-  research: "google/gemini-flash-1.5",
-  drafting: "deepseek/deepseek-chat",
-} as const;
-
-export const ACTIVE_OPENROUTER_PIPELINE = {
-  researchModel: OPENROUTER_PIPELINE_MODELS.research,
-  draftingModel: OPENROUTER_PIPELINE_MODELS.drafting,
+export const OPENROUTER_MODEL_PROFILES = {
+  free: {
+    research: "google/gemini-flash-1.5",
+    drafting: "deepseek/deepseek-chat",
+  },
+  premium: {
+    research: "anthropic/claude-3.5-sonnet",
+    drafting: "anthropic/claude-3.5-sonnet",
+  },
+  internal: {
+    research: "anthropic/claude-3.5-sonnet",
+    drafting: "anthropic/claude-3.5-sonnet",
+  },
 } as const;
 
 export type OpenRouterConfig = {
@@ -18,23 +24,40 @@ export type OpenRouterConfig = {
   baseUrl: string | null;
   siteUrl: string;
   siteName: string;
+  generationTier: OpenRouterGenerationTier;
   researchModel: string;
   draftingModel: string;
 };
 
-export function getOpenRouterConfig(): OpenRouterConfig {
+function getModelOverride(
+  tier: OpenRouterGenerationTier,
+  kind: "research" | "drafting",
+) {
+  const profilePrefix = tier.toUpperCase();
+  const kindSuffix = kind === "research" ? "RESEARCH_MODEL" : "DRAFT_MODEL";
+  const scopedKey = `OPENROUTER_${profilePrefix}_${kindSuffix}`;
+  const legacyKey =
+    kind === "research" ? "OPENROUTER_RESEARCH_MODEL" : "OPENROUTER_DRAFT_MODEL";
+
+  return process.env[scopedKey] ?? process.env[legacyKey] ?? null;
+}
+
+export function getOpenRouterConfig(
+  generationTier: OpenRouterGenerationTier = "free",
+): OpenRouterConfig {
+  const modelProfile = OPENROUTER_MODEL_PROFILES[generationTier];
+
   return {
     provider: process.env.OPENROUTER_API_KEY ? "openrouter" : "mock",
     apiKey: process.env.OPENROUTER_API_KEY ?? null,
     baseUrl: process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
     siteUrl: getPublicAppUrl(),
     siteName: process.env.NEXT_PUBLIC_APP_NAME ?? "PolicyPack",
+    generationTier,
     researchModel:
-      process.env.OPENROUTER_RESEARCH_MODEL ??
-      ACTIVE_OPENROUTER_PIPELINE.researchModel,
+      getModelOverride(generationTier, "research") ?? modelProfile.research,
     draftingModel:
-      process.env.OPENROUTER_DRAFT_MODEL ??
-      ACTIVE_OPENROUTER_PIPELINE.draftingModel,
+      getModelOverride(generationTier, "drafting") ?? modelProfile.drafting,
   };
 }
 

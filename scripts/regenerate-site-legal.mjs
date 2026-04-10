@@ -12,6 +12,13 @@ const outputPath = path.join(
   "lib",
   "site-page-content.generated.json",
 );
+const INTERNAL_OPENROUTER_MODELS = {
+  research: "anthropic/claude-3.5-sonnet",
+  drafting: "anthropic/claude-3.5-sonnet",
+};
+const OPENROUTER_MODEL_COMPATIBILITY_FALLBACKS = {
+  "anthropic/claude-3.5-sonnet": ["anthropic/claude-sonnet-4.5"],
+};
 
 const SITE_PROFILE = {
   brandName: "PolicyPack",
@@ -152,9 +159,15 @@ async function main() {
   const baseUrl =
     process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
   const researchModel =
-    process.env.OPENROUTER_RESEARCH_MODEL ?? "google/gemini-flash-1.5";
+    process.env.OPENROUTER_INTERNAL_RESEARCH_MODEL ??
+    process.env.OPENROUTER_PREMIUM_RESEARCH_MODEL ??
+    process.env.OPENROUTER_RESEARCH_MODEL ??
+    INTERNAL_OPENROUTER_MODELS.research;
   const draftingModel =
-    process.env.OPENROUTER_DRAFT_MODEL ?? "deepseek/deepseek-chat";
+    process.env.OPENROUTER_INTERNAL_DRAFT_MODEL ??
+    process.env.OPENROUTER_PREMIUM_DRAFT_MODEL ??
+    process.env.OPENROUTER_DRAFT_MODEL ??
+    INTERNAL_OPENROUTER_MODELS.drafting;
 
   const lastUpdated = formatLongDate(new Date());
   let researchSummary = "";
@@ -235,9 +248,10 @@ async function generateResearchSummary({ apiKey, baseUrl, model }) {
   const systemPrompt = [
     "You are PolicyPack's internal legal research engine for its own public pages.",
     "Search the web for the most relevant 2025 and 2026 public requirements, enforcement signals, and platform review expectations for a Singapore-based AI-powered legal automation SaaS operating globally.",
-    "Focus on Privacy Policy, Terms of Service, Cookie Policy, Refund Policy, Legal Disclaimer, and Contact page expectations.",
-    "Prioritize Apple App Store, Google Play, Paddle, PayPal/Braintree, Stripe, GDPR, CCPA, and cookie disclosure expectations where relevant to a public SaaS website.",
-    "Return concise Markdown with headings ## Key requirements, ## Review and approval signals, and ## Risks to avoid.",
+    "Focus on Privacy Policy, Terms of Service, Cookie Policy, Refund Policy, Legal Disclaimer, About Us, and Contact page expectations.",
+    "Prioritize Apple App Store, Google Play, Paddle, PayPal/Braintree, Stripe, GDPR, UK GDPR, CCPA/CPRA, and cookie disclosure expectations where relevant to a public SaaS website.",
+    "Return concise Markdown with headings ## Key requirements, ## Review and approval signals, ## Clause quality bar, and ## Risks to avoid.",
+    "Under ## Clause quality bar, summarize the characteristics of premium SaaS legal pages: detailed structure, specific operator wording, numbered clauses, clean headings, and publication-ready phrasing.",
   ].join(" ");
 
   const userPrompt = [
@@ -286,6 +300,8 @@ async function draftSitePage({
     "Do not include a top-level # title because the page shell already renders the page title.",
     "Start with a short operator block using bold labels, then continue with ## numbered sections and ### subsections where needed.",
     "Write in clean English with specific clauses, lists, and contact details.",
+    "Match the depth, polish, and authority of high-end SaaS legal pages, with sophisticated but readable phrasing.",
+    "Use richer sectioning, clearer subsection labels, and more authoritative connective language than a generic template.",
     "Never claim that the company guarantees approval, legal sufficiency, or legal outcomes.",
     "Do not invent statistics, percentages, standards certifications, uptime promises, processor brand names, street addresses, registration numbers, arbitration venues, or named email aliases unless they were explicitly supplied in the company profile or research context.",
     "Do not use Markdown links. Use plain text URLs and plain email addresses only.",
@@ -293,6 +309,7 @@ async function draftSitePage({
     'When describing AI systems publicly, use professional wording such as "secure automated data processors" unless a named provider is legally necessary.',
     "The final page must seamlessly incorporate the legal name, brand, support email, and policypack.org domain.",
     "If the page is a Legal Disclaimer, explicitly state that the service is not legal advice and does not create an attorney-client relationship.",
+    "If the page is About Us, write polished narrative paragraphs with concise supporting sections rather than stiff legal boilerplate.",
   ].join(" ");
 
   const userPrompt = [
@@ -328,6 +345,8 @@ async function draftSitePage({
     "- Do not invent corporate registration numbers or street addresses.",
     "- Do not invent statistics, percentages, or marketing claims.",
     "- Do not mention providers, standards, or legal mechanisms unless they are clearly supported by the research context.",
+    "- Make the prose feel refined, structured, and publication-ready enough to serve as the public gold standard for PolicyPack itself.",
+    "- Use the company legal name and policypack.org naturally inside clauses, operator blocks, and contact sections where relevant.",
   ].join("\n");
 
   const markdown = await callOpenRouter({
@@ -353,35 +372,50 @@ async function callOpenRouter({
   temperature,
   plugins,
 }) {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": SITE_PROFILE.primaryUrl,
-      "X-Title": SITE_PROFILE.brandName,
-    },
-    body: JSON.stringify({
-      model,
-      temperature,
-      max_tokens: maxTokens,
-      plugins,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    }),
-  });
+  const modelsToTry = [model, ...(OPENROUTER_MODEL_COMPATIBILITY_FALLBACKS[model] ?? [])];
+  let lastError = null;
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(
-      `OpenRouter request failed (${response.status}): ${errorText}`,
-    );
+  for (const activeModel of modelsToTry) {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": SITE_PROFILE.primaryUrl,
+        "X-Title": SITE_PROFILE.brandName,
+      },
+      body: JSON.stringify({
+        model: activeModel,
+        temperature,
+        max_tokens: maxTokens,
+        plugins,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      lastError = `OpenRouter request failed (${response.status}): ${errorText}`;
+
+      if (
+        activeModel === model &&
+        (OPENROUTER_MODEL_COMPATIBILITY_FALLBACKS[model]?.length ?? 0) > 0 &&
+        errorText.toLowerCase().includes("no endpoints found")
+      ) {
+        continue;
+      }
+
+      throw new Error(lastError);
+    }
+
+    const json = await response.json();
+    return json?.choices?.[0]?.message?.content ?? "";
   }
 
-  const json = await response.json();
-  return json?.choices?.[0]?.message?.content ?? "";
+  throw new Error(lastError ?? "OpenRouter request failed.");
 }
 
 function normalizeMarkdown(markdown) {

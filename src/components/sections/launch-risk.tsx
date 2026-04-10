@@ -593,11 +593,24 @@ function LaunchRiskCalculator() {
 
   const selectedPlatform = platformOptions[platform];
   const selectedMarket = marketOptions[market];
-  const riskScore = Math.min(100, selectedPlatform.baseScore + selectedMarket.modifier);
   const pages = Array.from(
     new Set([...selectedPlatform.pages, ...selectedMarket.pages]),
   );
+  const complexityBonus = Math.min(
+    10,
+    Math.max(0, pages.length - 3) * 2 +
+      (platform === "apple" || platform === "googlePlay" || platform === "paddle"
+        ? 2
+        : 0),
+  );
+  const riskScore = Math.min(
+    100,
+    selectedPlatform.baseScore + selectedMarket.modifier + complexityBonus,
+  );
   const riskBand = getRiskBand(riskScore);
+  const actionPlan = getActionPlan(platform, market, pages);
+  const priorityPage = getPriorityPage(platform, market);
+  const likelyBlocker = getLikelyBlocker(platform, market);
 
   return (
     <motion.div
@@ -673,6 +686,25 @@ function LaunchRiskCalculator() {
             <p className="mt-3 text-sm leading-6 text-white/62">
               {selectedPlatform.summary} {selectedMarket.summary}
             </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-3.5 py-3">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">
+                  Most likely blocker
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/76">
+                  {likelyBlocker}
+                </p>
+              </div>
+              <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-3.5 py-3">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">
+                  Publish first
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/76">
+                  {priorityPage}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.02] p-4">
@@ -691,6 +723,25 @@ function LaunchRiskCalculator() {
                     <span>{page}</span>
                   </span>
                 </motion.div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-teal-300/16 bg-teal-300/[0.07] p-4">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-teal-200/76">
+              Action plan
+            </p>
+            <div className="mt-3 space-y-2.5">
+              {actionPlan.map((step, index) => (
+                <div
+                  key={step}
+                  className="flex items-start gap-3 rounded-[18px] border border-white/[0.08] bg-[#0D0D0D]/70 px-3.5 py-3"
+                >
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-white/66">
+                    {index + 1}
+                  </span>
+                  <p className="text-sm leading-6 text-white/76">{step}</p>
+                </div>
               ))}
             </div>
           </div>
@@ -805,5 +856,82 @@ function getRiskBand(score: number) {
     color: "rgba(110, 231, 183, 0.95)",
     badgeClassName: "border border-emerald-300/18 bg-emerald-300/10 text-emerald-100",
   };
+}
+
+function getPriorityPage(platform: PlatformKey, market: MarketKey) {
+  if (platform === "apple" || platform === "googlePlay") {
+    return "Privacy Policy with visible app-store-ready disclosures.";
+  }
+
+  if (platform === "paddle" || platform === "paypal") {
+    return "Refund Policy and public support details linked from your checkout path.";
+  }
+
+  if (market === "eu" || market === "uk" || market === "global") {
+    return "Cookie Policy plus regional privacy-rights language before launch traffic starts.";
+  }
+
+  return "Privacy Policy and Terms of Service linked clearly in your site footer.";
+}
+
+function getLikelyBlocker(platform: PlatformKey, market: MarketKey) {
+  if (platform === "paddle") {
+    return "Domain review friction if legal and support links are missing or hard to find.";
+  }
+
+  if (platform === "apple") {
+    return "Release review pressure around missing privacy disclosures and user-data transparency.";
+  }
+
+  if (platform === "googlePlay") {
+    return "A public privacy policy mismatch between your app listing and your real data practices.";
+  }
+
+  if (platform === "stripe") {
+    return "Website verification delays if the product looks incomplete or not trustworthy enough for payments.";
+  }
+
+  if (market === "global") {
+    return "Regional rights and transfer disclosures becoming inconsistent across multiple launch regions.";
+  }
+
+  return "Weak public trust signals before checkout, buyer due diligence, or platform review.";
+}
+
+function getActionPlan(
+  platform: PlatformKey,
+  market: MarketKey,
+  pages: string[],
+) {
+  const firstThreePages = pages.slice(0, 3).join(", ");
+  const actions = [
+    `Publish ${firstThreePages} first and link them clearly from your footer, checkout, or app listing.`,
+  ];
+
+  if (platform === "apple" || platform === "googlePlay") {
+    actions.push(
+      "Make sure your Privacy Policy is public, readable on mobile, and consistent with your in-app data collection flows.",
+    );
+  } else if (platform === "paddle" || platform === "paypal") {
+    actions.push(
+      "Add visible refund, billing, and support language before payment review or merchant onboarding begins.",
+    );
+  } else {
+    actions.push(
+      "Tighten your public legal pages before verification, diligence, or the first payment-provider review starts.",
+    );
+  }
+
+  if (market === "eu" || market === "uk" || market === "global") {
+    actions.push(
+      "Add cookie, transfer, and privacy-rights disclosures that reflect cross-border data handling from day one.",
+    );
+  } else {
+    actions.push(
+      "Add US-facing privacy and refund language that matches how your product collects data and charges users.",
+    );
+  }
+
+  return actions;
 }
 
