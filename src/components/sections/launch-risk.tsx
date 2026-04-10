@@ -213,7 +213,7 @@ export function LaunchRiskSection({
   return (
     <section
       id="launch-risk"
-      className="scroll-mt-24 bg-zinc-950 py-24 sm:py-28 lg:py-32"
+      className="scroll-mt-24 bg-zinc-950 py-16 sm:py-20"
     >
       <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-12">
         <motion.div
@@ -235,7 +235,7 @@ export function LaunchRiskSection({
           </p>
         </motion.div>
 
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {proofMetrics.map((metric, index) => (
             <motion.div
               key={metric.label}
@@ -246,7 +246,7 @@ export function LaunchRiskSection({
                 delay: 0.05 + index * 0.04,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="rounded-[22px] border border-white/[0.08] bg-white/[0.02] px-4 py-4"
+              className="h-full rounded-[22px] border border-white/[0.08] bg-white/[0.02] px-4 py-4"
             >
               <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">
                 {metric.label}
@@ -258,8 +258,8 @@ export function LaunchRiskSection({
           ))}
         </div>
 
-        <div className="mt-14 grid gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-          <div className="grid gap-6">
+        <div className="mt-10 grid items-stretch gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+          <div className="grid gap-4 sm:gap-5">
             {problemCards.map((card, index) => {
               const Icon = card.icon;
 
@@ -273,7 +273,7 @@ export function LaunchRiskSection({
                     delay: 0.08 + index * 0.05,
                     ease: [0.22, 1, 0.36, 1],
                   }}
-                  className="soft-panel rounded-[26px] p-5"
+                  className="soft-panel h-full rounded-[26px] p-5"
                 >
                   <div className="flex items-start gap-4">
                     <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-teal-200">
@@ -299,11 +299,11 @@ export function LaunchRiskSection({
           <BlockedDashboardMock />
         </div>
 
-        <div className="mt-14 grid gap-8 xl:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)]">
+        <div className="mt-10 grid items-stretch gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)]">
           <LaunchRiskCalculator />
 
-          <div className="grid gap-6">
-            <div className="soft-panel rounded-[28px] p-5 sm:p-6">
+          <div className="grid gap-4 sm:gap-5">
+            <div className="soft-panel h-full rounded-[28px] p-5 sm:p-6">
               <div className="flex items-start gap-4">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-teal-200">
                   <FileCheck2 className="size-5" />
@@ -350,7 +350,7 @@ export function LaunchRiskSection({
               </p>
             </div>
 
-            <div className="soft-panel rounded-[28px] p-5 sm:p-6">
+            <div className="soft-panel h-full rounded-[28px] p-5 sm:p-6">
               <div className="flex items-start gap-4">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-teal-200">
                   <Radar className="size-5" />
@@ -402,7 +402,7 @@ export function LaunchRiskSection({
           </div>
         </div>
 
-        <div className="mt-14 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
           <AuthAwarePremiumButton
             authenticatedHref="/onboarding"
             callbackHref="/onboarding"
@@ -435,7 +435,7 @@ function BlockedDashboardMock() {
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="soft-panel relative overflow-hidden rounded-[30px] p-5 sm:p-6"
+      className="soft-panel relative h-full overflow-hidden rounded-[30px] p-5 sm:p-6"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.08),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(45,212,191,0.08),transparent_40%)]" />
       <div className="relative">
@@ -617,7 +617,7 @@ function LaunchRiskCalculator() {
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="soft-panel rounded-[30px] p-5 sm:p-6"
+      className="soft-panel h-full rounded-[30px] p-5 sm:p-6"
     >
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-xl">
@@ -646,7 +646,7 @@ function LaunchRiskCalculator() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+      <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:gap-5">
         <div className="space-y-5">
           <SelectorGroup
             title="Platform"
@@ -662,7 +662,7 @@ function LaunchRiskCalculator() {
           />
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid h-full gap-4">
           <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.02] p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
