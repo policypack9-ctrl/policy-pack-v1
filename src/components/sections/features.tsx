@@ -54,7 +54,10 @@ export function FeaturesSection() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section id="features" className="scroll-mt-24 bg-black py-16 sm:py-20">
+    <section
+      id="features"
+      className="scroll-mt-24 border-t border-white/10 bg-black py-16 sm:py-20"
+    >
       <div className="mx-auto max-w-7xl px-6 sm:px-10 lg:px-12">
         <motion.div
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}

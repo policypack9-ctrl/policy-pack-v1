@@ -30,6 +30,21 @@ const faqItems = [
     answer:
       "It is designed for founders, indie hackers, and SaaS teams that need fast, trustworthy legal docs without enterprise process overhead.",
   },
+  {
+    question: "Can I start with a one-time pack and upgrade later?",
+    answer:
+      "Yes. You can begin with the smaller three-page pack, then move to the full workspace later if you need more pages, ongoing monitoring, or compliance alerts.",
+  },
+  {
+    question: "Which three pages matter most for an early launch?",
+    answer:
+      "For most SaaS launches, the highest-priority set is Privacy Policy, Terms of Service, and Refund Policy or Cookie Policy depending on your billing flow and target market.",
+  },
+  {
+    question: "Does PolicyPack support app launches as well as websites?",
+    answer:
+      "Yes. The drafting logic is built for websites, SaaS products, and app launches where privacy disclosures, payment readiness, and platform review all matter.",
+  },
 ];
 
 export function FaqSection() {
@@ -60,7 +75,7 @@ export function FaqSection() {
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-          className="soft-panel mx-auto mt-10 max-w-3xl rounded-[28px] p-3 sm:p-4"
+          className="soft-panel mt-10 w-full rounded-[28px] p-3 sm:p-4"
         >
           <Accordion defaultValue={["item-0"]} multiple>
             {faqItems.map((item, index) => (
