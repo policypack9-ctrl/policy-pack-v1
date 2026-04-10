@@ -19,6 +19,42 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
+      url: `${PRODUCTION_APP_URL}/cookie-policy`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${PRODUCTION_APP_URL}/terms`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${PRODUCTION_APP_URL}/refund-policy`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${PRODUCTION_APP_URL}/legal-disclaimer`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${PRODUCTION_APP_URL}/about-us`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${PRODUCTION_APP_URL}/contact-us`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
       url: `${PRODUCTION_APP_URL}/onboarding`,
       lastModified: now,
       changeFrequency: "monthly",

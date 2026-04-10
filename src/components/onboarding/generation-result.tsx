@@ -17,13 +17,20 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { PremiumButton } from "@/components/ui/premium-button";
 import { loadStoredPolicySession } from "@/lib/db";
+import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 import {
   normalizeAnswers,
   resolvePrimaryRegion,
   type StoredPolicySession,
 } from "@/lib/policy-engine";
 
-export function GenerationResult() {
+type GenerationResultProps = {
+  initialLaunchSnapshot: LaunchCampaignSnapshot;
+};
+
+export function GenerationResult({
+  initialLaunchSnapshot,
+}: GenerationResultProps) {
   const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
   const { data: session, status, update } = useSession();
@@ -48,6 +55,18 @@ export function GenerationResult() {
   );
   const productName = answers.businessName || "PolicyPack";
   const region = resolvePrimaryRegion(answers);
+  const canClaimComplimentaryDocument =
+    !isPremium && initialLaunchSnapshot.canGenerateComplimentaryDocument;
+  const unlockHeading = canClaimComplimentaryDocument
+    ? "Your launch access is still available."
+    : initialLaunchSnapshot.freeGenerationClosed
+      ? "Complimentary launch access is closed."
+      : "Your complimentary draft has already been used.";
+  const unlockSummary = canClaimComplimentaryDocument
+    ? "This account is inside the launch cohort and can still generate one complimentary document before premium checkout becomes required."
+    : initialLaunchSnapshot.freeGenerationClosed
+      ? "The first 50 complimentary launch accounts have been claimed. New workspaces now unlock generation through secure checkout."
+      : "Your account already used its complimentary launch document. Secure checkout unlocks the rest of the legal stack immediately.";
 
   async function handleUnlock() {
     if (status === "loading") {
@@ -55,11 +74,11 @@ export function GenerationResult() {
     }
 
     if (!session?.user) {
-      router.push("/login?callbackUrl=/onboarding/result");
+      router.push("/register?callbackUrl=/dashboard");
       return;
     }
 
-    if (isPremium) {
+    if (isPremium || canClaimComplimentaryDocument) {
       router.push("/dashboard");
       return;
     }
@@ -73,7 +92,7 @@ export function GenerationResult() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: session?.user?.email ?? null,
+          email: session.user.email ?? null,
           productName,
         }),
       });
@@ -92,7 +111,6 @@ export function GenerationResult() {
 
       const payload = (await response.json()) as {
         checkoutUrl?: string | null;
-        providerMode?: string;
         message?: string;
         premiumUnlocked?: boolean;
       };
@@ -130,7 +148,10 @@ export function GenerationResult() {
         <motion.section
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.42, ease: [0.22, 1, 0.36, 1] }}
+          transition={{
+            duration: shouldReduceMotion ? 0 : 0.42,
+            ease: [0.22, 1, 0.36, 1],
+          }}
           className="soft-panel rounded-[32px] p-6 sm:p-8"
         >
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -142,8 +163,9 @@ export function GenerationResult() {
                 Your legal stack for {productName} is prepared.
               </h1>
               <p className="mt-4 text-sm leading-7 text-white/62">
-                The first draft is ready for {region}. Unlock the dashboard to review
-                documents, save everything to your account, and export the final PDF bundle.
+                The first draft is ready for {region}. Continue to the dashboard to
+                review document status, save your workspace, and unlock exports when
+                needed.
               </p>
             </div>
 
@@ -155,7 +177,9 @@ export function GenerationResult() {
               <p className="mt-4 text-sm leading-7 text-white/60">
                 {isPremium
                   ? "This account already has download access."
-                  : unlockLabel}
+                  : canClaimComplimentaryDocument
+                    ? unlockSummary
+                    : unlockLabel}
               </p>
             </div>
           </div>
@@ -167,9 +191,11 @@ export function GenerationResult() {
               </p>
               <div className="mt-4 space-y-3">
                 {[
-                  "Privacy Policy, Terms of Service, Cookie Policy, and GDPR addendum in one place",
-                  "A personal dashboard with live document viewing",
-                  "Polished PDF downloads when you're ready to upgrade",
+                  canClaimComplimentaryDocument
+                    ? "One complimentary launch document is still available on this account"
+                    : "Secure checkout is required before new document generation begins",
+                  "A personal dashboard with live document viewing and saved workspace history",
+                  "Polished PDF downloads unlock immediately after checkout",
                 ].map((item) => (
                   <div
                     key={item}
@@ -183,14 +209,17 @@ export function GenerationResult() {
 
             <div className="rounded-[28px] border border-white/[0.08] bg-white/[0.02] p-5 sm:p-6">
               <div className="inline-flex size-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-teal-200">
-                <LockKeyhole className="size-5" />
+                {canClaimComplimentaryDocument ? (
+                  <ShieldCheck className="size-5" />
+                ) : (
+                  <LockKeyhole className="size-5" />
+                )}
               </div>
               <h2 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-white">
-                Pay to Unlock
+                {unlockHeading}
               </h2>
               <p className="mt-3 text-sm leading-7 text-white/60">
-                Complete checkout to unlock downloads and keep your documents available
-                inside your account.
+                {unlockSummary}
               </p>
 
               <div className="mt-6 space-y-3">
@@ -203,9 +232,11 @@ export function GenerationResult() {
                     isUnlocking ? (
                       <LoaderCircle className="size-4 animate-spin" />
                     ) : !session?.user ? (
-                      <LockKeyhole className="size-4" />
+                      <ShieldCheck className="size-4" />
                     ) : isPremium ? (
                       <ShieldCheck className="size-4" />
+                    ) : canClaimComplimentaryDocument ? (
+                      <BadgeCheck className="size-4" />
                     ) : (
                       <CreditCard className="size-4" />
                     )
@@ -214,20 +245,28 @@ export function GenerationResult() {
                   {isUnlocking
                     ? "Opening checkout..."
                     : !session?.user
-                      ? "Login to Unlock"
+                      ? initialLaunchSnapshot.freeGenerationClosed
+                        ? "Create Account to Continue"
+                        : "Create Account to Claim Free Spot"
                       : isPremium
                         ? "Go to Dashboard"
-                        : "Pay to Unlock"}
+                        : canClaimComplimentaryDocument
+                          ? "Open My Complimentary Document"
+                          : "Pay to Unlock"}
                 </PremiumButton>
 
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => router.push("/dashboard")}
+                  onClick={() =>
+                    session?.user
+                      ? router.push("/dashboard")
+                      : router.push("/login?callbackUrl=/dashboard")
+                  }
                   className="h-12 w-full rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-5 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
                 >
                   <ShieldCheck className="size-4" />
-                  Continue to Dashboard
+                  {session?.user ? "Continue to Dashboard" : "Login Instead"}
                 </Button>
               </div>
             </div>

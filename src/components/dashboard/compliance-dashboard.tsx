@@ -46,6 +46,7 @@ import {
   type DashboardDocument,
   type StoredPolicySession,
 } from "@/lib/policy-engine";
+import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 
 const documentIcons = {
   "privacy-policy": ShieldCheck,
@@ -60,6 +61,7 @@ type ComplianceDashboardProps = {
   initialGeneratedDocuments?: SavedGeneratedDocument[];
   authenticatedEmail?: string | null;
   initialPaddleTransactionId?: string | null;
+  launchSnapshot: LaunchCampaignSnapshot;
 };
 
 type PaddleCheckoutState =
@@ -95,6 +97,7 @@ export function ComplianceDashboard({
   initialGeneratedDocuments = [],
   authenticatedEmail = null,
   initialPaddleTransactionId = null,
+  launchSnapshot,
 }: ComplianceDashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -190,6 +193,32 @@ export function ComplianceDashboard({
     snapshot.documents.find((document) => document.id === activeDocumentId) ??
     snapshot.documents[0];
   const activeGeneratedDocument = documentCache[activeDocument.id];
+  const generatedDocumentCount = Object.keys(documentCache).length;
+  const canGenerateComplimentaryDocument =
+    !isPremium &&
+    launchSnapshot.canGenerateComplimentaryDocument &&
+    generatedDocumentCount === 0;
+  const hasUnlockedComplimentaryDraft = generatedDocumentCount > 0;
+  const complimentaryStateLabel = canGenerateComplimentaryDocument
+    ? "1 complimentary draft available"
+    : hasUnlockedComplimentaryDraft
+      ? "Complimentary draft already used"
+      : launchSnapshot.freeGenerationClosed
+        ? "Launch batch closed"
+        : "Upgrade required for more drafts";
+  const complimentarySummary = canGenerateComplimentaryDocument
+    ? "This verified launch account can still generate one complimentary legal document before secure checkout becomes mandatory."
+    : hasUnlockedComplimentaryDraft
+      ? "Your complimentary launch draft is already available in this workspace. Generate more documents by upgrading with secure checkout."
+      : launchSnapshot.freeGenerationClosed
+        ? "The first 50 complimentary launch slots are gone. New workspaces now unlock generation through Paddle checkout."
+        : "This account has already used its complimentary launch draft. Premium checkout unlocks the rest of the document suite.";
+  const workspaceActionLabel = canGenerateComplimentaryDocument
+    ? "Generate Complimentary Draft"
+    : "Unlock Full Bundle";
+  const WorkspaceActionIcon = canGenerateComplimentaryDocument
+    ? Eye
+    : LockKeyhole;
   const isCheckoutBusy =
     isCheckoutPending ||
     checkoutState === "initializing" ||
@@ -278,7 +307,26 @@ export function ComplianceDashboard({
       });
 
       if (!response.ok) {
-        throw new Error("Unable to generate document.");
+        const errorPayload = (await response.json().catch(() => null)) as
+          | { error?: string; requiresCheckout?: boolean }
+          | null;
+
+        if (response.status === 401) {
+          router.push("/login?callbackUrl=/dashboard");
+          return null;
+        }
+
+        if (response.status === 402) {
+          setExportNotice(
+            errorPayload?.error ??
+              "Premium checkout is required before generating another document.",
+          );
+          return null;
+        }
+
+        throw new Error(
+          errorPayload?.error ?? "Unable to generate document.",
+        );
       }
 
       const generated = (await response.json()) as {
@@ -315,13 +363,32 @@ export function ComplianceDashboard({
   }
 
   async function handleViewDocument(documentRecord: DashboardDocument) {
+    if (
+      !isPremium &&
+      !documentCache[documentRecord.id] &&
+      !canGenerateComplimentaryDocument
+    ) {
+      setExportNotice(complimentarySummary);
+      await handleUpgradeToDownload(documentRecord.id);
+      return;
+    }
+
     setActiveDocumentId(documentRecord.id);
     setIsDocumentModalOpen(true);
-    await ensureGeneratedDocument(documentRecord);
+    const generated = await ensureGeneratedDocument(documentRecord);
+
+    if (!generated && !isPremium && !documentCache[documentRecord.id]) {
+      setIsDocumentModalOpen(false);
+    }
   }
 
   async function exportPdfForDocument(documentRecord: DashboardDocument) {
     const generated = await ensureGeneratedDocument(documentRecord);
+
+    if (!generated) {
+      return;
+    }
+
     const renderResponse = await fetch("/api/render-policy-html", {
       method: "POST",
       headers: {
@@ -810,18 +877,22 @@ export function ComplianceDashboard({
                   {!isPremium ? (
                     <PremiumButton
                       type="button"
-                      onClick={() => void handleUpgradeToDownload()}
+                      onClick={() =>
+                        canGenerateComplimentaryDocument
+                          ? void handleViewDocument(snapshot.documents[0])
+                          : void handleUpgradeToDownload()
+                      }
                       disabled={isCheckoutBusy}
                       className="h-12 px-5 text-sm"
                       icon={
                         isCheckoutBusy ? (
                           <LoaderCircle className="size-4 animate-spin" />
                         ) : (
-                          <LockKeyhole className="size-4" />
+                          <WorkspaceActionIcon className="size-4" />
                         )
                       }
                     >
-                      {isCheckoutBusy ? checkoutButtonLabel : "Unlock PDF Export"}
+                      {isCheckoutBusy ? checkoutButtonLabel : workspaceActionLabel}
                     </PremiumButton>
                   ) : null}
 
@@ -941,27 +1012,30 @@ export function ComplianceDashboard({
                   </span>
                   <div>
                     <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/52">
-                      Free Plan
+                      {complimentaryStateLabel}
                     </p>
                     <p className="mt-1 text-sm leading-6 text-white/72">
-                      Your documents are ready to review and safely stored. Upgrade
-                      whenever you want to enable PDF downloads.
+                      {complimentarySummary}
                     </p>
                   </div>
                 </div>
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => void handleUpgradeToDownload()}
+                  onClick={() =>
+                    canGenerateComplimentaryDocument
+                      ? void handleViewDocument(snapshot.documents[0])
+                      : void handleUpgradeToDownload()
+                  }
                   disabled={isCheckoutBusy}
                   className="h-11 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
                 >
                   {isCheckoutBusy ? (
                     <LoaderCircle className="size-4 animate-spin" />
                   ) : (
-                    <LockKeyhole className="size-4" />
+                    <WorkspaceActionIcon className="size-4" />
                   )}
-                  {checkoutButtonLabel}
+                  {isCheckoutBusy ? checkoutButtonLabel : workspaceActionLabel}
                 </Button>
               </div>
               {exportNotice ? (
@@ -980,26 +1054,31 @@ export function ComplianceDashboard({
                   Billing and download status
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-white/60">
-                  Upgrade once to unlock polished PDF downloads for your complete legal
-                  bundle.
+                  {isPremium
+                    ? "Premium access is active across your full legal bundle."
+                    : complimentarySummary}
                 </p>
               </div>
 
               {!isPremium ? (
                 <PremiumButton
                   type="button"
-                  onClick={() => void handleUpgradeToDownload()}
+                  onClick={() =>
+                    canGenerateComplimentaryDocument
+                      ? void handleViewDocument(snapshot.documents[0])
+                      : void handleUpgradeToDownload()
+                  }
                   disabled={isCheckoutBusy}
                   className="h-12 px-5 text-sm"
                   icon={
                     isCheckoutBusy ? (
                       <LoaderCircle className="size-4 animate-spin" />
                     ) : (
-                      <CreditCard className="size-4" />
+                      <WorkspaceActionIcon className="size-4" />
                     )
                   }
                 >
-                  {checkoutButtonLabel}
+                  {isCheckoutBusy ? checkoutButtonLabel : workspaceActionLabel}
                 </PremiumButton>
               ) : null}
             </div>
@@ -1029,12 +1108,15 @@ export function ComplianceDashboard({
                 ) : (
                   <>
                     <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/66">
-                      <LockKeyhole className="size-4" />
-                      No completed payments
+                      {canGenerateComplimentaryDocument ? (
+                        <BadgeCheck className="size-4" />
+                      ) : (
+                        <LockKeyhole className="size-4" />
+                      )}
+                      {complimentaryStateLabel}
                     </div>
                     <p className="mt-4 text-sm leading-7 text-white/66">
-                      You&apos;re still on the free plan. Upgrade to enable PDF downloads
-                      and polished exports.
+                      {complimentarySummary}
                     </p>
                   </>
                 )}
@@ -1045,12 +1127,18 @@ export function ComplianceDashboard({
                   Export Access
                 </p>
                 <p className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-white">
-                  {isPremium ? "Downloads unlocked" : "Upgrade required"}
+                  {isPremium
+                    ? "Downloads unlocked"
+                    : canGenerateComplimentaryDocument
+                      ? "Complimentary draft active"
+                      : "Upgrade required"}
                 </p>
                 <p className="mt-4 text-sm leading-7 text-white/60">
                   {isPremium
                     ? "All generated documents are ready to export as polished legal PDFs."
-                    : "Document viewing is available now, and downloads unlock after you upgrade."}
+                    : canGenerateComplimentaryDocument
+                      ? "You can still open one complimentary draft. PDF downloads remain gated until premium checkout is complete."
+                      : "New document generation and PDF downloads now unlock through secure checkout."}
                 </p>
                 {exportNotice ? (
                   <p className={`mt-4 text-sm ${checkoutNoticeClassName}`}>{exportNotice}</p>
@@ -1072,6 +1160,21 @@ export function ComplianceDashboard({
             <div className="grid gap-4 lg:grid-cols-2">
               {snapshot.documents.map((document, index) => {
                 const DocumentIcon = documentIcons[document.id];
+                const hasGeneratedDraft = Boolean(documentCache[document.id]);
+                const viewButtonLabel = isPremium
+                  ? "View Document"
+                  : hasGeneratedDraft
+                    ? "View Draft"
+                    : canGenerateComplimentaryDocument
+                      ? "Use Free Draft"
+                      : "Unlock with Paddle";
+                const overlayLabel = isPremium
+                  ? null
+                  : hasGeneratedDraft
+                    ? "DRAFT"
+                    : canGenerateComplimentaryDocument
+                      ? "1 FREE DRAFT"
+                      : "LOCKED";
 
                 return (
                   <div
@@ -1106,11 +1209,21 @@ export function ComplianceDashboard({
                             <Button
                               type="button"
                               variant="ghost"
-                              onClick={() => void handleViewDocument(document)}
+                              onClick={() =>
+                                hasGeneratedDraft || canGenerateComplimentaryDocument || isPremium
+                                  ? void handleViewDocument(document)
+                                  : void handleUpgradeToDownload(document.id)
+                              }
                               className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
                             >
-                              <Eye className="size-4" />
-                              View Document
+                              {hasGeneratedDraft || isPremium ? (
+                                <Eye className="size-4" />
+                              ) : canGenerateComplimentaryDocument ? (
+                                <BadgeCheck className="size-4" />
+                              ) : (
+                                <LockKeyhole className="size-4" />
+                              )}
+                              {viewButtonLabel}
                             </Button>
                             <Button
                               type="button"
@@ -1134,10 +1247,10 @@ export function ComplianceDashboard({
                       }
                     />
 
-                    {!isPremium ? (
+                    {!isPremium && overlayLabel ? (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-[26px]">
                         <div className="rounded-full border border-white/[0.08] bg-black/38 px-7 py-3 text-sm font-semibold tracking-[0.42em] text-white/18 sm:text-base">
-                          DRAFT
+                          {overlayLabel}
                         </div>
                       </div>
                     ) : null}

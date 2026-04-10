@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { ComplianceDashboard } from "@/components/dashboard/compliance-dashboard";
 import {
   getAppUserProfileById,
+  getLaunchCampaignSnapshot,
   listGeneratedDocumentsForUser,
 } from "@/lib/auth-data";
 
@@ -19,9 +20,10 @@ export default async function DashboardPage({
     redirect("/login?callbackUrl=/dashboard");
   }
 
-  const [profile, generatedDocuments] = await Promise.all([
+  const [profile, generatedDocuments, launchSnapshot] = await Promise.all([
     getAppUserProfileById(session.user.id),
     listGeneratedDocumentsForUser(session.user.id),
+    getLaunchCampaignSnapshot(session.user.id),
   ]);
 
   return (
@@ -31,6 +33,7 @@ export default async function DashboardPage({
       initialGeneratedDocuments={generatedDocuments}
       authenticatedEmail={session.user.email ?? null}
       initialPaddleTransactionId={resolvedSearchParams._ptxn ?? null}
+      launchSnapshot={launchSnapshot}
     />
   );
 }

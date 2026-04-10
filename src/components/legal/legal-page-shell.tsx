@@ -8,6 +8,7 @@ type LegalPageShellProps = {
   title: string;
   description: string;
   markdown: string;
+  lastUpdated?: string;
 };
 
 export function LegalPageShell({
@@ -15,6 +16,7 @@ export function LegalPageShell({
   title,
   description,
   markdown,
+  lastUpdated,
 }: LegalPageShellProps) {
   return (
     <main className="min-h-screen bg-[#0A0A0A] px-6 py-8 sm:px-10 sm:py-10 lg:px-12">
@@ -32,6 +34,9 @@ export function LegalPageShell({
             <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/72">
               {eyebrow}
             </p>
+            {lastUpdated ? (
+              <p className="mt-4 text-sm text-white/42">Last updated on {lastUpdated}</p>
+            ) : null}
             <h1 className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">
               {title}
             </h1>

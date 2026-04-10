@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { BadgeCheck, ShieldCheck, Sparkles } from "lucide-react";
 
 import { PremiumButton } from "@/components/ui/premium-button";
+import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 
 const planFeatures = [
   "Privacy Policy + Terms of Service",
@@ -13,8 +14,18 @@ const planFeatures = [
   "Publish-ready documents for SaaS products",
 ];
 
-export function PricingSection() {
+type PricingSectionProps = {
+  launchSnapshot: LaunchCampaignSnapshot;
+};
+
+export function PricingSection({ launchSnapshot }: PricingSectionProps) {
   const shouldReduceMotion = useReducedMotion();
+  const pricingSupportCopy = launchSnapshot.freeGenerationClosed
+    ? "The complimentary launch batch has closed. New accounts unlock full document generation through premium checkout."
+    : `${launchSnapshot.freeSpotsRemaining} complimentary launch spot${launchSnapshot.freeSpotsRemaining === 1 ? "" : "s"} remain for first-time accounts, then premium starts at $29/mo.`;
+  const pricingCtaLabel = launchSnapshot.freeGenerationClosed
+    ? "Unlock PolicyPack"
+    : "Claim Launch Access";
 
   return (
     <section id="pricing" className="scroll-mt-24 bg-[#0A0A0A] py-16 sm:py-20">
@@ -34,6 +45,9 @@ export function PricingSection() {
           <p className="mt-4 text-base leading-7 text-white/62">
             A simple monthly subscription for founders and product teams that
             need legal documents without hiring outside counsel for every update.
+          </p>
+          <p className="mt-3 text-sm leading-7 text-white/48">
+            {pricingSupportCopy}
           </p>
         </motion.div>
 
@@ -85,10 +99,12 @@ export function PricingSection() {
               nativeButton={false}
               className="h-12 px-5 text-sm sm:text-base"
             >
-              Start for $29/mo
+              {pricingCtaLabel}
             </PremiumButton>
             <p className="text-sm text-white/48">
-              No setup fee. No annual contract required.
+              {launchSnapshot.freeGenerationClosed
+                ? "No setup fee. No annual contract required."
+                : "One complimentary draft for launch users. No annual contract required."}
             </p>
           </div>
         </motion.div>

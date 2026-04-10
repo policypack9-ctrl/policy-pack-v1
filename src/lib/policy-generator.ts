@@ -5,6 +5,15 @@ import {
   type AIProvider,
 } from "@/lib/ai-config";
 import {
+  COMPANY_BRAND_NAME,
+  COMPANY_JURISDICTION,
+  COMPANY_LEGAL_NAME,
+  COMPANY_PRIMARY_DOMAIN,
+  COMPANY_PRIMARY_URL,
+  COMPANY_PUBLIC_NAME,
+  COMPANY_SUPPORT_EMAIL,
+} from "@/lib/company";
+import {
   buildComplianceSnapshot,
   getProductName,
   normalizeAnswers,
@@ -34,7 +43,7 @@ type GeneratePolicyInput = {
   documentType: PolicyDocumentType;
 };
 
-const POLICY_PROMPT_VERSION = "policypack-openrouter-two-stage-v1";
+const POLICY_PROMPT_VERSION = "policypack-openrouter-two-stage-v2";
 
 export async function generatePolicyDocument({
   answers,
@@ -191,10 +200,16 @@ function buildResearchUserPrompt(
 ) {
   const productName = getProductName(answers);
   const primaryRegion = resolvePrimaryRegion(answers);
+  const operatorIdentity = resolveDocumentOperatorLabel(answers);
+  const policyPackContext = isPolicyPackDocumentContext(answers);
 
   return [
     `Document type: ${documentType}`,
     `Product name: ${productName}`,
+    `Service brand: ${COMPANY_BRAND_NAME}`,
+    `Company legal name: ${policyPackContext ? COMPANY_LEGAL_NAME : "Not provided by user"}`,
+    `Operating entity wording: ${operatorIdentity}`,
+    `Official domain: ${policyPackContext ? COMPANY_PRIMARY_DOMAIN : answers.websiteUrl || "Not provided"}`,
     `Website: ${answers.websiteUrl || "Not provided"}`,
     `Product description: ${answers.productDescription || "Not provided"}`,
     `Company location: ${answers.companyLocation || "Not provided"}`,
@@ -213,40 +228,45 @@ function buildPolicySystemPrompt(
   documentType: PolicyDocumentType,
   answers: OnboardingAnswers,
 ) {
+  const operatorIdentity = resolveDocumentOperatorLabel(answers);
+  const policyPackContext = isPolicyPackDocumentContext(answers);
   const baseSections =
     documentType === "privacy-policy"
       ? [
-          "Overview and scope",
-          "Information collected",
-          "How information is used",
-          "Legal bases or consumer rights",
-          "Cookies and analytics",
-          "Third-party processors",
+          "Operator identity and scope",
+          "Data categories and sources",
+          "Business and transactional uses",
+          "Legal bases and regional rights",
+          "Cookies, analytics, and tracking",
+          "Processors, subprocessors, and AI systems",
           "International transfers",
           "Retention and deletion",
-          "Security",
-          "User rights and contact",
-          "Changes to this policy",
+          "Security safeguards",
+          "Children",
+          "Changes and contact",
         ]
       : documentType === "terms-of-service"
         ? [
-            "Acceptance and eligibility",
-            "Accounts and access",
-            "Billing, subscriptions, and refunds",
+            "Acceptance and operator identity",
+            "Eligibility and account rules",
+            "Billing, subscriptions, complimentary access, and refunds",
+            "Service scope and customer responsibilities",
             "Acceptable use",
+            "AI outputs and no legal advice boundary",
             "Intellectual property",
-            "Service availability",
-            "Disclaimers and limitations",
+            "Third-party services",
+            "Availability and service changes",
+            "Disclaimers, liability caps, and indemnity",
             "Termination",
-            "Governing law",
-            "Contact",
+            "Governing law and contact",
           ]
         : documentType === "cookie-policy"
           ? [
+              "What this policy covers",
               "Cookie categories",
               "Analytics and marketing tracking",
-              "How users can control cookies",
               "Third-party technologies",
+              "How users can control cookies",
               "Updates and contact",
             ]
           : [
@@ -269,11 +289,19 @@ function buildPolicySystemPrompt(
     `Prompt version: ${POLICY_PROMPT_VERSION}.`,
     "Take the research data and the user's onboarding answers to draft a professional legal document in Markdown.",
     "Use a formal legal tone but keep it readable in plain English.",
-    "Use Markdown headings for sections and numbered clauses under each section.",
+    `The operator should be described as ${operatorIdentity}.`,
+    policyPackContext
+      ? `Because this draft is for PolicyPack, the legal operator should be identified as ${COMPANY_PUBLIC_NAME}, the official website should be ${COMPANY_PRIMARY_URL}, and the public contact email should be ${COMPANY_SUPPORT_EMAIL}.`
+      : "Do not insert PolicyPack's own legal identity, domain, or support email into customer documents unless the onboarding data clearly indicates the document is for PolicyPack itself.",
+    "Formatting standard: start with # Title, then a short operator block with bold labels, then ## numbered sections, then ### subsections where helpful, then numbered clauses and bullet lists for categories, examples, or processor lists.",
+    "The final document must feel specific, structured, and publication-ready rather than generic or template-like.",
+    "Make the clauses concrete to the product, region, billing model, account model, tracking stack, and AI transparency setting in the onboarding data.",
     "Any custom items entered through an Other field are binding user requirements and must be reflected explicitly in the final document where relevant.",
     genericAiInstruction,
     "Do not mention prompts, AI systems, web search, or internal reasoning.",
     "Do not fabricate laws not supported by the research stage.",
+    "If the document type is Terms of Service, include an explicit professional boundary that the product helps with legal automation but is not itself a law firm or substitute for licensed legal advice.",
+    "If the document type is Privacy Policy, identify the operator, the domain, the categories of data, the purposes, rights, processors, transfers, retention, security, and contact points in detail.",
     `The document must cover these topics when relevant: ${baseSections.join(", ")}.`,
   ].join(" ");
 }
@@ -287,6 +315,8 @@ function buildPolicyUserPrompt(
   const documentTitle = getDocumentTitle(documentType, answers);
   const primaryRegion = resolvePrimaryRegion(answers);
   const documentVendors = formatDocumentVendors(answers);
+  const operatorIdentity = resolveDocumentOperatorLabel(answers);
+  const policyPackContext = isPolicyPackDocumentContext(answers);
 
   return [
     `Task: Draft a ${documentTitle} for ${productName}.`,
@@ -295,6 +325,13 @@ function buildPolicyUserPrompt(
     "",
     "## Onboarding Data",
     `- Product name: ${productName}`,
+    `- Brand name: ${COMPANY_BRAND_NAME}`,
+    `- Company legal name: ${policyPackContext ? COMPANY_LEGAL_NAME : "Not provided by user"}`,
+    `- Operator wording: ${operatorIdentity}`,
+    `- Company jurisdiction: ${policyPackContext ? COMPANY_JURISDICTION : answers.companyLocation || "Not provided"}`,
+    `- Official domain: ${policyPackContext ? COMPANY_PRIMARY_DOMAIN : answers.websiteUrl || "Not provided"}`,
+    `- Official website: ${policyPackContext ? COMPANY_PRIMARY_URL : answers.websiteUrl || "Public SaaS website"}`,
+    `- Support email: ${policyPackContext ? COMPANY_SUPPORT_EMAIL : "Use the business support contact published by the customer where appropriate; do not invent one."}`,
     `- Website: ${answers.websiteUrl || "Public SaaS website"}`,
     `- Product description: ${answers.productDescription || "Software product"}`,
     `- AI transparency level: ${answers.aiTransparencyLevel || "Named Providers"}`,
@@ -310,6 +347,10 @@ function buildPolicyUserPrompt(
     `- Custom user inputs: ${formatCustomInputs(answers)}`,
     "- Instruction: If a custom onboarding input appears above, include it directly in the relevant legal clauses instead of replacing it with generic wording.",
     '- Instruction: If AI transparency is "Professional/Generic", refer to AI vendors as "Secure Automated Data Processors" instead of naming brands or model families.',
+    "- Instruction: Produce benchmark-quality structure with rich headings, clear clause grouping, concise bullet lists, and publication-ready specificity.",
+    policyPackContext
+      ? "- Instruction: The final document must seamlessly reference the official PolicyPack operator identity and the policypack.org domain where relevant."
+      : "- Instruction: Use the user's product identity and website naturally, and never replace them with PolicyPack's own corporate details.",
     "",
     "## Research Data",
     researchSummary,
@@ -431,25 +472,30 @@ function buildFallbackPolicyMarkdown(
     answers.outreachChannels,
     "service communications",
   );
+  const operatorLine = buildDocumentOperatorBlock(answers, website);
 
   if (documentType === "privacy-policy") {
     return `# ${documentMeta.title}
 
-## 1. Scope
-1. This Privacy Policy explains how ${productName} collects, uses, and protects information when users access ${website}.
-2. This policy applies to customers and visitors in ${formatList(snapshot.monitoredRegions, primaryRegion)}.
+${operatorLine}
+
+## 1. Scope and Application
+1. This Privacy Policy explains how ${COMPANY_PUBLIC_NAME} collects, uses, stores, and protects personal information when individuals access ${website} or use ${productName}.
+2. This Privacy Policy applies to customers and visitors in ${formatList(snapshot.monitoredRegions, primaryRegion)} and should be read together with any jurisdiction-specific rights notices required by local law.
 
 ## 2. Information We Collect
-1. We collect ${dataCollected} when users interact with the product.
-2. We may also collect service usage, support, security, and diagnostic information where needed to operate the platform.
+### 2.1 Information submitted directly
+1. We collect ${dataCollected} when users create accounts, submit onboarding details, request legal documents, purchase premium access, or communicate with support.
+### 2.2 Information collected automatically
+1. We may also collect service usage, support, security, and diagnostic information where needed to operate the platform securely and improve document quality.
 
 ## 3. How We Use Information
 1. We use personal information to provide, secure, improve, and support ${productName}.
-2. We use collected information to manage accounts, fulfill service obligations, process transactions, and communicate product updates.
+2. We use collected information to manage accounts, fulfill service obligations, process transactions, maintain compliance records, and communicate product or regulatory updates.
 
 ## 4. Legal Bases and User Rights
 1. For users in ${primaryRegion}, we apply the rights and notice obligations required by the relevant privacy framework.
-2. Users may request access, correction, deletion, or export of eligible personal data, subject to legal and operational limits.
+2. Users may request access, correction, deletion, restriction, or export of eligible personal data, subject to legal, security, and operational limits.
 
 ## 5. Cookies and Analytics
 1. ${productName} uses ${channels} to measure performance, secure the service, and support product communications.
@@ -457,59 +503,70 @@ function buildFallbackPolicyMarkdown(
 
 ## 6. Vendors and Processors
 1. We rely on ${vendors} to host the service, process payments, analyze performance, and support core product functions.
-2. These providers may process personal information on our behalf under contractual and security controls.
+2. These providers may process personal information on our behalf under contractual, confidentiality, and security controls appropriate to the services they provide.
 
 ## 7. International Transfers
 1. Where data moves across borders, we apply transfer safeguards appropriate to ${primaryRegion} and other supported regions.
-2. We review vendors and subprocessors to ensure a reasonable level of protection for transferred data.
+2. We review vendors and subprocessors to maintain a commercially reasonable level of protection for transferred information.
 
 ## 8. Retention and Security
 1. We retain information for as long as necessary to operate the service, comply with law, resolve disputes, and enforce agreements.
 2. We use administrative, technical, and organizational controls designed to protect personal information from unauthorized access, loss, or misuse.
 
 ## 9. Contact and Updates
-1. Users may contact ${productName} with privacy requests, access requests, or complaints related to data handling.
+1. Users may contact ${COMPANY_SUPPORT_EMAIL} with privacy requests, access requests, or complaints related to data handling.
 2. We may update this Privacy Policy from time to time and will publish the latest version at ${website}.`;
   }
 
   if (documentType === "terms-of-service") {
     return `# ${documentMeta.title}
 
-## 1. Acceptance
-1. These Terms of Service govern access to and use of ${productName}.
-2. By using ${website}, users agree to be bound by these terms.
+${operatorLine}
 
-## 2. Accounts and Eligibility
+## 1. Acceptance and Operator Identity
+1. These Terms of Service govern access to and use of ${productName}, operated by ${COMPANY_PUBLIC_NAME}.
+2. By using ${website}, users agree to be bound by these Terms of Service and any policies referenced within them.
+
+## 2. Eligibility and Accounts
 1. Account creation status: ${answers.userAccounts || "Not specified"}.
-2. Users are responsible for maintaining accurate account information and keeping credentials secure when accounts are enabled.
+2. Users are responsible for maintaining accurate account information, safeguarding credentials, and controlling access to their workspace when accounts are enabled.
 
-## 3. Billing and Subscriptions
+## 3. Billing, Complimentary Access, and Refunds
 1. Paid access status: ${answers.acceptsPayments || "Not specified"}.
-2. Where paid plans apply, fees, billing cycles, and refund rules are governed by the plan selected by the customer.
+2. Where paid plans apply, fees, billing cycles, taxes, and refund rules are governed by the plan selected by the customer and the published refund terms.
+3. Any complimentary launch access may be limited, revoked, or modified according to the launch rules displayed at the time of registration.
 
-## 4. Acceptable Use
-1. Users may not misuse the service, interfere with operations, or attempt unauthorized access.
+## 4. Service Scope and Customer Responsibilities
+1. ${productName} provides AI-assisted legal automation and document generation workflows designed to help teams prepare baseline legal materials faster.
+2. Users remain responsible for the accuracy, legality, and completeness of the business information, prompts, and instructions submitted through the platform.
+
+## 5. Professional Boundary
+1. ${productName} helps with legal automation but does not provide legal advice, create an attorney-client relationship, or replace review by a licensed lawyer.
+2. Customers should obtain professional legal review where their facts, jurisdiction, or risk profile require it.
+
+## 6. Acceptable Use
+1. Users may not misuse the service, interfere with operations, distribute harmful code, infringe rights, or attempt unauthorized access.
 2. Users remain responsible for content, prompts, or data submitted through the platform.
 
-## 5. Intellectual Property
-1. ${productName} and its related materials remain the property of the service owner and licensors.
-2. Customers retain rights to their own content, subject to the permissions needed to operate the service.
+## 7. Intellectual Property
+1. ${productName} and its related materials remain the property of ${COMPANY_LEGAL_NAME} and its licensors.
+2. Customers retain rights to their own inputs, subject to the permissions reasonably required to operate the service.
 
-## 6. Service Availability
+## 8. Service Availability
 1. We may update, improve, suspend, or discontinue parts of the service as operational needs require.
 2. We aim to maintain a reliable service but do not guarantee uninterrupted availability.
 
-## 7. Termination
-1. We may suspend or terminate access for violations of these terms, security risks, or legal requirements.
-2. Users may stop using the service at any time, subject to any outstanding billing commitments.
-
-## 8. Governing Law and Contact
-1. These terms are interpreted with reference to the laws applicable to ${answers.companyLocation || primaryRegion}.
-2. Questions about these terms may be directed through the contact details published on ${website}.`;
+## 9. Liability, Termination, and Contact
+1. To the fullest extent permitted by law, liability limits and disclaimer principles apply to the use of the service.
+2. We may suspend or terminate access for violations of these terms, security risks, fraud concerns, or legal requirements.
+3. These terms are interpreted with reference to the laws applicable to ${answers.companyLocation || primaryRegion}, unless mandatory law requires otherwise.
+4. Questions about these terms may be directed to ${COMPANY_SUPPORT_EMAIL} or the contact details published on ${website}.`;
   }
 
   if (documentType === "cookie-policy") {
     return `# ${documentMeta.title}
+
+${operatorLine}
 
 ## 1. Cookie Categories
 1. ${productName} uses cookies and similar technologies to operate the service, understand usage, and improve performance.
@@ -533,6 +590,8 @@ function buildFallbackPolicyMarkdown(
   }
 
   return `# ${documentMeta.title}
+
+${operatorLine}
 
 ## 1. Scope
 1. This addendum supplements the legal terms for ${productName} and addresses privacy and data processing obligations relevant to ${primaryRegion}.
@@ -611,6 +670,35 @@ function formatDocumentVendors(answers: OnboardingAnswers) {
       isAiVendorLabel(vendor) ? "Secure Automated Data Processors" : vendor,
     ),
   );
+}
+
+function buildDocumentOperatorBlock(
+  answers: OnboardingAnswers,
+  website: string,
+) {
+  const operatorLabel = resolveDocumentOperatorLabel(answers);
+  const contactLine = isPolicyPackDocumentContext(answers)
+    ? COMPANY_SUPPORT_EMAIL
+    : "Use the official support contact published by the business";
+
+  return `**Operator:** ${operatorLabel}  \n**Website:** ${website}  \n**Support:** ${contactLine}`;
+}
+
+function resolveDocumentOperatorLabel(answers: OnboardingAnswers) {
+  if (isPolicyPackDocumentContext(answers)) {
+    return COMPANY_PUBLIC_NAME;
+  }
+
+  return getProductName(answers);
+}
+
+function isPolicyPackDocumentContext(answers: OnboardingAnswers) {
+  const productName = getProductName(answers).trim().toLocaleLowerCase("en-US");
+  const website = (answers.websiteUrl || "")
+    .trim()
+    .toLocaleLowerCase("en-US");
+
+  return productName === "policypack" || website.includes(COMPANY_PRIMARY_DOMAIN);
 }
 
 function isAiVendorLabel(vendor: string) {

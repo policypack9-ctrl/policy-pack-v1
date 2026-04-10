@@ -10,6 +10,12 @@ import {
   isSupabaseConfigured,
 } from "@/lib/auth-env";
 import type { SavedGeneratedDocument } from "@/lib/db";
+import {
+  buildLaunchCampaignSnapshot,
+  buildDefaultLaunchCampaignSnapshot,
+  FREE_GENERATION_USER_LIMIT,
+  type LaunchCampaignSnapshot,
+} from "@/lib/launch-campaign";
 import type { GeneratedPolicyDocument, PolicyDocumentType } from "@/lib/policy-generator";
 
 type NextAuthUserRow = {
@@ -680,4 +686,69 @@ export async function listGeneratedDocumentsForUser(userId: string) {
     model: document.model ?? "unknown",
     generatedAt: document.generated_at,
   })) satisfies SavedGeneratedDocument[];
+}
+
+export async function getLaunchCampaignSnapshot(
+  userId?: string | null,
+): Promise<LaunchCampaignSnapshot> {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return buildDefaultLaunchCampaignSnapshot(userId);
+  }
+
+  const registeredUsersPromise = supabase
+    .from("user_profiles")
+    .select("user_id", { count: "exact", head: true });
+  const eligibleUsersPromise = supabase
+    .from("user_profiles")
+    .select("user_id")
+    .order("created_at", { ascending: true })
+    .order("user_id", { ascending: true })
+    .limit(FREE_GENERATION_USER_LIMIT);
+  const generatedDocumentsPromise = userId
+    ? supabase
+        .from("generated_documents")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+    : Promise.resolve({ count: 0, error: null } as const);
+
+  const [registeredUsersResult, eligibleUsersResult, generatedDocumentsResult] =
+    await Promise.all([
+      registeredUsersPromise,
+      eligibleUsersPromise,
+      generatedDocumentsPromise,
+    ]);
+
+  if (registeredUsersResult.error) {
+    throw formatSupabaseAuthError(
+      registeredUsersResult.error,
+      "Unable to count registered users for the launch campaign.",
+    );
+  }
+
+  if (eligibleUsersResult.error) {
+    throw formatSupabaseAuthError(
+      eligibleUsersResult.error,
+      "Unable to read launch campaign eligibility.",
+    );
+  }
+
+  if (generatedDocumentsResult.error) {
+    throw formatSupabaseAuthError(
+      generatedDocumentsResult.error,
+      "Unable to read generated document usage for the launch campaign.",
+    );
+  }
+
+  const eligibleUserIds = (
+    (eligibleUsersResult.data as Array<{ user_id: string }> | null) ?? []
+  ).map((row) => row.user_id);
+
+  return buildLaunchCampaignSnapshot({
+    registeredUsers: registeredUsersResult.count ?? 0,
+    eligibleUserIds,
+    userId,
+    generatedDocumentCount: generatedDocumentsResult.count ?? 0,
+  });
 }

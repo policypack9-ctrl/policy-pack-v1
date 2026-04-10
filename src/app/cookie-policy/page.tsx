@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 
 import { LegalPageShell } from "@/components/legal/legal-page-shell";
 import {
-  getTermsAndGdprMarkdown,
+  getCookiePolicyMarkdown,
   SITE_LEGAL_LAST_UPDATED,
 } from "@/lib/site-page-content";
 
 export const metadata: Metadata = {
-  title: "Terms of Service",
-  description: "PolicyPack's Terms of Service and platform usage terms.",
+  title: "Cookie Policy",
+  description: "PolicyPack's cookie, analytics, and tracking technology disclosures.",
   alternates: {
-    canonical: "/terms",
+    canonical: "/cookie-policy",
   },
   robots: {
     index: true,
@@ -18,13 +18,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function TermsPage() {
+export default function CookiePolicyPage() {
   return (
     <LegalPageShell
       eyebrow="PolicyPack Legal"
-      title="Terms of Service & GDPR Compliance"
-      description="PolicyPack's platform terms, commercial rules, and GDPR-oriented processing commitments."
-      markdown={getTermsAndGdprMarkdown()}
+      title="Cookie Policy"
+      description="How PolicyPack uses cookies, analytics technologies, and similar tools across the website and product."
+      markdown={getCookiePolicyMarkdown()}
       lastUpdated={SITE_LEGAL_LAST_UPDATED}
     />
   );

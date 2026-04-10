@@ -6,10 +6,13 @@ import {
   BadgeCheck,
   CirclePlay,
   Clock3,
+  LockKeyhole,
   ShieldCheck,
   Sparkles,
+  TriangleAlert,
 } from "lucide-react";
 
+import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 import { AuroraBackground } from "@/components/ui/aurora-background";
 import { Button } from "@/components/ui/button";
 import { PremiumButton } from "@/components/ui/premium-button";
@@ -20,8 +23,27 @@ const proofPoints = [
   "Founder-friendly setup",
 ];
 
-export function HeroSection() {
+type HeroSectionProps = {
+  launchSnapshot: LaunchCampaignSnapshot;
+};
+
+export function HeroSection({ launchSnapshot }: HeroSectionProps) {
   const shouldReduceMotion = useReducedMotion();
+  const bannerToneClassName =
+    launchSnapshot.bannerTone === "closed"
+      ? "border-amber-200/16 bg-amber-200/10 text-amber-50"
+      : launchSnapshot.bannerTone === "urgency"
+        ? "border-amber-200/16 bg-amber-200/10 text-amber-50"
+        : "border-white/10 bg-white/[0.04] text-teal-100/78";
+  const BannerIcon =
+    launchSnapshot.bannerTone === "launch"
+      ? Sparkles
+      : launchSnapshot.bannerTone === "closed"
+        ? LockKeyhole
+        : TriangleAlert;
+  const primaryCtaLabel = launchSnapshot.freeGenerationClosed
+    ? "Unlock PolicyPack"
+    : "Generate My Policy Pack";
 
   return (
     <AuroraBackground className="border-b border-white/10">
@@ -35,9 +57,13 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-teal-100/78">
-              <Sparkles className="size-4 text-teal-200" />
-              Legal docs for SaaS teams
+            <div
+              className={`inline-flex max-w-full items-center gap-2 rounded-full px-3.5 py-2 text-[11px] font-medium uppercase tracking-[0.24em] ${bannerToneClassName}`}
+            >
+              <BannerIcon
+                className={`size-4 ${launchSnapshot.bannerTone === "launch" ? "text-teal-200" : "text-amber-100"}`}
+              />
+              <span className="truncate">{launchSnapshot.bannerText}</span>
             </div>
 
             <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-[0.98] tracking-[-0.06em] text-white sm:text-5xl lg:text-6xl">
@@ -50,6 +76,9 @@ export function HeroSection() {
               Skip the $3,000 lawyer. AI-generated Privacy Policy and Terms of
               Service that update automatically when laws change.
             </p>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/54">
+              {launchSnapshot.bannerDescription}
+            </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <PremiumButton
@@ -57,7 +86,7 @@ export function HeroSection() {
                 nativeButton={false}
                 className="h-12 px-5 text-sm sm:text-base"
               >
-                Generate My Policy Pack
+                {primaryCtaLabel}
               </PremiumButton>
 
               <Button
@@ -88,6 +117,18 @@ export function HeroSection() {
                   {point}
                 </motion.div>
               ))}
+              <motion.div
+                initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.45,
+                  delay: 0.14 + proofPoints.length * 0.06,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm text-white/66"
+              >
+                {launchSnapshot.calloutLabel}
+              </motion.div>
             </div>
           </motion.div>
 
