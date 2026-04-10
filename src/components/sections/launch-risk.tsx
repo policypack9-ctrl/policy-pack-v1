@@ -299,11 +299,11 @@ export function LaunchRiskSection({
           <BlockedDashboardMock />
         </div>
 
-        <div className="mt-10 grid items-stretch gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)]">
+        <div className="mt-10 grid items-start gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)]">
           <LaunchRiskCalculator />
 
-          <div className="grid gap-4 sm:gap-5">
-            <div className="soft-panel h-full rounded-[28px] p-5 sm:p-6">
+          <div className="space-y-4 sm:space-y-5">
+            <div className="soft-panel rounded-[28px] p-5 sm:p-6">
               <div className="flex items-start gap-4">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-teal-200">
                   <FileCheck2 className="size-5" />
@@ -350,7 +350,7 @@ export function LaunchRiskSection({
               </p>
             </div>
 
-            <div className="soft-panel h-full rounded-[28px] p-5 sm:p-6">
+            <div className="soft-panel rounded-[28px] p-5 sm:p-6">
               <div className="flex items-start gap-4">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-teal-200">
                   <Radar className="size-5" />
@@ -617,7 +617,7 @@ function LaunchRiskCalculator() {
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="soft-panel h-full rounded-[30px] p-5 sm:p-6"
+      className="soft-panel rounded-[30px] p-5 sm:p-6"
     >
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-xl">
@@ -646,14 +646,16 @@ function LaunchRiskCalculator() {
         </div>
       </div>
 
-      <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:gap-5">
-        <div className="space-y-5">
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div>
           <SelectorGroup
             title="Platform"
             items={platformOptions}
             value={platform}
             onChange={setPlatform}
           />
+        </div>
+        <div>
           <SelectorGroup
             title="Target market"
             items={marketOptions}
@@ -661,8 +663,10 @@ function LaunchRiskCalculator() {
             onChange={setMarket}
           />
         </div>
+      </div>
 
-        <div className="grid h-full gap-4">
+      <div className="mt-6 grid gap-4">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
           <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.02] p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -726,31 +730,31 @@ function LaunchRiskCalculator() {
               ))}
             </div>
           </div>
-
-          <div className="rounded-[24px] border border-teal-300/16 bg-teal-300/[0.07] p-4">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-teal-200/76">
-              Action plan
-            </p>
-            <div className="mt-3 space-y-2.5">
-              {actionPlan.map((step, index) => (
-                <div
-                  key={step}
-                  className="flex items-start gap-3 rounded-[18px] border border-white/[0.08] bg-[#0D0D0D]/70 px-3.5 py-3"
-                >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-white/66">
-                    {index + 1}
-                  </span>
-                  <p className="text-sm leading-6 text-white/76">{step}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <p className="text-xs leading-6 text-white/42">
-            Based on published platform requirements and common review signals.
-            This calculator is an operational guide, not legal advice.
-          </p>
         </div>
+
+        <div className="rounded-[24px] border border-teal-300/16 bg-teal-300/[0.07] p-4">
+          <p className="text-[11px] uppercase tracking-[0.24em] text-teal-200/76">
+            Action plan
+          </p>
+          <div className="mt-3 space-y-2.5">
+            {actionPlan.map((step, index) => (
+              <div
+                key={step}
+                className="flex items-start gap-3 rounded-[18px] border border-white/[0.08] bg-[#0D0D0D]/70 px-3.5 py-3"
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-white/66">
+                  {index + 1}
+                </span>
+                <p className="text-sm leading-6 text-white/76">{step}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-xs leading-6 text-white/42">
+          Based on published platform requirements and common review signals.
+          This calculator is an operational guide, not legal advice.
+        </p>
       </div>
     </motion.div>
   );
