@@ -402,6 +402,11 @@ export function LaunchRiskSection({
           </div>
         </div>
 
+        <p className="mt-4 max-w-3xl text-xs leading-6 text-white/42">
+          Based on published platform requirements and common review signals.
+          This calculator is an operational guide, not legal advice.
+        </p>
+
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
           <AuthAwarePremiumButton
             authenticatedHref="/onboarding"
@@ -751,10 +756,6 @@ function LaunchRiskCalculator() {
           </div>
         </div>
 
-        <p className="text-xs leading-6 text-white/42">
-          Based on published platform requirements and common review signals.
-          This calculator is an operational guide, not legal advice.
-        </p>
       </div>
     </motion.div>
   );
