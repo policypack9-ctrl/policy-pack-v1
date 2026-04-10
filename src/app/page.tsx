@@ -3,6 +3,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { FaqSection } from "@/components/sections/faq";
 import { FeaturesSection } from "@/components/sections/features";
 import { HeroSection } from "@/components/sections/hero";
+import { LaunchRiskSection } from "@/components/sections/launch-risk";
 import { PricingSection } from "@/components/sections/pricing";
 import { buildDefaultLaunchCampaignSnapshot } from "@/lib/launch-campaign";
 
@@ -17,6 +18,7 @@ export default async function Home() {
     <div className="min-h-screen bg-[#0A0A0A] text-white">
       <Navbar />
       <HeroSection launchSnapshot={launchSnapshot} />
+      <LaunchRiskSection launchSnapshot={launchSnapshot} />
       <FeaturesSection />
       <PricingSection launchSnapshot={launchSnapshot} />
       <FaqSection />
