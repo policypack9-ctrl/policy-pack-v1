@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "regen:site-legal": "node scripts/regenerate-site-legal.mjs"
+    "regen:site-legal": "node scripts/regenerate-site-legal.mjs",
+    "regenerate-site-legal": "node scripts/regenerate-site-legal.mjs"
   },
   "dependencies": {
     "@auth/supabase-adapter": "^1.11.1",

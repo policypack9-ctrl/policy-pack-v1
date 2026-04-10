@@ -46,6 +46,10 @@ const PAGE_SPECS = [
     title: "Privacy Policy",
     purpose:
       "Draft a production-grade Privacy Policy for PolicyPack's public website and customer platform.",
+    specialInstructions: [
+      "In the first substantive paragraph, clearly state that PolicyPack is the trading name of Superlinear Technology Pte. Ltd., a Singapore company, and that the policy applies to policypack.org and related services.",
+      "The operator identity should be explicit, consistent, and suitable for payment-provider verification.",
+    ],
     requiredSections: [
       "Scope and controller identity",
       "Categories of data collected",
@@ -65,6 +69,10 @@ const PAGE_SPECS = [
     title: "Terms of Service & Global Privacy Appendix",
     purpose:
       "Draft detailed Terms of Service for PolicyPack, with a privacy and cross-border processing appendix suitable for international SaaS operations.",
+    specialInstructions: [
+      "In the introductory paragraphs, clearly identify PolicyPack as the trading name of Superlinear Technology Pte. Ltd., a Singapore company, and make that operator wording consistent throughout.",
+      "The commercial identity wording should be explicit enough for payment-provider and merchant-account verification.",
+    ],
     requiredSections: [
       "Acceptance and operator identity",
       "Eligibility and account use",
@@ -100,12 +108,17 @@ const PAGE_SPECS = [
     title: "Refund Policy",
     purpose:
       "Draft a clean Refund Policy for digital legal documents and premium SaaS access.",
+    specialInstructions: [
+      "The opening paragraph must clearly identify PolicyPack as the trading name of Superlinear Technology Pte. Ltd., a Singapore company.",
+      "State plainly that refunds are not provided once the AI generation process has been initiated or once any generated document pack has been accessed, generated, exported, delivered, or downloaded.",
+      "Do not include discretionary qualifiers, defect-based exceptions, review windows, or vague carve-outs.",
+      "Keep the refund position direct, unambiguous, and consistent with merchant-of-record review expectations.",
+    ],
     requiredSections: [
       "Digital products",
-      "When refunds are generally unavailable",
-      "Exceptions and verified defects",
-      "Request process",
-      "Review and resolution",
+      "When refunds are unavailable",
+      "Effect of initiating generation or accessing exports",
+      "Billing contact",
     ],
   },
   {
@@ -334,6 +347,9 @@ async function draftSitePage({
     "",
     "## Required sections",
     ...page.requiredSections.map((section) => `- ${section}`),
+    ...(page.specialInstructions?.length
+      ? ["", "## Page-specific instructions", ...page.specialInstructions.map((item) => `- ${item}`)]
+      : []),
     "",
     "## Research context",
     researchSummary,

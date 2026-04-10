@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "PolicyPack's Privacy Policy and data handling disclosures.",
   alternates: {
-    canonical: "/privacy",
+    canonical: "/privacy-policy",
   },
   robots: {
     index: true,

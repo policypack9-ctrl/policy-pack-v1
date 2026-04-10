@@ -13,7 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: `${PRODUCTION_APP_URL}/privacy`,
+      url: `${PRODUCTION_APP_URL}/privacy-policy`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
@@ -25,7 +25,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
-      url: `${PRODUCTION_APP_URL}/terms`,
+      url: `${PRODUCTION_APP_URL}/terms-of-service`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,

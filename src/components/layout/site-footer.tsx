@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { COMPANY_LEGAL_NAME, COMPANY_SUPPORT_EMAIL } from "@/lib/company";
 
 const footerLinks = [
   { href: "/about-us", label: "About Us" },
   { href: "/contact-us", label: "Contact Us" },
-  { href: "/privacy", label: "Privacy Policy" },
+  { href: "/privacy-policy", label: "Privacy Policy" },
   { href: "/cookie-policy", label: "Cookie Policy" },
-  { href: "/terms", label: "Terms of Service" },
+  { href: "/terms-of-service", label: "Terms of Service" },
   { href: "/legal-disclaimer", label: "Legal Disclaimer" },
   { href: "/refund-policy", label: "Refund Policy" },
 ] as const;
@@ -19,6 +20,15 @@ export function SiteFooter() {
           <p className="mt-1 text-sm text-white/46">
             AI-powered legal documents for growing SaaS teams.
           </p>
+          <p className="mt-2 text-sm text-white/40">
+            © 2026 {COMPANY_LEGAL_NAME}
+          </p>
+          <a
+            href={`mailto:${COMPANY_SUPPORT_EMAIL}`}
+            className="mt-1 inline-block text-sm text-white/52 transition-colors hover:text-white"
+          >
+            {COMPANY_SUPPORT_EMAIL}
+          </a>
         </div>
 
         <nav className="flex flex-wrap items-center gap-2">

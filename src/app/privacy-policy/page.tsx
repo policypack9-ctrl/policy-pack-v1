@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 
 import { LegalPageShell } from "@/components/legal/legal-page-shell";
 import {
-  getRefundPolicyMarkdown,
+  getPrivacyPolicyMarkdown,
   SITE_LEGAL_LAST_UPDATED,
 } from "@/lib/site-page-content";
 
 export const metadata: Metadata = {
-  title: "Refund Policy",
-  description: "PolicyPack's refund terms for digital legal document purchases.",
+  title: "Privacy Policy",
+  description: "PolicyPack's Privacy Policy and data handling disclosures.",
   alternates: {
-    canonical: "/refund-policy",
+    canonical: "/privacy-policy",
   },
   robots: {
     index: true,
@@ -18,13 +18,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RefundPolicyPage() {
+export default function PrivacyPolicyAliasPage() {
   return (
     <LegalPageShell
       eyebrow="PolicyPack Legal"
-      title="Refund Policy"
-      description="PolicyPack's refund terms for digital legal documents and accessed deliverables."
-      markdown={getRefundPolicyMarkdown()}
+      title="Privacy Policy"
+      description="PolicyPack's privacy disclosures, processing practices, and personal data handling standards."
+      markdown={getPrivacyPolicyMarkdown()}
       lastUpdated={SITE_LEGAL_LAST_UPDATED}
     />
   );

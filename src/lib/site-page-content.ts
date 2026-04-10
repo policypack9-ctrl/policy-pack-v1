@@ -1,5 +1,10 @@
 import generatedSiteContent from "@/lib/site-page-content.generated.json";
-import { COMPANY_SUPPORT_EMAIL } from "@/lib/company";
+import {
+  COMPANY_BRAND_NAME,
+  COMPANY_LEGAL_NAME,
+  COMPANY_PUBLIC_NAME,
+  COMPANY_SUPPORT_EMAIL,
+} from "@/lib/company";
 
 export const SITE_LEGAL_LAST_UPDATED = generatedSiteContent.lastUpdated;
 
@@ -39,9 +44,71 @@ function normalizeGeneratedMarkdown(
   return value.trim();
 }
 
+function enforceStrictPolicyPackRefundPolicy(markdown: string) {
+  const strictRefundBlock = [
+    "## 4. No Exceptions After Access or Generation",
+    "",
+    `4.1. ${COMPANY_BRAND_NAME} does not provide refunds once the AI generation process has been initiated or once any generated document pack has been accessed, generated, exported, delivered, or downloaded.`,
+    "",
+    "4.2. This rule applies to one-time purchases, premium exports, subscription-backed document access, and any related digital deliverable made available through policypack.org.",
+    "",
+    "4.3. If you have a billing question before generation begins or before you access any deliverable, contact support@policypack.org before using the service.",
+    "",
+    "## 5. Subscription Cancellations",
+    "",
+    "5.1. You may cancel a recurring subscription at any time through your account settings or by contacting support@policypack.org.",
+    "",
+    "5.2. Cancellation stops future billing cycles only. It does not create a refund for the current billing period or for any document generation already initiated or accessed.",
+    "",
+    "## 6. Payment Processing",
+    "",
+    "6.1. Payments may be processed through approved third-party payment providers or a merchant-of-record arrangement used for PolicyPack.",
+    "",
+    "6.2. Billing questions should be sent to support@policypack.org before initiating chargebacks or payment reversals.",
+    "",
+    "## 7. Contact Information",
+    "",
+    `7.1. For billing questions relating to ${COMPANY_BRAND_NAME}, contact support@policypack.org.`,
+    "",
+    "7.2. Please include your account email and order details in any billing communication.",
+    "",
+    "## 8. Governing Law",
+    "",
+    "8.1. This Refund Policy is governed by the laws of Singapore.",
+  ].join("\n");
+
+  return markdown.replace(
+    /## 4\.[\s\S]*?(?=## 9\.|$)/,
+    `${strictRefundBlock}\n\n`,
+  );
+}
+
+function enforcePolicyPackTermsRefundLanguage(markdown: string) {
+  return markdown
+    .replace(
+      /3\.4\.\s\*\*Refunds\*\*[\s\S]*?(?=3\.5\.)/,
+      [
+        "3.4. **Refunds**.",
+        "",
+        "3.4.1. Refunds are not provided once the AI generation process has been initiated or once any generated document pack has been accessed, generated, exported, delivered, or downloaded.",
+        "",
+        "3.4.2. Subscription cancellation stops future billing cycles only and does not create a refund for the current billing period or for any digital deliverable already accessed through PolicyPack.",
+        "",
+      ].join("\n"),
+    )
+    .replace(
+      "constitute a legally binding agreement between you and Superlinear Technology Pte. Ltd., a company incorporated in Singapore, trading as PolicyPack",
+      `constitute a legally binding agreement between you and ${COMPANY_PUBLIC_NAME}, a Singapore company`,
+    );
+}
+
 const privacyPolicyMarkdown = normalizeGeneratedMarkdown(
   generatedSiteContent.pages.privacyPolicy,
   [
+    [
+      `This Privacy Policy describes how ${COMPANY_LEGAL_NAME}, trading as ${COMPANY_BRAND_NAME} ("${COMPANY_BRAND_NAME}," "we," "us," or "our"), collects, uses, discloses, and protects personal information when you access or use the ${COMPANY_BRAND_NAME} platform at https://policypack.org (the "Service"). This policy applies to all users, including visitors, registered account holders, and subscribers, regardless of geographic location.`,
+      `This Privacy Policy describes how ${COMPANY_PUBLIC_NAME} collects, uses, discloses, and protects personal information when you access or use the ${COMPANY_BRAND_NAME} platform at https://policypack.org (the "Service"). This policy applies to all users, including visitors, registered account holders, and subscribers, regardless of geographic location.`,
+    ],
     [
       "We maintain a public list of subprocessors at https://policypack.org/subprocessors. We will update this list before engaging new subprocessors and provide notice of material changes.",
       "We may maintain and update information about key subprocessors and service categories used to operate PolicyPack. Material changes will be reflected in our legal or operational notices when appropriate.",
@@ -53,9 +120,12 @@ const privacyPolicyMarkdown = normalizeGeneratedMarkdown(
   ],
 );
 
-const termsAndGdprMarkdown = normalizeGeneratedMarkdown(
-  generatedSiteContent.pages.termsAndGdpr,
-  [
+const termsAndGdprMarkdown = enforcePolicyPackTermsRefundLanguage(
+  normalizeGeneratedMarkdown(generatedSiteContent.pages.termsAndGdpr, [
+    [
+      `These Terms of Service govern access to and use of ${COMPANY_BRAND_NAME}, operated by ${COMPANY_PUBLIC_NAME}.`,
+      `These Terms of Service govern access to and use of ${COMPANY_BRAND_NAME}, the trading name of ${COMPANY_LEGAL_NAME}, a Singapore company operating at https://policypack.org.`,
+    ],
     [
       "All references to \"we,\" \"us,\" or \"our\" refer to Superlinear Technology Pte. Ltd. trading as PolicyPack. All references to \"you\" or \"your\" refer to the individual or entity accessing or using the service.",
       'All references to "we," "us," or "our" refer to Superlinear Technology Pte. Ltd. trading as PolicyPack. All references to "you" or "your" refer to the individual or entity accessing or using the service.',
@@ -64,21 +134,28 @@ const termsAndGdprMarkdown = normalizeGeneratedMarkdown(
       "Premium features include export formats, version tracking, and update notifications when regulations or platform policies change.",
       "Premium features may include export formats, version tracking, update notifications, and related workspace capabilities as described on the site at the time of purchase.",
     ],
-  ],
+  ]),
 );
 
 const cookiePolicyMarkdown = normalizeGeneratedMarkdown(
   generatedSiteContent.pages.cookiePolicy,
 );
 
-const refundPolicyMarkdown = normalizeGeneratedMarkdown(
-  generatedSiteContent.pages.refundPolicy,
-  [
+const refundPolicyMarkdown = enforceStrictPolicyPackRefundPolicy(
+  normalizeGeneratedMarkdown(generatedSiteContent.pages.refundPolicy, [
+    [
+      `PolicyPack is the trading name of ${COMPANY_LEGAL_NAME}, a Singapore company. This Refund Policy applies to purchases made through policypack.org and any related checkout flow used for PolicyPack products and services.`,
+      `${COMPANY_BRAND_NAME} is the trading name of ${COMPANY_LEGAL_NAME}, a Singapore company. This Refund Policy applies to purchases made through policypack.org and any related checkout flow used for ${COMPANY_BRAND_NAME} products and services.`,
+    ],
+    [
+      "All sales are generally final once the digital product has been delivered or premium workspace access has been provisioned, except where applicable law provides a mandatory right of withdrawal or refund.",
+      "Refunds are not provided once the AI generation process has been initiated or once any generated document pack has been accessed, generated, exported, delivered, or downloaded.",
+    ],
     [
       "All sales are final once the digital product has been delivered or the subscription term has commenced, except where applicable law provides a mandatory right of withdrawal or refund.",
-      "All sales are generally final once the digital product has been delivered or premium workspace access has been provisioned, except where applicable law provides a mandatory right of withdrawal or refund.",
+      "Refunds are not provided once the AI generation process has been initiated or once any generated document pack has been accessed, generated, exported, delivered, or downloaded.",
     ],
-  ],
+  ]),
 );
 
 const contactUsMarkdown = normalizeGeneratedMarkdown(

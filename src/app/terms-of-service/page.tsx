@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function TermsPage() {
+export default function TermsOfServiceAliasPage() {
   return (
     <LegalPageShell
       eyebrow="PolicyPack Legal"
