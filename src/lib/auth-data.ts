@@ -45,6 +45,10 @@ type GeneratedDocumentRow = {
   updated_at: string | null;
 };
 
+type NextAuthAccountRow = {
+  provider: string;
+};
+
 export type AppUserProfile = {
   userId: string;
   name: string | null;
@@ -55,6 +59,14 @@ export type AppUserProfile = {
   premiumUnlockedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+};
+
+export type UserSignInMethod = "password" | "google";
+
+export type AccountSettingsSummary = {
+  profile: AppUserProfile | null;
+  signInMethods: UserSignInMethod[];
+  canChangePassword: boolean;
 };
 
 export type CredentialsUserInput = {
@@ -246,6 +258,29 @@ async function getUserProfileRow(userId: string) {
   return (data as UserProfileRow | null) ?? null;
 }
 
+async function getNextAuthAccountsByUserId(userId: string) {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return [] as NextAuthAccountRow[];
+  }
+
+  const { data, error } = await supabase
+    .schema("next_auth")
+    .from("accounts")
+    .select("provider")
+    .eq("userId", userId);
+
+  if (error) {
+    throw formatSupabaseAuthError(
+      error,
+      "Unable to read next_auth.accounts by user id.",
+    );
+  }
+
+  return ((data as NextAuthAccountRow[] | null) ?? []) satisfies NextAuthAccountRow[];
+}
+
 export function getSupabaseAdapterConfig() {
   if (!isSupabaseConfigured()) {
     return null;
@@ -299,11 +334,13 @@ export async function upsertUserProfileFromAuthUser(user: {
     return null;
   }
 
+  const existingProfile = await getUserProfileRow(user.id);
+
   const payload = {
     user_id: user.id,
     email: user.email ?? null,
-    display_name: user.name ?? null,
-    avatar_url: user.image ?? null,
+    display_name: existingProfile?.display_name ?? user.name ?? null,
+    avatar_url: existingProfile?.avatar_url ?? user.image ?? null,
     updated_at: new Date().toISOString(),
   };
 
@@ -435,6 +472,147 @@ export async function setUserPremium(userId: string, isPremium = true) {
   }
 
   return getAppUserProfileById(userId);
+}
+
+export async function getAccountSettingsSummary(userId: string) {
+  const [profile, accounts] = await Promise.all([
+    getAppUserProfileById(userId),
+    getNextAuthAccountsByUserId(userId),
+  ]);
+
+  const methods = new Set<UserSignInMethod>();
+
+  if (profile?.passwordHash) {
+    methods.add("password");
+  }
+
+  for (const account of accounts) {
+    if (account.provider === "google") {
+      methods.add("google");
+    }
+  }
+
+  return {
+    profile,
+    signInMethods: [...methods],
+    canChangePassword: methods.has("password"),
+  } satisfies AccountSettingsSummary;
+}
+
+export async function updateUserDisplayName(userId: string, displayName: string) {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    throw new Error("Account updates are unavailable right now.");
+  }
+
+  const normalizedName = displayName.trim();
+
+  if (normalizedName.length < 2) {
+    throw new Error("Display name must be at least 2 characters long.");
+  }
+
+  const [userUpdate, profileUpdate] = await Promise.all([
+    supabase
+      .schema("next_auth")
+      .from("users")
+      .update({
+        name: normalizedName,
+      })
+      .eq("id", userId),
+    supabase
+      .from("user_profiles")
+      .update({
+        display_name: normalizedName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId),
+  ]);
+
+  if (userUpdate.error) {
+    throw formatSupabaseAuthError(
+      userUpdate.error,
+      "Unable to update the account name.",
+    );
+  }
+
+  if (profileUpdate.error) {
+    throw formatSupabaseAuthError(
+      profileUpdate.error,
+      "Unable to update the profile name.",
+    );
+  }
+
+  return getAppUserProfileById(userId);
+}
+
+export async function updateUserPassword(input: {
+  userId: string;
+  currentPassword: string;
+  nextPassword: string;
+}) {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    throw new Error("Password updates are unavailable right now.");
+  }
+
+  const profile = await getUserProfileRow(input.userId);
+
+  if (!profile?.password_hash) {
+    throw new Error("Password sign-in is not enabled for this account.");
+  }
+
+  const currentPassword = input.currentPassword;
+  const nextPassword = input.nextPassword;
+
+  if (nextPassword.length < 8) {
+    throw new Error("Your new password must be at least 8 characters long.");
+  }
+
+  const isCurrentPasswordValid = await bcrypt.compare(
+    currentPassword,
+    profile.password_hash,
+  );
+
+  if (!isCurrentPasswordValid) {
+    throw new Error("Your current password is incorrect.");
+  }
+
+  const passwordHash = await bcrypt.hash(nextPassword, 12);
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({
+      password_hash: passwordHash,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", input.userId);
+
+  if (error) {
+    throw formatSupabaseAuthError(error, "Unable to update the password.");
+  }
+
+  return true;
+}
+
+export async function deleteUserAccount(userId: string) {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    throw new Error("Account deletion is unavailable right now.");
+  }
+
+  const { error } = await supabase
+    .schema("next_auth")
+    .from("users")
+    .delete()
+    .eq("id", userId);
+
+  if (error) {
+    throw formatSupabaseAuthError(error, "Unable to delete the account.");
+  }
+
+  return true;
 }
 
 export async function saveGeneratedDocumentForUser(

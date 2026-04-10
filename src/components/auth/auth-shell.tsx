@@ -39,7 +39,7 @@ export function AuthShell({
                   PolicyPack
                 </p>
                 <p className="text-sm text-white/48">
-                  Secure legal infrastructure for SaaS teams.
+                  Clear, trustworthy legal coverage for modern SaaS teams.
                 </p>
               </div>
             </div>
@@ -54,10 +54,10 @@ export function AuthShell({
 
           <div className="mt-10 grid gap-3 sm:grid-cols-2">
             {[
-              "Google OAuth and credentials access",
-              "Premium PDF export locked behind billing state",
-              "Supabase-backed profiles and document persistence",
-              "Production-ready sandbox billing foundation",
+              "Sign in with Google or email",
+              "Your documents stay saved to your account",
+              "Secure downloads when you're ready to upgrade",
+              "One workspace for every policy and update",
             ].map((item) => (
               <div
                 key={item}
@@ -86,4 +86,3 @@ export function AuthShell({
     </main>
   );
 }
-

@@ -22,8 +22,8 @@ export default async function RegisterPage({
   return (
     <AuthShell
       eyebrow="Account Setup"
-      title="Create a secure workspace before you launch."
-      description="Provision credentials, attach premium billing state, and keep every generated legal document synced inside your PolicyPack account."
+      title="Create your account before you launch."
+      description="Set up your personal workspace so every generated document stays organized, saved, and ready to export."
       footerLabel="Already have an account?"
       footerHref={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
       footerAction="Login"

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, FileStack, LoaderCircle, LogOut, UserRound } from "lucide-react";
+import { ChevronDown, FileStack, LoaderCircle, LogOut, Settings2, UserRound } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -67,7 +67,7 @@ export function NavbarAuthControls() {
   const userLabel =
     session.user.name?.trim() ||
     session.user.email?.split("@")[0] ||
-    "Profile";
+    "Account";
 
   return (
     <div ref={menuRef} className="relative">
@@ -95,12 +95,12 @@ export function NavbarAuthControls() {
 
           <div className="mt-2 space-y-1">
             <Link
-              href="/profile"
+              href="/dashboard/settings"
               onClick={() => setIsMenuOpen(false)}
               className="flex items-center gap-3 rounded-[18px] px-4 py-3 text-sm text-white/68 transition-colors hover:bg-white/[0.04] hover:text-white"
             >
-              <UserRound className="size-4" />
-              Profile
+              <Settings2 className="size-4" />
+              Settings
             </Link>
             <Link
               href="/dashboard"

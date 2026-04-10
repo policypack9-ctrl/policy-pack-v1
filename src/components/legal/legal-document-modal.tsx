@@ -10,7 +10,7 @@ type LegalDocumentModalProps = {
   isOpen: boolean;
   title: string;
   markdown: string;
-  providerLabel: string;
+  metaLabel: string;
   generatedAt: string;
   isLoading: boolean;
   canExport: boolean;
@@ -22,7 +22,7 @@ export function LegalDocumentModal({
   isOpen,
   title,
   markdown,
-  providerLabel,
+  metaLabel,
   generatedAt,
   isLoading,
   canExport,
@@ -54,7 +54,7 @@ export function LegalDocumentModal({
                   {title}
                 </h2>
                 <p className="mt-2 text-sm text-white/50">
-                  {providerLabel} | {generatedAt}
+                  {metaLabel} | {generatedAt}
                 </p>
               </div>
 
@@ -74,10 +74,10 @@ export function LegalDocumentModal({
                   <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.02] px-6 py-5 text-center">
                     <LoaderCircle className="mx-auto size-6 animate-spin text-teal-200" />
                     <p className="mt-4 text-sm font-medium text-white">
-                      Generating document draft...
+                      Preparing your document...
                     </p>
                     <p className="mt-2 text-sm text-white/54">
-                      PolicyPack is assembling the final legal markdown.
+                      PolicyPack is formatting the latest version for review.
                     </p>
                   </div>
                 </div>
@@ -110,7 +110,7 @@ export function LegalDocumentModal({
                   className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
                 >
                   <Download className="size-4" />
-                  {canExport ? "Export PDF" : "Premium Export"}
+                  {canExport ? "Export PDF" : "Upgrade to Download"}
                 </Button>
               </div>
             </div>

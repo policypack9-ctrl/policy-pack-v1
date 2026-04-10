@@ -16,7 +16,7 @@ export default async function LoginPage({
     resolvedSearchParams.error === "CredentialsSignin"
       ? "Invalid email or password."
       : resolvedSearchParams.error === "Configuration"
-        ? "Authentication is temporarily unavailable. Check AUTH_SECRET, NEXTAUTH_URL, Google OAuth variables, and Supabase auth schema access."
+        ? "Sign-in is temporarily unavailable. Please try again in a moment."
       : "";
   const session = await auth();
   const googleEnabled = isGoogleAuthConfigured();
@@ -28,9 +28,9 @@ export default async function LoginPage({
   return (
     <AuthShell
       eyebrow="Secure Access"
-      title="Professional authentication for your legal workspace."
-      description="Use credentials or Google OAuth to enter your dashboard, save generated documents, and control premium export access through Supabase-backed accounts."
-      footerLabel="Need a new workspace?"
+      title="Secure sign-in for your PolicyPack workspace."
+      description="Use your email and password or continue with Google to reach your saved documents, downloads, and account settings."
+      footerLabel="Need a new account?"
       footerHref={`/register?callbackUrl=${encodeURIComponent(callbackUrl)}`}
       footerAction="Create account"
     >

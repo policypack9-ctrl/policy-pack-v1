@@ -13,7 +13,7 @@ export function SiteFooter() {
         <div>
           <p className="text-sm font-medium text-white/76">PolicyPack</p>
           <p className="mt-1 text-sm text-white/46">
-            Legal infrastructure for modern SaaS teams.
+            AI-powered legal documents for growing SaaS teams.
           </p>
         </div>
 

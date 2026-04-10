@@ -30,7 +30,7 @@ export function GenerationResult() {
   const [storedSession, setStoredSession] = useState<StoredPolicySession | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [unlockLabel, setUnlockLabel] = useState<string>(
-    "Paddle sandbox checkout is ready for this account.",
+    "Secure checkout is ready for this account.",
   );
   const [isPremium, setIsPremium] = useState(false);
 
@@ -85,7 +85,7 @@ export function GenerationResult() {
         setUnlockLabel(
           errorPayload?.error ??
             errorPayload?.details ??
-            "Unable to initialize Paddle checkout.",
+            "Unable to initialize secure checkout.",
         );
         return;
       }
@@ -143,7 +143,7 @@ export function GenerationResult() {
               </h1>
               <p className="mt-4 text-sm leading-7 text-white/62">
                 The first draft is ready for {region}. Unlock the dashboard to review
-                documents, save your workspace, and export the final PDF bundle.
+                documents, save everything to your account, and export the final PDF bundle.
               </p>
             </div>
 
@@ -154,7 +154,7 @@ export function GenerationResult() {
               </div>
               <p className="mt-4 text-sm leading-7 text-white/60">
                 {isPremium
-                  ? "This account already has premium export access."
+                  ? "This account already has download access."
                   : unlockLabel}
               </p>
             </div>
@@ -167,9 +167,9 @@ export function GenerationResult() {
               </p>
               <div className="mt-4 space-y-3">
                 {[
-                  "Privacy Policy, Terms of Service, Cookie Policy, and GDPR addendum workspace",
-                  "Authenticated dashboard access with live document viewing",
-                  "Formal PDF export flow through the production print renderer",
+                  "Privacy Policy, Terms of Service, Cookie Policy, and GDPR addendum in one place",
+                  "A personal dashboard with live document viewing",
+                  "Polished PDF downloads when you're ready to upgrade",
                 ].map((item) => (
                   <div
                     key={item}
@@ -189,9 +189,8 @@ export function GenerationResult() {
                 Pay to Unlock
               </h2>
               <p className="mt-3 text-sm leading-7 text-white/60">
-                Paddle is running in sandbox mode. This unlock keeps the production
-                architecture intact while simulating the paid upgrade on your authenticated
-                Supabase profile.
+                Complete checkout to unlock downloads and keep your documents available
+                inside your account.
               </p>
 
               <div className="mt-6 space-y-3">
@@ -213,7 +212,7 @@ export function GenerationResult() {
                   }
                 >
                   {isUnlocking
-                    ? "Launching checkout..."
+                    ? "Opening checkout..."
                     : !session?.user
                       ? "Login to Unlock"
                       : isPremium

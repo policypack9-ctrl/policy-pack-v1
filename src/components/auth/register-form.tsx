@@ -51,15 +51,10 @@ export function RegisterForm({
 
       const payload = (await response.json()) as {
         error?: string;
-        details?: string;
       };
 
       if (!response.ok) {
-        setError(
-          payload.details
-            ? `${payload.error ?? "Unable to create account."} ${payload.details}`
-            : (payload.error ?? "Unable to create account."),
-        );
+        setError(payload.error ?? "Unable to create account.");
         return;
       }
 
@@ -94,8 +89,8 @@ export function RegisterForm({
         Create your PolicyPack account.
       </h2>
       <p className="mt-4 text-base leading-7 text-white/62">
-        Set up credentials for secure access, premium billing state, and document
-        persistence across sessions.
+        Create your login details so your documents stay saved and ready whenever
+        you come back.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
@@ -201,8 +196,8 @@ export function RegisterForm({
         </>
       ) : (
         <div className="mt-6 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white/58">
-          Google OAuth is currently disabled until the production credentials are
-          configured on the server.
+          Google sign-up is temporarily unavailable. You can still create an
+          account with email and password.
         </div>
       )}
     </>

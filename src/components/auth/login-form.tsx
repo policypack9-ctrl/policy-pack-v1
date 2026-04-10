@@ -60,11 +60,11 @@ export function LoginForm({
       </div>
 
       <h2 className="mt-6 text-4xl font-semibold tracking-[-0.055em] text-white">
-        Access your legal workspace.
+        Welcome back.
       </h2>
       <p className="mt-4 text-base leading-7 text-white/62">
-        Continue with your email and password or use Google OAuth to open your
-        dashboard and premium exports.
+        Sign in with your email and password, or continue with Google to open your
+        documents and personal workspace.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
@@ -138,8 +138,8 @@ export function LoginForm({
         </div>
       ) : (
         <div className="mt-6 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white/58">
-          Google OAuth is currently disabled until the production credentials are
-          configured on the server.
+          Google sign-in is temporarily unavailable. You can still use your email
+          and password.
         </div>
       )}
 

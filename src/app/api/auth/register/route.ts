@@ -37,8 +37,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Supabase registration is unavailable because required server environment variables are missing.",
-        details: `Missing: ${configStatus.missingKeys.join(", ")}`,
+          "Account sign-up is temporarily unavailable. Please try again in a moment.",
       },
       { status: 503 },
     );
@@ -49,8 +48,8 @@ export async function POST(request: Request) {
   if (!authHealth.ok) {
     return NextResponse.json(
       {
-        error: authHealth.message,
-        details: authHealth.details ?? authHealth.missingKeys?.join(", "),
+        error:
+          "Account sign-up is temporarily unavailable. Please try again in a moment.",
       },
       { status: 503 },
     );
@@ -85,14 +84,10 @@ export async function POST(request: Request) {
         name: result.profile?.name ?? validated.name,
       },
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         error: "Unable to create account.",
-        details:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
       },
       { status: 500 },
     );

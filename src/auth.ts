@@ -74,12 +74,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/login",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       const userId =
         (typeof user?.id === "string" && user.id) ||
         (typeof token.userId === "string" && token.userId) ||
         (typeof token.sub === "string" && token.sub) ||
         "";
+
+      if (trigger === "update" && typeof session?.name === "string") {
+        token.name = session.name;
+      }
 
       if (typeof user?.id === "string") {
         token.userId = user.id;
@@ -90,6 +94,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           image: user.image ?? null,
         });
         token.isPremium = profile?.isPremium ?? false;
+        token.name = profile?.name ?? token.name;
+        token.email = profile?.email ?? token.email;
+        token.picture = profile?.image ?? token.picture;
         return token;
       }
 
@@ -97,6 +104,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const profile = await getAppUserProfileById(userId);
         token.userId = userId;
         token.isPremium = profile?.isPremium ?? false;
+        token.name = profile?.name ?? token.name;
+        token.email = profile?.email ?? token.email;
+        token.picture = profile?.image ?? token.picture;
       }
 
       return token;
@@ -105,6 +115,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = String(token.userId ?? token.sub ?? "");
         session.user.isPremium = Boolean(token.isPremium);
+        session.user.name =
+          typeof token.name === "string" ? token.name : session.user.name;
+        session.user.email =
+          typeof token.email === "string" ? token.email : session.user.email;
+        session.user.image =
+          typeof token.picture === "string" ? token.picture : session.user.image;
       }
 
       return session;

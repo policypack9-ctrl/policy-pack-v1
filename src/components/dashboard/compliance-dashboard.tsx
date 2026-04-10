@@ -16,6 +16,7 @@ import {
   LockKeyhole,
   Save,
   ScanSearch,
+  Settings2,
   ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
@@ -148,13 +149,13 @@ export function ComplianceDashboard({
   const [isSaving, setIsSaving] = useState(false);
   const [saveLabel, setSaveLabel] = useState<string>(() => {
     if (typeof window === "undefined") {
-      return "Local fallback active";
+      return "Your workspace is ready";
     }
 
     const account = loadPolicyAccount();
     return account
-      ? `Saved locally at ${formatDisplayDateTime(account.lastSavedAt)}`
-      : "Workspace snapshot not saved yet";
+      ? `Saved to your workspace at ${formatDisplayDateTime(account.lastSavedAt)}`
+      : "Your workspace has not been saved yet";
   });
   const [activeDocumentId, setActiveDocumentId] =
     useState<DashboardDocument["id"]>("gdpr-addendum");
@@ -224,9 +225,7 @@ export function ComplianceDashboard({
 
     setSession(nextSession);
     setSaveLabel(
-      result.mode === "local-storage"
-        ? `Saved locally at ${formatDisplayDateTime(result.savedAt)}`
-        : `Database ready at ${formatDisplayDateTime(result.savedAt)}`,
+      `Saved to your workspace at ${formatDisplayDateTime(result.savedAt)}`,
     );
   }
 
@@ -345,7 +344,7 @@ export function ComplianceDashboard({
 
       if (renderResponse.status === 402) {
         setExportNotice(
-          "PDF export is locked for draft accounts. Unlock premium access first.",
+          "Downloads are locked on the free plan. Upgrade first to export PDFs.",
         );
         return;
       }
@@ -376,7 +375,7 @@ export function ComplianceDashboard({
     setPremiumUnlockedAt(new Date().toISOString());
     setCheckoutState("success");
     setIsCheckoutPending(false);
-    setExportNotice("Payment confirmed. PDF export is now unlocked.");
+    setExportNotice("Payment confirmed. Your PDF downloads are now unlocked.");
     activeTransactionIdRef.current = null;
     router.replace(pathname);
     router.refresh();
@@ -390,7 +389,7 @@ export function ComplianceDashboard({
       );
 
       if (pendingDocument) {
-        setExportNotice("Payment confirmed. Preparing your PDF export...");
+        setExportNotice("Payment confirmed. Preparing your PDF...");
         await exportPdfForDocument(pendingDocument);
       }
     }
@@ -404,7 +403,7 @@ export function ComplianceDashboard({
     verificationInFlightRef.current = transactionId;
     setCheckoutState("verifying");
     setIsCheckoutPending(true);
-    setExportNotice("Waiting for Paddle to confirm the sandbox payment...");
+    setExportNotice("Confirming your payment...");
 
     try {
       for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -437,7 +436,7 @@ export function ComplianceDashboard({
           setExportNotice(
             payload?.error ??
               payload?.details ??
-              "Unable to verify the Paddle transaction.",
+              "We couldn't verify your payment yet.",
           );
           return;
         }
@@ -450,7 +449,7 @@ export function ComplianceDashboard({
         if (attempt < 11) {
           setExportNotice(
             payload?.verifiedStatus
-              ? `Transaction is ${payload.verifiedStatus}. Waiting for final payment confirmation...`
+              ? `Your payment is ${payload.verifiedStatus}. Waiting for final confirmation...`
               : "Payment submitted. Waiting for final confirmation...",
           );
           await waitFor(2500);
@@ -459,7 +458,7 @@ export function ComplianceDashboard({
 
       setCheckoutState("ready");
       setExportNotice(
-        "Checkout finished, but the payment is still processing. Refresh this dashboard in a few seconds if PDF export stays locked.",
+        "Checkout finished, but your payment is still processing. Refresh this page in a few seconds if downloads stay locked.",
       );
     } finally {
       verificationInFlightRef.current = null;
@@ -477,7 +476,7 @@ export function ComplianceDashboard({
     }
 
     setCheckoutState("initializing");
-    setExportNotice("Preparing Paddle sandbox checkout...");
+    setExportNotice("Preparing secure checkout...");
 
     paddleInitPromiseRef.current = (async () => {
       const response = await fetch("/api/checkout/paddle/client-token", {
@@ -496,7 +495,7 @@ export function ComplianceDashboard({
         setCheckoutState("error");
         setExportNotice(
           payload?.error ??
-            "Paddle.js client token is unavailable. Add PADDLE_CLIENT_TOKEN to the server environment or grant client_token.write to the API key.",
+            "Secure checkout is temporarily unavailable. Please try again in a moment.",
         );
         return null;
       }
@@ -518,7 +517,7 @@ export function ComplianceDashboard({
 
       if (!paddle) {
         setCheckoutState("error");
-        setExportNotice("Unable to initialize Paddle.js on this browser.");
+        setExportNotice("Secure checkout could not be opened on this browser.");
         return null;
       }
 
@@ -542,7 +541,7 @@ export function ComplianceDashboard({
     activeTransactionIdRef.current = transactionId;
     setCheckoutState("opening");
     setIsCheckoutPending(true);
-    setExportNotice("Opening Paddle sandbox checkout...");
+    setExportNotice("Opening secure checkout...");
 
     paddle.Checkout.open({
       transactionId,
@@ -560,7 +559,7 @@ export function ComplianceDashboard({
     switch (event.name) {
       case CheckoutEventNames.CHECKOUT_LOADED:
         setCheckoutState("opening");
-        setExportNotice("Paddle sandbox checkout is ready.");
+        setExportNotice("Checkout is ready.");
         break;
       case CheckoutEventNames.CHECKOUT_PAYMENT_INITIATED:
         setCheckoutState("verifying");
@@ -589,7 +588,7 @@ export function ComplianceDashboard({
         setCheckoutState("error");
         setIsCheckoutPending(false);
         setExportNotice(
-          event.detail || "Paddle checkout encountered an error. Please try again.",
+          event.detail || "Checkout encountered an error. Please try again.",
         );
         break;
       default:
@@ -661,7 +660,7 @@ export function ComplianceDashboard({
         setExportNotice(
           errorPayload?.error ??
             errorPayload?.details ??
-            "Unable to start Paddle checkout.",
+            "Unable to start secure checkout.",
         );
         return;
       }
@@ -673,7 +672,7 @@ export function ComplianceDashboard({
         premiumUnlocked?: boolean;
       };
 
-      setExportNotice(payload.message ?? "Paddle checkout response received.");
+      setExportNotice(payload.message ?? "Checkout is ready.");
 
       if (payload.premiumUnlocked) {
         await finalizeUnlockedWorkspace();
@@ -695,7 +694,7 @@ export function ComplianceDashboard({
 
       setCheckoutState("error");
       setExportNotice(
-        "A Paddle transaction was created, but checkout could not be opened on this device.",
+        "Your checkout was created, but it could not be opened on this device.",
       );
     } finally {
       if (!activeTransactionIdRef.current && !verificationInFlightRef.current) {
@@ -706,7 +705,7 @@ export function ComplianceDashboard({
 
   async function handleExportPdf(documentRecord: DashboardDocument) {
     if (!isPremium) {
-      setExportNotice("Premium export is locked until Paddle sandbox checkout completes.");
+      setExportNotice("Downloads unlock right after checkout is complete.");
       await handleUpgradeToDownload(documentRecord.id);
       return;
     }
@@ -772,7 +771,7 @@ export function ComplianceDashboard({
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/72">
-                  Compliance Workspace
+                  Your Workspace
                 </p>
                 <h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">
                   Welcome back, {productName} Team
@@ -798,6 +797,16 @@ export function ComplianceDashboard({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => router.push("/dashboard/settings")}
+                    className="h-12 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
+                  >
+                    <Settings2 className="size-4" />
+                    Settings
+                  </Button>
+
                   {!isPremium ? (
                     <PremiumButton
                       type="button"
@@ -828,7 +837,7 @@ export function ComplianceDashboard({
                     ) : (
                       <Save className="size-4" />
                     )}
-                    Save Workspace
+                    Save to Account
                   </Button>
 
                   <PremiumButton
@@ -932,12 +941,11 @@ export function ComplianceDashboard({
                   </span>
                   <div>
                     <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/52">
-                      Draft Mode
+                      Free Plan
                     </p>
                     <p className="mt-1 text-sm leading-6 text-white/72">
-                      Your documents are readable and stored, but formal PDF export
-                      stays locked until Paddle sandbox checkout marks this account as
-                      premium.
+                      Your documents are ready to review and safely stored. Upgrade
+                      whenever you want to enable PDF downloads.
                     </p>
                   </div>
                 </div>
@@ -969,11 +977,11 @@ export function ComplianceDashboard({
                   Payment History
                 </p>
                 <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-white">
-                  Billing and unlock status
+                  Billing and download status
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-white/60">
-                  Paddle sandbox checkout controls whether PDF export is available for this
-                  workspace. Upgrade once to unlock the complete legal bundle.
+                  Upgrade once to unlock polished PDF downloads for your complete legal
+                  bundle.
                 </p>
               </div>
 
@@ -1004,13 +1012,13 @@ export function ComplianceDashboard({
 
                 {isPremium ? (
                   <>
-                    <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100">
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100">
                       <BadgeCheck className="size-4" />
                       Premium unlocked
                     </div>
                     <p className="mt-4 text-sm leading-7 text-white/66">
-                      Paddle sandbox checkout completed and PDF export was unlocked for
-                      this account.
+                      Your plan was upgraded successfully and document downloads are now
+                      available for this account.
                     </p>
                     <p className="mt-3 text-sm text-white/48">
                       {premiumUnlockedAt
@@ -1025,8 +1033,8 @@ export function ComplianceDashboard({
                       No completed payments
                     </div>
                     <p className="mt-4 text-sm leading-7 text-white/66">
-                      This workspace is still in draft mode. Complete the sandbox upgrade
-                      to enable PDF download and formal export.
+                      You&apos;re still on the free plan. Upgrade to enable PDF downloads
+                      and polished exports.
                     </p>
                   </>
                 )}
@@ -1037,12 +1045,12 @@ export function ComplianceDashboard({
                   Export Access
                 </p>
                 <p className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-white">
-                  {isPremium ? "Unlocked" : "Upgrade required"}
+                  {isPremium ? "Downloads unlocked" : "Upgrade required"}
                 </p>
                 <p className="mt-4 text-sm leading-7 text-white/60">
                   {isPremium
-                    ? "All generated documents can now be exported with the formal legal PDF renderer."
-                    : "Document viewing is available, but download remains disabled until the payment state is upgraded."}
+                    ? "All generated documents are ready to export as polished legal PDFs."
+                    : "Document viewing is available now, and downloads unlock after you upgrade."}
                 </p>
                 {exportNotice ? (
                   <p className={`mt-4 text-sm ${checkoutNoticeClassName}`}>{exportNotice}</p>
@@ -1145,11 +1153,7 @@ export function ComplianceDashboard({
         isOpen={isDocumentModalOpen}
         title={activeGeneratedDocument?.title ?? activeDocument.title}
         markdown={activeGeneratedDocument?.markdown ?? ""}
-        providerLabel={
-          activeGeneratedDocument
-            ? `${activeGeneratedDocument.provider} | ${activeGeneratedDocument.model}`
-            : "Awaiting generation"
-        }
+        metaLabel={activeGeneratedDocument ? "Prepared for your workspace" : "Preparing draft"}
         generatedAt={
           activeGeneratedDocument
             ? formatDisplayDateTime(activeGeneratedDocument.generatedAt)

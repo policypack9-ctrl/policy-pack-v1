@@ -200,6 +200,17 @@ export function clearGeneratedDocuments() {
   window.localStorage.removeItem(POLICY_DOCUMENTS_STORAGE_KEY);
 }
 
+export function clearPolicyWorkspace() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(POLICY_SESSION_STORAGE_KEY);
+  window.localStorage.removeItem(POLICY_ACCOUNT_STORAGE_KEY);
+  window.localStorage.removeItem(POLICY_DOCUMENTS_STORAGE_KEY);
+  window.localStorage.removeItem(POLICY_UNLOCK_STORAGE_KEY);
+}
+
 export function loadUnlockState() {
   if (typeof window === "undefined") {
     return null;
