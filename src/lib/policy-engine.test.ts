@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeAnswers, emptyOnboardingAnswers } from './policy-engine';
+import { normalizeAnswers } from './policy-engine';
 
 describe('policy-engine', () => {
   describe('normalizeAnswers', () => {
