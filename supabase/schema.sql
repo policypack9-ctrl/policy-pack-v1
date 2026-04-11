@@ -72,3 +72,13 @@ create table if not exists public.generated_documents (
 create index if not exists generated_documents_user_idx
   on public.generated_documents (user_id);
 
+-- Enable Row Level Security (RLS) to prevent unauthorized access via anon_key
+alter table public.user_profiles enable row level security;
+alter table public.generated_documents enable row level security;
+
+-- Since the application uses NextAuth and the Supabase Service Role Key on the server side,
+-- we don't need to define complex policies for the anon_key. 
+-- The Service Role Key will automatically bypass RLS.
+-- We can add a deny-all policy for the anon_key to be explicit (which is the default when RLS is enabled without policies).
+
+
