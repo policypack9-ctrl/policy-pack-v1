@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import { createCredentialsUser, getSupabaseAuthHealth } from "@/lib/auth-data";
 import { getSupabaseConfigStatus } from "@/lib/auth-env";
-import { sendAdminNotification } from "@/lib/notifications";
+import { sendAdminNotification, sendWelcomeEmail } from "@/lib/notifications";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,10 @@ function validateRegistrationInput(body: {
 }
 
 export async function POST(request: Request) {
+  // Apply a basic rate limit for the register endpoint
+  const rateLimitResponse = rateLimit(request, "register", { limit: 5, windowMs: 60000 });
+  if (rateLimitResponse) return rateLimitResponse;
+
   const configStatus = getSupabaseConfigStatus();
 
   if (!configStatus.isConfigured) {
@@ -106,6 +111,15 @@ export async function POST(request: Request) {
 
     if (!notificationResult.ok) {
       console.error("Registration notification could not be delivered.");
+    }
+
+    const welcomeResult = await sendWelcomeEmail(
+      result.profile?.email ?? validated.email,
+      result.profile?.name ?? validated.name
+    );
+
+    if (!welcomeResult.ok) {
+      console.error("Welcome email could not be delivered.");
     }
 
     return NextResponse.json({

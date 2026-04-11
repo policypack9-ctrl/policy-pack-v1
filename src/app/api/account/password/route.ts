@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { updateUserPassword } from "@/lib/auth-data";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(request: Request) {
+  const rateLimitResponse = rateLimit(request, "account_password", { limit: 5, windowMs: 60000 });
+  if (rateLimitResponse) return rateLimitResponse;
+
   const session = await auth();
 
   if (!session?.user?.id) {

@@ -125,7 +125,153 @@ export async function sendAdminNotification(input: SendAdminNotificationInput) {
       html: buildHtmlBody(input),
     });
     return { ok: true as const, skipped: false as const };
-  } catch {
+  } catch (error) {
+    console.error("Error sending admin notification:", error);
     return { ok: false as const, skipped: false as const };
+  }
+}
+
+export async function sendWelcomeEmail(userEmail: string, userName: string) {
+  const config = getNotificationConfig();
+
+  if (!config.host || !config.user || !config.pass) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+
+  const subject = "Welcome to PolicyPack!";
+  const summary = `Hi ${userName}, welcome to PolicyPack. We're thrilled to have you on board!`;
+  
+  const html = `
+    <div style="font-family:Inter,Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;background:#ffffff;color:#111827;">
+      <h1 style="margin:0 0 12px;font-size:24px;line-height:1.2;">Welcome to PolicyPack!</h1>
+      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#4b5563;">Hi ${escapeHtml(userName)},</p>
+      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#4b5563;">Thank you for registering. You can now start generating and managing your customized legal documents using our AI-powered engine.</p>
+      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#4b5563;">If you have any questions, feel free to reply to this email.</p>
+      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#4b5563;">Best,<br/>The PolicyPack Team</p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: config.from,
+      to: userEmail,
+      subject,
+      text: summary,
+      html,
+    });
+    return { ok: true as const, skipped: false as const };
+  } catch (error) {
+    console.error("Error sending welcome email:", error);
+    return { ok: false as const, skipped: false as const };
+  }
+}
+
+export async function sendPaymentReceiptEmail(userEmail: string, planName: string) {
+  const config = getNotificationConfig();
+
+  if (!config.host || !config.user || !config.pass) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+
+  const subject = "PolicyPack - Payment Confirmation";
+  const summary = `Thank you for your purchase of the ${planName} package!`;
+  
+  const html = `
+    <div style="font-family:Inter,Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;background:#ffffff;color:#111827;">
+      <h1 style="margin:0 0 12px;font-size:24px;line-height:1.2;">Payment Successful</h1>
+      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#4b5563;">Thank you for upgrading to the <strong>${escapeHtml(planName)}</strong> package!</p>
+      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#4b5563;">Your premium features are now unlocked. You can export your documents as PDFs and enjoy full access to our platform.</p>
+      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#4b5563;">Best,<br/>The PolicyPack Team</p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: config.from,
+      to: userEmail,
+      subject,
+      text: summary,
+      html,
+    });
+    return { ok: true as const, skipped: false as const };
+  } catch (error) {
+    console.error("Error sending payment receipt email:", error);
+    return { ok: false as const, skipped: false as const };
+  }
+}
+
+export async function checkSmtpConnection() {
+  const config = getNotificationConfig();
+
+  if (!config.host || !config.user || !config.pass) {
+    return {
+      status: "unconfigured",
+      message: "SMTP settings are missing (host, user, or pass)",
+      config: {
+        host: config.host || "missing",
+        port: config.port,
+        secure: config.secure,
+        user: config.user ? "configured" : "missing",
+        pass: config.pass ? "configured" : "missing",
+      },
+    };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 5000,
+  });
+
+  try {
+    const isVerified = await transporter.verify();
+    return {
+      status: isVerified ? "ok" : "error",
+      message: isVerified ? "SMTP connection is working" : "Verification failed without throwing",
+      config: {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        user: "configured",
+      },
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown SMTP error",
+      config: {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        user: "configured",
+      },
+    };
   }
 }

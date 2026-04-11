@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import type { AppProviders } from "@auth/core/providers";
+import type { Provider } from "next-auth/providers";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { SupabaseAdapter } from "@auth/supabase-adapter";
@@ -17,12 +17,13 @@ import {
   isGoogleAuthConfigured,
 } from "@/lib/auth-env";
 import { PRIMARY_DOMAIN, PRODUCTION_APP_URL, WWW_DOMAIN } from "@/lib/site-config";
+import { sendAdminNotification, sendWelcomeEmail } from "@/lib/notifications";
 
 const supabaseAdapterConfig = getSupabaseAdapterConfig();
 const authBaseUrl = getAuthBaseUrl();
 const authSecret = getAuthSecret();
 const googleAuthConfig = getGoogleAuthConfig();
-const providers: AppProviders = [
+const providers: Provider[] = [
   Credentials({
     name: "Email & Password",
     credentials: {
@@ -155,6 +156,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   events: {
+    async createUser({ user }) {
+      if (typeof user.id === "string") {
+        await upsertUserProfileFromAuthUser({
+          id: user.id,
+          email: user.email ?? null,
+          name: user.name ?? null,
+          image: user.image ?? null,
+        });
+
+        const name = user.name || "User";
+        const email = user.email || "";
+        
+        await sendAdminNotification({
+          kind: "registration",
+          subject: "New PolicyPack registration (OAuth)",
+          summary: "A new account has been created via Google OAuth.",
+          details: [
+            { label: "Name", value: name },
+            { label: "Email", value: email },
+            { label: "User ID", value: user.id },
+            {
+              label: "Created At",
+              value: new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }),
+            },
+          ],
+        });
+
+        if (email) {
+          await sendWelcomeEmail(email, name);
+        }
+      }
+    },
     async signIn({ user }) {
       if (typeof user.id === "string") {
         await upsertUserProfileFromAuthUser({

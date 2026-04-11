@@ -4,7 +4,7 @@ import { Environment } from "@paddle/paddle-node-sdk";
 import { auth } from "@/auth";
 import { getAppUserProfileById, setUserPremium } from "@/lib/auth-data";
 import { getBillingPlan, type BillingPlanId } from "@/lib/billing-plans";
-import { sendAdminNotification } from "@/lib/notifications";
+import { sendAdminNotification, sendPaymentReceiptEmail } from "@/lib/notifications";
 import {
   buildPolicyPackCheckoutItems,
   getPaddleClient,
@@ -125,6 +125,10 @@ export async function POST(request: Request) {
               },
             ],
           }).catch(() => {});
+
+          if (paymentEmail && paymentEmail !== "Unknown") {
+            void sendPaymentReceiptEmail(paymentEmail, paymentPlan).catch(() => {});
+          }
         }
       }
 

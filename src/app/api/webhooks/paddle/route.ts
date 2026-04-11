@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAppUserProfileByEmail, setUserPremium } from "@/lib/auth-data";
-import { sendAdminNotification } from "@/lib/notifications";
+import { sendAdminNotification, sendPaymentReceiptEmail } from "@/lib/notifications";
 import {
   getPaddleClient,
   getPaddleConfig,
@@ -110,6 +110,16 @@ export async function POST(request: Request) {
     if (isPaid && userId) {
       await setUserPremium(userId, true);
 
+      const email =
+        readWebhookEmail(transactionData) ||
+        verifiedTransaction.customer?.email ||
+        "Unknown";
+      
+      const planName =
+        transactionData.customData?.planName ??
+        transactionData.customData?.planId ??
+        "Premium";
+
       const notificationResult = await sendAdminNotification({
         kind: "payment",
         subject: "New PolicyPack payment confirmed",
@@ -117,30 +127,22 @@ export async function POST(request: Request) {
           "A customer payment was verified successfully and workspace access was unlocked.",
         details: [
           { label: "User ID", value: userId },
-          {
-            label: "Email",
-            value:
-              readWebhookEmail(transactionData) ||
-              verifiedTransaction.customer?.email ||
-              "Unknown",
-          },
-          {
-            label: "Package",
-            value:
-              transactionData.customData?.planName ??
-              transactionData.customData?.planId ??
-              "Not specified",
-          },
+          { label: "Email", value: email },
+          { label: "Package", value: planName },
           { label: "Transaction ID", value: transactionId },
-          {
-            label: "Status",
-            value: verifiedTransaction.status ?? "Unknown",
-          },
+          { label: "Status", value: verifiedTransaction.status ?? "Unknown" },
         ],
       });
 
       if (!notificationResult.ok) {
         console.error("Webhook payment notification could not be delivered.");
+      }
+
+      if (email && email !== "Unknown") {
+        const receiptResult = await sendPaymentReceiptEmail(email, planName);
+        if (!receiptResult.ok) {
+          console.error("Webhook payment receipt could not be delivered to user.");
+        }
       }
     }
 
