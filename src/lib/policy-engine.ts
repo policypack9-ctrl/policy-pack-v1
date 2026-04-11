@@ -96,10 +96,10 @@ export const emptyOnboardingAnswers: OnboardingAnswers = {
 };
 
 export const demoOnboardingAnswers: OnboardingAnswers = {
-  businessName: "PolicyPack",
-  websiteUrl: PRODUCTION_APP_URL,
+  businessName: "Example SaaS",
+  websiteUrl: "https://example.com",
   productDescription:
-    "We help SaaS founders generate and maintain Privacy Policies and Terms of Service in minutes.",
+    "We help founders manage their online software service efficiently.",
   aiTransparencyLevel: "Named Providers",
   companyLocation: "United States",
   companyLocationOther: "",
@@ -258,7 +258,7 @@ export function buildComplianceSnapshot(
 
   return {
     businessName: getProductName(normalizedAnswers),
-    websiteUrl: normalizedAnswers.websiteUrl || PRODUCTION_APP_URL,
+    websiteUrl: normalizedAnswers.websiteUrl || "https://your-website.com",
     primaryRegion,
     monitoredRegions,
     generatedAt,
@@ -290,7 +290,7 @@ export function resolvePrimaryRegion(answers: OnboardingAnswers) {
 }
 
 export function getProductName(answers: OnboardingAnswers) {
-  return answers.businessName.trim() || "PolicyPack";
+  return answers.businessName.trim() || "The Service";
 }
 
 export function normalizeAnswers(

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeAnswers } from './policy-engine';
+import { normalizeAnswers, getProductName } from './policy-engine';
 
 describe('policy-engine', () => {
   describe('normalizeAnswers', () => {
@@ -25,6 +25,17 @@ describe('policy-engine', () => {
       expect(result.websiteUrl).toBe("https://testcorp.com");
       expect(result.userAccounts).toBe("Yes");
       expect(result.acceptsPayments).toBe(""); // default
+    });
+  });
+
+  describe('getProductName', () => {
+    it('should return "The Service" if businessName is empty', () => {
+      expect(getProductName({ businessName: "" } as any)).toBe("The Service");
+      expect(getProductName({ businessName: "   " } as any)).toBe("The Service");
+    });
+
+    it('should return trimmed businessName if provided', () => {
+      expect(getProductName({ businessName: "  Acme Corp  " } as any)).toBe("Acme Corp");
     });
   });
 });

@@ -497,7 +497,7 @@ function buildFallbackPolicyMarkdown(
   answers: OnboardingAnswers,
 ) {
   const productName = getProductName(answers);
-  const website = answers.websiteUrl || PRODUCTION_APP_URL;
+  const website = answers.websiteUrl || "https://your-website.com";
   const primaryRegion = resolvePrimaryRegion(answers);
   const snapshot = buildComplianceSnapshot(answers);
   const documentMeta =
@@ -517,13 +517,17 @@ function buildFallbackPolicyMarkdown(
   );
   const operatorLine = buildDocumentOperatorBlock(answers, website);
 
+  const operatorIdentity = resolveDocumentOperatorLabel(answers);
+  const supportContact = isPolicyPackDocumentContext(answers) ? COMPANY_SUPPORT_EMAIL : "the official support contact published on the website";
+  const legalName = isPolicyPackDocumentContext(answers) ? COMPANY_LEGAL_NAME : operatorIdentity;
+
   if (documentType === "privacy-policy") {
     return `# ${documentMeta.title}
 
 ${operatorLine}
 
 ## 1. Scope and Application
-1. This Privacy Policy explains how ${COMPANY_PUBLIC_NAME} collects, uses, stores, and protects personal information when individuals access ${website} or use ${productName}.
+1. This Privacy Policy explains how ${operatorIdentity} collects, uses, stores, and protects personal information when individuals access ${website} or use ${productName}.
 2. This Privacy Policy applies to customers and visitors in ${formatList(snapshot.monitoredRegions, primaryRegion)} and should be read together with any jurisdiction-specific rights notices required by local law.
 
 ## 2. Information We Collect
@@ -557,7 +561,7 @@ ${operatorLine}
 2. We use administrative, technical, and organizational controls designed to protect personal information from unauthorized access, loss, or misuse.
 
 ## 9. Contact and Updates
-1. Users may contact ${COMPANY_SUPPORT_EMAIL} with privacy requests, access requests, or complaints related to data handling.
+1. Users may contact ${supportContact} with privacy requests, access requests, or complaints related to data handling.
 2. We may update this Privacy Policy from time to time and will publish the latest version at ${website}.`;
   }
 
@@ -567,7 +571,7 @@ ${operatorLine}
 ${operatorLine}
 
 ## 1. Acceptance and Operator Identity
-1. These Terms of Service govern access to and use of ${productName}, operated by ${COMPANY_PUBLIC_NAME}.
+1. These Terms of Service govern access to and use of ${productName}, operated by ${operatorIdentity}.
 2. By using ${website}, users agree to be bound by these Terms of Service and any policies referenced within them.
 
 ## 2. Eligibility and Accounts
@@ -592,7 +596,7 @@ ${operatorLine}
 2. Users remain responsible for content, prompts, or data submitted through the platform.
 
 ## 7. Intellectual Property
-1. ${productName} and its related materials remain the property of ${COMPANY_LEGAL_NAME} and its licensors.
+1. ${productName} and its related materials remain the property of ${legalName} and its licensors.
 2. Customers retain rights to their own inputs, subject to the permissions reasonably required to operate the service.
 
 ## 8. Service Availability
@@ -603,7 +607,7 @@ ${operatorLine}
 1. To the fullest extent permitted by law, liability limits and disclaimer principles apply to the use of the service.
 2. We may suspend or terminate access for violations of these terms, security risks, fraud concerns, or legal requirements.
 3. These terms are interpreted with reference to the laws applicable to ${answers.companyLocation || primaryRegion}, unless mandatory law requires otherwise.
-4. Questions about these terms may be directed to ${COMPANY_SUPPORT_EMAIL} or the contact details published on ${website}.`;
+4. Questions about these terms may be directed to ${supportContact}.`;
   }
 
   if (documentType === "cookie-policy") {
