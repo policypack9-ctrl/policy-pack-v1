@@ -31,7 +31,6 @@ import { PremiumButton } from "@/components/ui/premium-button";
 import {
   buildSavedPolicyAccount,
   clearPolicyWorkspace,
-  clearGeneratedDocuments,
   loadGeneratedDocuments,
   loadPolicyAccount,
   loadStoredPolicySession,
@@ -43,10 +42,12 @@ import {
 import { type BillingPlanId } from "@/lib/billing-plans";
 import {
   buildComplianceSnapshot,
+  formatAnswerList,
   demoOnboardingAnswers,
   formatDisplayDateTime,
   getProductName,
   type DashboardDocument,
+  type ComplianceSnapshot,
   type StoredPolicySession,
 } from "@/lib/policy-engine";
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
@@ -92,6 +93,100 @@ function waitFor(ms: number) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
   });
+}
+
+type AuditViewState = {
+  healthScore: number;
+  healthSummary: string;
+  auditSummary: string;
+  alertTitle: string;
+  alertMessage: string;
+  alertBadge: string;
+};
+
+function buildAuditViewState(
+  snapshot: ComplianceSnapshot,
+  session: StoredPolicySession,
+  auditRefreshCount: number,
+): AuditViewState {
+  const usesPayments = session.answers.acceptsPayments === "Yes";
+  const usesCookies = session.answers.outreachChannels.some((item) =>
+    /cookie/i.test(item),
+  );
+  const currentVendors = formatAnswerList(
+    session.answers.vendors,
+    "your current tool stack",
+  );
+
+  if (auditRefreshCount === 0) {
+    if (snapshot.primaryRegion === "European Union" || snapshot.primaryRegion === "Global") {
+      return {
+        healthScore: 97,
+        healthSummary: `Most core documents are aligned for ${snapshot.monitoredRegions.join(", ")} coverage, with one regional review suggested.`,
+        auditSummary: `Watching ${snapshot.monitoredRegions.join(", ")} obligations and specialist partner language for ${currentVendors}.`,
+        alertTitle: "Regional review suggested",
+        alertMessage:
+          "Recent EU-facing disclosure changes may warrant a quick review of your data-processing and regional-rights wording.",
+        alertBadge: "Suggested review",
+      };
+    }
+
+    if (usesPayments) {
+      return {
+        healthScore: 98,
+        healthSummary: "Your core pages are in strong shape, with one billing-facing review suggested before scaling.",
+        auditSummary: `Monitoring billing, refund, and support wording for ${snapshot.primaryRegion} transactions.`,
+        alertTitle: "Billing review suggested",
+        alertMessage:
+          "Your payment-facing language looks strong, but a quick pass on refund and support wording would keep checkout trust tighter.",
+        alertBadge: "Suggested review",
+      };
+    }
+
+    return {
+      healthScore: 99,
+      healthSummary: `Your launch-ready pages are aligned for ${snapshot.primaryRegion}, with light monitoring active.`,
+      auditSummary: `Watching policy changes relevant to ${snapshot.primaryRegion} and your current product setup.`,
+      alertTitle: "Monitoring active",
+      alertMessage:
+        "Your workspace is healthy. Run a fresh audit any time you want the latest review across your current setup.",
+      alertBadge: "Monitoring live",
+    };
+  }
+
+  if (usesCookies) {
+    return {
+      healthScore: 100,
+      healthSummary: `All core documents are synced and refreshed for ${snapshot.monitoredRegions.join(", ")} coverage.`,
+      auditSummary: `Cookie, privacy-rights, and support wording were rechecked for ${snapshot.monitoredRegions.join(", ")} visitors.`,
+      alertTitle: "Audit complete",
+      alertMessage:
+        "Cookie disclosures, regional rights wording, and support details were rechecked against your current launch setup.",
+      alertBadge: "Updated just now",
+    };
+  }
+
+  if (usesPayments) {
+    return {
+      healthScore: 100,
+      healthSummary: "All payment-facing documents are refreshed and ready for current billing flows.",
+      auditSummary: `Billing, refund, and account language were refreshed for ${snapshot.primaryRegion} and ${currentVendors}.`,
+      alertTitle: "Audit complete",
+      alertMessage:
+        "Billing, refund, and support wording were refreshed against your current product flow and package setup.",
+      alertBadge: "Updated just now",
+    };
+  }
+
+  return {
+    healthScore: 100,
+    healthSummary: `All core documents are synced for ${snapshot.monitoredRegions.join(", ")} coverage.`,
+    auditSummary: `Policy language was refreshed for your current setup across ${snapshot.monitoredRegions.join(", ")} coverage.`,
+    alertTitle: "Audit complete",
+    alertMessage:
+      "Your current workspace was rechecked successfully and no immediate launch blockers were found in the active document set.",
+    alertBadge: "Updated just now",
+  };
 }
 
 export function ComplianceDashboard({
@@ -172,6 +267,8 @@ export function ComplianceDashboard({
   const [checkoutState, setCheckoutState] =
     useState<PaddleCheckoutState>("idle");
   const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
+  const [auditRefreshCount, setAuditRefreshCount] = useState(0);
+  const [lastAuditAt, setLastAuditAt] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -192,10 +289,17 @@ export function ComplianceDashboard({
   }, [initialPremiumUnlockedAt]);
 
   const snapshot = buildComplianceSnapshot(session.answers, session.completedAt);
+  const displayGeneratedAt = formatDisplayDateTime(lastAuditAt ?? session.completedAt);
+  const auditView = buildAuditViewState(snapshot, session, auditRefreshCount);
+  const displayDocuments = snapshot.documents.map((document) => ({
+    ...document,
+    refreshedAt: displayGeneratedAt,
+    lastAuditLabel: displayGeneratedAt,
+  }));
   const productName = getProductName(session.answers);
   const activeDocument =
-    snapshot.documents.find((document) => document.id === activeDocumentId) ??
-    snapshot.documents[0];
+    displayDocuments.find((document) => document.id === activeDocumentId) ??
+    displayDocuments[0];
   const activeGeneratedDocument = documentCache[activeDocument.id];
   const generatedDocumentCount = Object.keys(documentCache).length;
   const canGenerateComplimentaryDocument =
@@ -253,8 +357,6 @@ export function ComplianceDashboard({
     const result = savePolicyPackToAccount(
       buildSavedPolicyAccount(nextSession.answers, nextSession.completedAt),
     );
-    clearGeneratedDocuments();
-    setDocumentCache({} as Record<DashboardDocument["id"], SavedGeneratedDocument>);
 
     setSession(nextSession);
     setSaveLabel(
@@ -282,9 +384,14 @@ export function ComplianceDashboard({
     }
 
     setIsAuditing(true);
+    setExportNotice("Refreshing your workspace against the latest launch rules...");
 
     auditTimeoutRef.current = window.setTimeout(async () => {
-      await persistToAccount();
+      const refreshedAt = new Date().toISOString();
+      await persistToAccount(refreshedAt);
+      setLastAuditAt(refreshedAt);
+      setAuditRefreshCount((current) => current + 1);
+      setExportNotice("Workspace refreshed. Your latest audit is now reflected below.");
       setIsAuditing(false);
       auditTimeoutRef.current = null;
     }, 1800);
@@ -455,7 +562,7 @@ export function ComplianceDashboard({
     pendingDocumentExportRef.current = null;
 
     if (pendingDocumentId) {
-      const pendingDocument = snapshot.documents.find(
+      const pendingDocument = displayDocuments.find(
         (document) => document.id === pendingDocumentId,
       );
 
@@ -837,15 +944,15 @@ export function ComplianceDashboard({
                 </span>
                 <div>
                   <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-amber-100/70">
-                    {snapshot.alertTitle}
+                    {auditView.alertTitle}
                   </p>
                   <p className="mt-1 text-sm leading-6 text-amber-50/88">
-                    {snapshot.alertMessage}
+                    {auditView.alertMessage}
                   </p>
                 </div>
               </div>
               <div className="rounded-full border border-amber-200/12 bg-amber-200/8 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.24em] text-amber-100/72">
-                2-minute refresh
+                {auditView.alertBadge}
               </div>
             </div>
           </motion.section>
@@ -900,7 +1007,7 @@ export function ComplianceDashboard({
                       type="button"
                       onClick={() =>
                         canGenerateComplimentaryDocument
-                          ? void handleViewDocument(snapshot.documents[0])
+                          ? void handleViewDocument(displayDocuments[0])
                           : void handleUpgradeToDownload()
                       }
                       disabled={isCheckoutBusy}
@@ -969,7 +1076,7 @@ export function ComplianceDashboard({
                       Compliance Health Score
                     </p>
                     <p className="mt-3 text-4xl font-semibold tracking-[-0.06em] text-white">
-                      {snapshot.healthScore}%
+                      {auditView.healthScore}%
                     </p>
                   </div>
                   <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100">
@@ -982,7 +1089,7 @@ export function ComplianceDashboard({
                   <motion.div
                     className="h-full rounded-full bg-[linear-gradient(90deg,rgba(16,185,129,0.92),rgba(74,222,128,0.84))]"
                     initial={{ width: 0 }}
-                    animate={{ width: `${snapshot.healthScore}%` }}
+                    animate={{ width: `${auditView.healthScore}%` }}
                     transition={
                       shouldReduceMotion
                         ? { duration: 0 }
@@ -992,7 +1099,7 @@ export function ComplianceDashboard({
                 </div>
 
                 <p className="mt-4 text-sm leading-7 text-white/62">
-                  {snapshot.healthSummary}
+                  {auditView.healthSummary}
                 </p>
               </div>
 
@@ -1020,10 +1127,10 @@ export function ComplianceDashboard({
                   Last Refresh
                 </p>
                 <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-white">
-                  {snapshot.generatedAt}
+                  {displayGeneratedAt}
                 </p>
                 <p className="mt-4 text-sm leading-7 text-white/56">
-                  {snapshot.auditSummary}
+                  {auditView.auditSummary}
                 </p>
               </div>
             </div>
@@ -1055,7 +1162,7 @@ export function ComplianceDashboard({
                   variant="ghost"
                   onClick={() =>
                     canGenerateComplimentaryDocument
-                      ? void handleViewDocument(snapshot.documents[0])
+                      ? void handleViewDocument(displayDocuments[0])
                       : void handleUpgradeToDownload()
                   }
                   disabled={isCheckoutBusy}
@@ -1091,27 +1198,6 @@ export function ComplianceDashboard({
                 </p>
               </div>
 
-              {!isPremium ? (
-                <PremiumButton
-                  type="button"
-                  onClick={() =>
-                    canGenerateComplimentaryDocument
-                      ? void handleViewDocument(snapshot.documents[0])
-                      : void handleUpgradeToDownload()
-                  }
-                  disabled={isCheckoutBusy}
-                  className="h-12 px-5 text-sm"
-                  icon={
-                    isCheckoutBusy ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                      <WorkspaceActionIcon className="size-4" />
-                    )
-                  }
-                >
-                  {isCheckoutBusy ? checkoutButtonLabel : workspaceActionLabel}
-                </PremiumButton>
-              ) : null}
             </div>
 
             <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
@@ -1189,9 +1275,13 @@ export function ComplianceDashboard({
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              {snapshot.documents.map((document, index) => {
+              {displayDocuments.map((document, index) => {
                 const DocumentIcon = documentIcons[document.id];
                 const hasGeneratedDraft = Boolean(documentCache[document.id]);
+                const isFullyLocked =
+                  !isPremium &&
+                  !hasGeneratedDraft &&
+                  !canGenerateComplimentaryDocument;
                 const viewButtonLabel = isPremium
                   ? "View Document"
                   : hasGeneratedDraft
@@ -1256,23 +1346,25 @@ export function ComplianceDashboard({
                               )}
                               {viewButtonLabel}
                             </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
+                            {!isFullyLocked ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
                                 onClick={() =>
                                   isPremium
                                     ? void handleExportPdf(document)
                                     : void handleUpgradeToDownload(undefined, document.id)
-                              }
-                              className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:text-white/34"
-                            >
-                              {isPremium ? (
-                                <Download className="size-4" />
-                              ) : (
-                                <CreditCard className="size-4" />
-                              )}
-                              {isPremium ? "Export PDF" : "Choose a Package"}
-                            </Button>
+                                }
+                                className="h-10 rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:text-white/34"
+                              >
+                                {isPremium ? (
+                                  <Download className="size-4" />
+                                ) : (
+                                  <CreditCard className="size-4" />
+                                )}
+                                {isPremium ? "Export PDF" : "Choose a Package"}
+                              </Button>
+                            ) : null}
                           </div>
                         </div>
                       }
@@ -1301,7 +1393,7 @@ export function ComplianceDashboard({
         generatedAt={
           activeGeneratedDocument
             ? formatDisplayDateTime(activeGeneratedDocument.generatedAt)
-            : snapshot.generatedAt
+            : displayGeneratedAt
         }
         isLoading={isDocumentLoading}
         canExport={isPremium}

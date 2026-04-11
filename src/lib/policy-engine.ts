@@ -440,7 +440,7 @@ function resolveMonitoredRegions(answers: OnboardingAnswers) {
   return Array.from(regions);
 }
 
-function formatAnswerList(items: string[], fallback: string) {
+export function formatAnswerList(items: string[], fallback: string) {
   if (items.length === 0) {
     return fallback;
   }

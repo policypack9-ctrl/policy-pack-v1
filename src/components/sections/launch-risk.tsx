@@ -499,6 +499,7 @@ function BlockedDashboardMock() {
             {
               title: "Payouts paused",
               description: "Website verification requires public legal pages.",
+              status: "Revenue blocked",
               tone:
                 "border-rose-400/18 bg-rose-400/10 text-rose-50 icon-rose-300",
               icon: LockKeyhole,
@@ -506,6 +507,7 @@ function BlockedDashboardMock() {
             {
               title: "App review rejected",
               description: "Missing Privacy Policy URL in the release checklist.",
+              status: "Store review failed",
               tone:
                 "border-amber-300/18 bg-amber-300/10 text-amber-50 icon-amber-200",
               icon: Store,
@@ -513,6 +515,7 @@ function BlockedDashboardMock() {
             {
               title: "Compliance exposure",
               description: "Cookie disclosure and regional rights language are incomplete.",
+              status: "Policy gap detected",
               tone:
                 "border-orange-300/18 bg-orange-300/10 text-orange-50 icon-orange-200",
               icon: AlertTriangle,
@@ -527,29 +530,34 @@ function BlockedDashboardMock() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                 className={cn(
-                  "rounded-[22px] border px-4 py-4",
+                  "rounded-[22px] border px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]",
                   alert.tone.split(" ").slice(0, 3).join(" "),
                 )}
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/10">
-                    <Icon
-                      className={cn(
-                        "size-4",
-                        alert.tone.split(" ").find((token) =>
-                          token.startsWith("icon-"),
-                        )?.replace("icon-", "text-") ?? "text-white",
-                      )}
-                    />
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/15 shadow-[0_10px_24px_-18px_rgba(0,0,0,0.8)]">
+                      <Icon
+                        className={cn(
+                          "size-[18px]",
+                          alert.tone.split(" ").find((token) =>
+                            token.startsWith("icon-"),
+                          )?.replace("icon-", "text-") ?? "text-white",
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-current">
+                        {alert.title}
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-current opacity-80">
+                        {alert.description}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-current">
-                      {alert.title}
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-current opacity-80">
-                      {alert.description}
-                    </p>
-                  </div>
+                  <span className="shrink-0 rounded-full border border-white/10 bg-black/12 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-current/72">
+                    {alert.status}
+                  </span>
                 </div>
               </motion.div>
             );
