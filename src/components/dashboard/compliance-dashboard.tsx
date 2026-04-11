@@ -194,6 +194,7 @@ function buildAuditViewState(
 
 export function ComplianceDashboard({
   initialIsPremium = false,
+  planId = "free",
   initialPremiumUnlockedAt = null,
   initialGeneratedDocuments = [],
   authenticatedEmail = null,
@@ -305,10 +306,15 @@ export function ComplianceDashboard({
     displayDocuments[0];
   const activeGeneratedDocument = documentCache[activeDocument.id];
   const generatedDocumentCount = Object.keys(documentCache).length;
+  const normalizedPlanId = planId === "starter" || planId === "premium" ? planId : "free";
   const canGenerateComplimentaryDocument =
     !isPremium &&
     launchSnapshot.canGenerateComplimentaryDocument &&
     generatedDocumentCount === 0;
+  const isLaunchPromoActive =
+    !isPremium &&
+    launchSnapshot.isEligibleLaunchUser &&
+    launchSnapshot.complimentaryDocumentsRemaining > 0;
   const hasUnlockedComplimentaryDraft = generatedDocumentCount > 0;
   const complimentaryStateLabel = canGenerateComplimentaryDocument
     ? "1 complimentary draft available"
@@ -330,6 +336,20 @@ export function ComplianceDashboard({
   const WorkspaceActionIcon = canGenerateComplimentaryDocument
     ? Eye
     : LockKeyhole;
+  const currentPackageLabel = isPremium
+    ? normalizedPlanId === "starter"
+      ? "Starter paid package"
+      : "Premium paid package"
+    : isLaunchPromoActive
+      ? "Launch promotional package"
+      : "Free package";
+  const currentPackageSummary = isPremium
+    ? normalizedPlanId === "starter"
+      ? "Starter package is active for this account."
+      : "Premium package is active for this account."
+    : isLaunchPromoActive
+      ? `${launchSnapshot.complimentaryDocumentsRemaining} complimentary pages available from your launch offer.`
+      : "Free access is active. Choose a paid package for full generation and downloads.";
   const isCheckoutBusy =
     isCheckoutPending ||
     checkoutState === "initializing" ||
@@ -917,7 +937,7 @@ export function ComplianceDashboard({
       ? "Start with your active plan"
       : canGenerateComplimentaryDocument
         ? launchSnapshot.isEligibleLaunchUser
-          ? "Use complimentary launch package"
+          ? `Use launch promo (${launchSnapshot.complimentaryDocumentsRemaining} pages)`
           : "Use free package"
         : "Free package unavailable";
     const freeAccessSummary = isPremium
@@ -949,6 +969,12 @@ export function ComplianceDashboard({
           <p className="text-white/60 text-sm leading-relaxed sm:text-base">
             Choose how you want to start: continue with free access when available, or unlock a paid package right away.
           </p>
+          {isLaunchPromoActive ? (
+            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-400/22 bg-emerald-400/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-emerald-100">
+              <BadgeCheck className="size-4" />
+              Launch promo active · {launchSnapshot.complimentaryDocumentsRemaining} pages left
+            </div>
+          ) : null}
           <p className="text-xs uppercase tracking-[0.2em] text-white/42">
             {freeAccessSummary}
           </p>
@@ -970,9 +996,34 @@ export function ComplianceDashboard({
               onClick={() => setIsPlanDialogOpen(true)}
               className="h-12 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-5 text-sm text-white/76 hover:bg-white/[0.05] hover:text-white"
             >
-              Choose paid package
+              {isLaunchPromoActive ? "Skip promo and choose paid package" : "Choose paid package"}
             </Button>
           </div>
+          {isLaunchPromoActive ? (
+            <div className="space-y-3 rounded-[24px] border border-white/[0.08] bg-white/[0.02] p-4 sm:p-5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-white/48">
+                Choose your first page from the launch promo
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {displayDocuments.map((document) => {
+                  const DocumentIcon = documentIcons[document.id];
+
+                  return (
+                    <Button
+                      key={document.id}
+                      type="button"
+                      variant="ghost"
+                      onClick={() => void handleViewDocument(document)}
+                      className="h-11 justify-start rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-left text-sm text-white/76 hover:bg-white/[0.05] hover:text-white"
+                    >
+                      <DocumentIcon className="size-4" />
+                      {document.title}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           {exportNotice ? (
             <p className={`text-sm ${checkoutNoticeClassName}`}>{exportNotice}</p>
           ) : null}
@@ -1050,6 +1101,12 @@ export function ComplianceDashboard({
                 </p>
                 <p className="mt-4 text-xs uppercase tracking-[0.24em] text-white/34">
                   {saveLabel}
+                </p>
+                <p className="mt-2 text-xs uppercase tracking-[0.22em] text-white/42">
+                  Current package: {currentPackageLabel}
+                </p>
+                <p className="mt-2 text-sm text-white/58">
+                  {currentPackageSummary}
                 </p>
                 {authenticatedEmail ? (
                   <p className="mt-2 text-xs uppercase tracking-[0.22em] text-white/28">
