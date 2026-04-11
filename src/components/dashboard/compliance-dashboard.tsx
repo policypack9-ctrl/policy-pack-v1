@@ -928,7 +928,7 @@ export function ComplianceDashboard({
 
   function startNewWorkspace() {
     clearPolicyWorkspace();
-    router.push("/dashboard");
+    router.push("/onboarding");
   }
 
   if (generatedDocumentCount === 0 && !isCheckoutBusy) {
