@@ -908,10 +908,26 @@ export function ComplianceDashboard({
 
   function startNewWorkspace() {
     clearPolicyWorkspace();
-    router.push("/onboarding");
+    router.push("/dashboard");
   }
 
   if (generatedDocumentCount === 0 && !isCheckoutBusy) {
+    const canStartFromFreeAccess = isPremium || canGenerateComplimentaryDocument;
+    const freeAccessLabel = isPremium
+      ? "Start with your active plan"
+      : canGenerateComplimentaryDocument
+        ? launchSnapshot.isEligibleLaunchUser
+          ? "Use complimentary launch package"
+          : "Use free package"
+        : "Free package unavailable";
+    const freeAccessSummary = isPremium
+      ? "Your premium workspace is active. Start generating your first document now."
+      : canGenerateComplimentaryDocument
+        ? launchSnapshot.isEligibleLaunchUser
+          ? `You still have ${launchSnapshot.complimentaryDocumentsRemaining} complimentary document slots from the launch package.`
+          : "Start generating with the free package."
+        : complimentarySummary;
+
     return (
       <motion.main
         initial={{ opacity: 0 }}
@@ -922,19 +938,44 @@ export function ComplianceDashboard({
         }}
         className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-6 py-8 sm:px-10 sm:py-10 lg:px-12"
       >
-        <div className="max-w-md text-center space-y-6">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/10">
-            <FileText className="size-10 text-amber-400" />
+        <div className="max-w-xl text-center space-y-6">
+          <div className="mx-auto h-24 w-24 rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-4 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.9)]">
+            <div
+              className="h-full w-full rounded-[18px] bg-contain bg-center bg-no-repeat"
+              style={{ backgroundImage: "url('/icon.svg')" }}
+            />
           </div>
           <h1 className="text-3xl font-semibold tracking-tight text-white">Welcome to PolicyPack</h1>
-          <p className="text-white/60 text-sm leading-relaxed">
-            Your dashboard is currently empty. Start by selecting the pages you want to generate based on your current plan.
+          <p className="text-white/60 text-sm leading-relaxed sm:text-base">
+            Choose how you want to start: continue with free access when available, or unlock a paid package right away.
           </p>
-          <div className="pt-4">
-            <PremiumButton onClick={() => router.push("/onboarding")} className="h-12 px-8 text-base">
-              Start Creating Pages
+          <p className="text-xs uppercase tracking-[0.2em] text-white/42">
+            {freeAccessSummary}
+          </p>
+          <div className="pt-3 grid gap-3 sm:grid-cols-2">
+            <PremiumButton
+              onClick={() =>
+                canStartFromFreeAccess
+                  ? void handleViewDocument(displayDocuments[0])
+                  : setExportNotice(complimentarySummary)
+              }
+              disabled={!canStartFromFreeAccess}
+              className="h-12 px-5 text-sm"
+            >
+              {freeAccessLabel}
             </PremiumButton>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsPlanDialogOpen(true)}
+              className="h-12 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-5 text-sm text-white/76 hover:bg-white/[0.05] hover:text-white"
+            >
+              Choose paid package
+            </Button>
           </div>
+          {exportNotice ? (
+            <p className={`text-sm ${checkoutNoticeClassName}`}>{exportNotice}</p>
+          ) : null}
         </div>
       </motion.main>
     );
