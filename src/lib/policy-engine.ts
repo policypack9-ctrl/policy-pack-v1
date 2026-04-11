@@ -1,5 +1,3 @@
-import { PRODUCTION_APP_URL } from "@/lib/site-config";
-
 export const POLICY_SESSION_STORAGE_KEY = "policypack:onboarding:v1";
 export const OTHER_OPTION_VALUE = "Other";
 

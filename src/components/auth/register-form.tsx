@@ -13,6 +13,14 @@ type RegisterFormProps = {
   showGoogle?: boolean;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(value: string) {
+  return value
+    .trim()
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, "");
+}
+
 export function RegisterForm({
   callbackUrl,
   showGoogle = true,
@@ -28,9 +36,15 @@ export function RegisterForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    const normalizedEmail = normalizeEmail(email);
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -44,7 +58,7 @@ export function RegisterForm({
         },
         body: JSON.stringify({
           name,
-          email,
+          email: normalizedEmail,
           password,
         }),
       });
@@ -59,7 +73,7 @@ export function RegisterForm({
       }
 
       const result = await signIn("credentials", {
-        email,
+        email: normalizedEmail,
         password,
         redirect: false,
         redirectTo: callbackUrl,
@@ -114,9 +128,10 @@ export function RegisterForm({
             Email
           </span>
           <input
-            type="email"
+            type="text"
+            inputMode="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => setEmail(normalizeEmail(event.target.value))}
             autoComplete="email"
             required
             className="soft-input h-12 w-full rounded-[18px] px-4 text-sm"

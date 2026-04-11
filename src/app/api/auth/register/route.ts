@@ -6,6 +6,14 @@ import { sendAdminNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, "");
+}
 
 function validateRegistrationInput(body: {
   name?: unknown;
@@ -13,14 +21,14 @@ function validateRegistrationInput(body: {
   password?: unknown;
 }) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
   const password = typeof body.password === "string" ? body.password : "";
 
   if (name.length < 2) {
     return { error: "Name must be at least 2 characters long." };
   }
 
-  if (!email.includes("@") || email.length < 6) {
+  if (!EMAIL_PATTERN.test(email)) {
     return { error: "Enter a valid email address." };
   }
 

@@ -30,12 +30,14 @@ describe('policy-engine', () => {
 
   describe('getProductName', () => {
     it('should return "The Service" if businessName is empty', () => {
-      expect(getProductName({ businessName: "" } as any)).toBe("The Service");
-      expect(getProductName({ businessName: "   " } as any)).toBe("The Service");
+      expect(getProductName(normalizeAnswers({ businessName: "" }))).toBe("The Service");
+      expect(getProductName(normalizeAnswers({ businessName: "   " }))).toBe("The Service");
     });
 
     it('should return trimmed businessName if provided', () => {
-      expect(getProductName({ businessName: "  Acme Corp  " } as any)).toBe("Acme Corp");
+      expect(
+        getProductName(normalizeAnswers({ businessName: "  Acme Corp  " })),
+      ).toBe("Acme Corp");
     });
   });
 });

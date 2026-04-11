@@ -16,6 +16,14 @@ type LoginFormProps = {
   showGoogle?: boolean;
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(value: string) {
+  return value
+    .trim()
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, "");
+}
+
 export function LoginForm({
   callbackUrl,
   initialError,
@@ -30,11 +38,18 @@ export function LoginForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const result = await signIn("credentials", {
-        email,
+        email: normalizedEmail,
         password,
         redirect: false,
         redirectTo: callbackUrl,
@@ -73,9 +88,10 @@ export function LoginForm({
             Email
           </span>
           <input
-            type="email"
+            type="text"
+            inputMode="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => setEmail(normalizeEmail(event.target.value))}
             autoComplete="email"
             required
             className="soft-input h-12 w-full rounded-[18px] px-4 text-sm"

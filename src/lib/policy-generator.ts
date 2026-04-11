@@ -22,7 +22,6 @@ import {
   type DashboardDocument,
   type OnboardingAnswers,
 } from "@/lib/policy-engine";
-import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
 export type PolicyDocumentType = DashboardDocument["id"];
 
