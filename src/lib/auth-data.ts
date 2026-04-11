@@ -77,6 +77,16 @@ export type AccountSettingsSummary = {
   canChangePassword: boolean;
 };
 
+export type AdminUserListItem = {
+  userId: string;
+  name: string;
+  email: string;
+  planId: string;
+  isPremium: boolean;
+  createdAt: string | null;
+  signInMethods: UserSignInMethod[];
+};
+
 export type CredentialsUserInput = {
   name: string;
   email: string;
@@ -623,6 +633,108 @@ export async function deleteUserAccount(userId: string) {
   }
 
   return true;
+}
+
+export async function listAdminUsers(limit = 200) {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    throw new Error("Admin user listing is unavailable right now.");
+  }
+
+  const safeLimit = Number.isFinite(limit)
+    ? Math.max(1, Math.min(500, Math.floor(limit)))
+    : 200;
+
+  const [usersResult, profilesResult, accountsResult] = await Promise.all([
+    supabase
+      .schema("next_auth")
+      .from("users")
+      .select("id, name, email, image, emailVerified")
+      .order("email", { ascending: true })
+      .limit(safeLimit),
+    supabase
+      .from("user_profiles")
+      .select(
+        "user_id, email, display_name, avatar_url, password_hash, plan_id, is_premium, premium_unlocked_at, created_at, updated_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(safeLimit),
+    supabase
+      .schema("next_auth")
+      .from("accounts")
+      .select("userId, provider"),
+  ]);
+
+  if (usersResult.error) {
+    throw formatSupabaseAuthError(
+      usersResult.error,
+      "Unable to list auth users.",
+    );
+  }
+
+  if (profilesResult.error) {
+    throw formatSupabaseAuthError(
+      profilesResult.error,
+      "Unable to list user profiles.",
+    );
+  }
+
+  if (accountsResult.error) {
+    throw formatSupabaseAuthError(
+      accountsResult.error,
+      "Unable to list sign-in methods.",
+    );
+  }
+
+  const users = (usersResult.data as NextAuthUserRow[] | null) ?? [];
+  const profiles = (profilesResult.data as UserProfileRow[] | null) ?? [];
+  const accounts =
+    ((accountsResult.data as Array<{ userId: string; provider: string }> | null) ??
+      []);
+
+  const profileMap = new Map(profiles.map((profile) => [profile.user_id, profile]));
+  const providersByUser = new Map<string, Set<UserSignInMethod>>();
+
+  for (const account of accounts) {
+    const userId = account.userId;
+    const provider = account.provider;
+    const currentMethods = providersByUser.get(userId) ?? new Set<UserSignInMethod>();
+
+    if (provider === "google") {
+      currentMethods.add("google");
+    } else {
+      currentMethods.add("password");
+    }
+
+    providersByUser.set(userId, currentMethods);
+  }
+
+  return users.map((user) => {
+    const profile = profileMap.get(user.id);
+    const methodSet = providersByUser.get(user.id) ?? new Set<UserSignInMethod>();
+    const hasPassword =
+      Boolean(profile?.password_hash) || methodSet.has("password");
+    const methods: UserSignInMethod[] = [];
+
+    if (hasPassword) {
+      methods.push("password");
+    }
+
+    if (methodSet.has("google")) {
+      methods.push("google");
+    }
+
+    return {
+      userId: user.id,
+      name: profile?.display_name ?? user.name ?? "Unnamed User",
+      email: profile?.email ?? user.email ?? "",
+      planId: profile?.plan_id ?? "free",
+      isPremium: Boolean(profile?.is_premium),
+      createdAt: profile?.created_at ?? null,
+      signInMethods: methods,
+    } satisfies AdminUserListItem;
+  });
 }
 
 export async function saveGeneratedDocumentForUser(

@@ -95,3 +95,32 @@ export function getAuthSecretStatus(): AuthEnvStatus {
     missingKeys,
   };
 }
+
+export function getAdminEmailAllowlist() {
+  const raw = readEnvValue("ADMIN_EMAIL_ALLOWLIST");
+
+  if (!raw) {
+    return [] as string[];
+  }
+
+  return raw
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function isAdminEmailAllowed(email?: string | null) {
+  const normalizedEmail = (email ?? "").trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return false;
+  }
+
+  const allowlist = getAdminEmailAllowlist();
+
+  if (allowlist.length === 0) {
+    return false;
+  }
+
+  return allowlist.includes(normalizedEmail);
+}
