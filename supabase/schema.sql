@@ -49,6 +49,7 @@ create table if not exists public.user_profiles (
   display_name text,
   avatar_url text,
   password_hash text,
+  plan_id text default 'free',
   is_premium boolean not null default false,
   premium_unlocked_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),

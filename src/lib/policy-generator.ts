@@ -279,16 +279,15 @@ function buildPolicySystemPrompt(
               "How users can control cookies",
               "Updates and contact",
             ]
-          : [
-              "Roles and definitions",
-              "Processing scope",
-              "Sub-processors",
-              "Transfers",
-              "Security measures",
-              "Breach notices",
-              "Consumer or data subject rights",
-          "Updates and contact",
-        ];
+          : documentType === "about-us"
+            ? ["Who we are", "Our mission and vision", "The team", "Company history", "Values"]
+            : documentType === "contact-us"
+              ? ["Contact methods", "Support hours", "Mailing address", "Response time expectations"]
+              : documentType === "legal-disclaimer"
+                ? ["General information disclaimer", "No professional advice", "Limitation of liability", "Errors and omissions"]
+                : documentType === "refund-policy"
+                  ? ["Refund eligibility", "Cancellation process", "Exceptions", "Processing time", "Contact"]
+                  : ["General clauses"];
   const genericAiInstruction =
     answers.aiTransparencyLevel === "Professional/Generic"
       ? 'If transparency is set to "Generic", avoid naming specific AI models or brands; use professional technical categories instead, especially "Secure Automated Data Processors".'
@@ -635,37 +634,23 @@ ${operatorLine}
 2. The latest version will be available through ${website}.`;
   }
 
-  return `# ${documentMeta.title}
+  if (documentType === "about-us") {
+    return `# ${documentMeta.title}\n\n${operatorLine}\n\n## 1. Who We Are\n1. ${productName} is a company focused on providing value to its customers.\n2. We operate primarily in ${primaryRegion}.\n\n## 2. Our Mission\n1. To deliver reliable and efficient services to our users.`;
+  }
 
-${operatorLine}
+  if (documentType === "contact-us") {
+    return `# ${documentMeta.title}\n\n${operatorLine}\n\n## 1. Get in Touch\n1. If you have any questions, please contact us at ${supportContact}.\n2. We aim to respond to all inquiries within 48 hours.`;
+  }
 
-## 1. Scope
-1. This addendum supplements the legal terms for ${productName} and addresses privacy and data processing obligations relevant to ${primaryRegion}.
-2. It applies to the processing of customer and end-user data handled through ${website}.
+  if (documentType === "legal-disclaimer") {
+    return `# ${documentMeta.title}\n\n${operatorLine}\n\n## 1. General Information\n1. The information provided by ${productName} on ${website} is for general informational purposes only.\n\n## 2. No Professional Advice\n1. We do not offer legal, financial, or professional advice. Always seek the advice of a qualified professional.\n\n## 3. Limitation of Liability\n1. Under no circumstance shall we have any liability to you for any loss or damage incurred as a result of the use of our site or services.`;
+  }
 
-## 2. Processing Roles
-1. ${productName} acts in the role appropriate to the service relationship and the nature of the personal data processed.
-2. Roles and responsibilities may vary depending on whether customer instructions or direct consumer interactions are involved.
+  if (documentType === "refund-policy") {
+    return `# ${documentMeta.title}\n\n${operatorLine}\n\n## 1. Refunds\n1. We stand behind our products. If you are not satisfied, please contact ${supportContact} within 14 days of purchase.\n\n## 2. Exceptions\n1. Certain items or services may be non-refundable. Please review the specific terms at the time of purchase.`;
+  }
 
-## 3. Processing Activities
-1. Covered activities include account administration, service delivery, support, analytics, security, and vendor coordination.
-2. Data categories involved include ${dataCollected}.
-
-## 4. Subprocessors and Vendors
-1. Authorized subprocessors and core vendors currently include ${vendors}.
-2. Vendors are expected to apply security and confidentiality measures appropriate to the services they perform.
-
-## 5. Transfers and Rights
-1. Where required, we support the rights and notice obligations relevant to users in ${formatList(snapshot.monitoredRegions, primaryRegion)}.
-2. Cross-border transfers are handled using safeguards and contractual terms appropriate to the affected jurisdiction.
-
-## 6. Security and Incidents
-1. We maintain administrative, technical, and organizational measures designed to protect personal information.
-2. Material incidents are handled through documented security and notification procedures.
-
-## 7. Updates
-1. This addendum may be refreshed to reflect regulatory changes, vendor updates, or platform changes.
-2. The latest version will be maintained through ${website}.`;
+  return `# ${documentMeta.title}\n\n${operatorLine}\n\n## 1. Scope\n1. This document supplements the legal terms for ${productName}.`;
 }
 
 function formatList(items: string[], fallback: string) {

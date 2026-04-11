@@ -24,6 +24,7 @@ export type CustomMultiInputField =
   (typeof CUSTOM_MULTI_INPUT_FIELDS)[CustomMultiQuestionId];
 
 export type OnboardingAnswers = {
+  selectedPages: string[];
   businessName: string;
   websiteUrl: string;
   productDescription: string;
@@ -48,7 +49,7 @@ export type StoredPolicySession = {
 };
 
 export type DashboardDocument = {
-  id: "privacy-policy" | "terms-of-service" | "cookie-policy" | "gdpr-addendum";
+  id: "about-us" | "contact-us" | "privacy-policy" | "cookie-policy" | "terms-of-service" | "legal-disclaimer" | "refund-policy";
   title: string;
   summary: string;
   status: "Up to Date";
@@ -75,6 +76,7 @@ export type ComplianceSnapshot = {
 };
 
 export const emptyOnboardingAnswers: OnboardingAnswers = {
+  selectedPages: [],
   businessName: "",
   websiteUrl: "",
   productDescription: "",
@@ -94,6 +96,7 @@ export const emptyOnboardingAnswers: OnboardingAnswers = {
 };
 
 export const demoOnboardingAnswers: OnboardingAnswers = {
+  selectedPages: ["about-us", "contact-us", "privacy-policy", "cookie-policy", "terms-of-service", "legal-disclaimer", "refund-policy"],
   businessName: "Example SaaS",
   websiteUrl: "https://example.com",
   productDescription:
@@ -170,20 +173,35 @@ export function buildComplianceSnapshot(
     normalizedAnswers.outreachChannels,
     "essential service communications",
   );
-  const preferredDocumentId = "gdpr-addendum";
-
-  const addendumTitle = hasEuropeanCoverage(normalizedAnswers)
-    ? "GDPR Compliance Document"
-    : hasUnitedStatesCoverage(normalizedAnswers)
-      ? "CCPA Notice"
-      : "GDPR/CCPA Addendum";
-  const addendumSummary = hasEuropeanCoverage(normalizedAnswers)
-    ? `Controller, transfer, and GDPR rights language prepared for ${primaryRegion}.`
-    : hasUnitedStatesCoverage(normalizedAnswers)
-      ? `California privacy notice and consumer rights language prepared for ${primaryRegion}.`
-      : `Processor, transfer, and controller language prepared for ${primaryRegion}.`;
+  const preferredDocumentId = "privacy-policy";
 
   const documents: DashboardDocument[] = [
+    {
+      id: "about-us",
+      title: "About Us",
+      summary: `A summary of ${getProductName(normalizedAnswers)} and its mission.`,
+      status: "Up to Date",
+      refreshedAt: generatedAt,
+      lastAuditLabel: generatedAt,
+      downloadFileName: "about-us.pdf",
+      clauses: [
+        `Company background and core mission.`,
+        `Team and values.`,
+      ],
+    },
+    {
+      id: "contact-us",
+      title: "Contact Us",
+      summary: `Contact information and support channels for your users.`,
+      status: "Up to Date",
+      refreshedAt: generatedAt,
+      lastAuditLabel: generatedAt,
+      downloadFileName: "contact-us.pdf",
+      clauses: [
+        `Support email and response times.`,
+        `Physical address if applicable.`,
+      ],
+    },
     {
       id: "privacy-policy",
       title: "Privacy Policy",
@@ -196,6 +214,21 @@ export function buildComplianceSnapshot(
         `Collected data: ${collectedDataLabel}.`,
         `Vendors disclosed: ${vendorLabel}.`,
         `User rights and retention language tailored for ${primaryRegion}.`,
+      ],
+      isPrimary: true,
+    },
+    {
+      id: "cookie-policy",
+      title: "Cookies Policy",
+      summary: `Maps analytics and outreach usage for ${outreachLabel}.`,
+      status: "Up to Date",
+      refreshedAt: generatedAt,
+      lastAuditLabel: generatedAt,
+      downloadFileName: "cookie-policy.pdf",
+      clauses: [
+        `Cookie and outreach channels: ${outreachLabel}.`,
+        `Consent flows tuned for ${monitoredRegions.join(", ")} visitors.`,
+        "Tracking disclosures aligned with analytics, marketing, and operational messaging.",
       ],
     },
     {
@@ -217,42 +250,40 @@ export function buildComplianceSnapshot(
       ],
     },
     {
-      id: "cookie-policy",
-      title: "Cookie Policy",
-      summary: `Maps analytics and outreach usage for ${outreachLabel}.`,
+      id: "legal-disclaimer",
+      title: "Legal Disclaimer",
+      summary: `Limits your liability regarding the use of your service or information provided.`,
       status: "Up to Date",
       refreshedAt: generatedAt,
       lastAuditLabel: generatedAt,
-      downloadFileName: "cookie-policy.pdf",
+      downloadFileName: "legal-disclaimer.pdf",
       clauses: [
-        `Cookie and outreach channels: ${outreachLabel}.`,
-        `Consent flows tuned for ${monitoredRegions.join(", ")} visitors.`,
-        "Tracking disclosures aligned with analytics, marketing, and operational messaging.",
+        `General information disclaimer.`,
+        `No professional advice disclaimer.`,
+        `Limitation of liability.`,
       ],
     },
     {
-      id: "gdpr-addendum",
-      title: addendumTitle,
-      summary: addendumSummary,
+      id: "refund-policy",
+      title: "Refund Policy",
+      summary: `Rules and conditions for customer refunds and cancellations.`,
       status: "Up to Date",
       refreshedAt: generatedAt,
       lastAuditLabel: generatedAt,
-      downloadFileName:
-        addendumTitle === "CCPA Notice"
-          ? "ccpa-notice.pdf"
-          : addendumTitle === "GDPR Compliance Document"
-            ? "gdpr-compliance-document.pdf"
-            : "gdpr-ccpa-addendum.pdf",
+      downloadFileName: "refund-policy.pdf",
       clauses: [
-        `Data processing addendum references ${vendorLabel}.`,
-        hasUnitedStatesCoverage(normalizedAnswers)
-          ? "California consumer rights, disclosures, and opt-out language are pre-mapped."
-          : `Cross-border transfer language aligned with ${primaryRegion}.`,
-        "Sub-processor, security, and breach notice obligations are pre-mapped.",
+        `Eligibility for refunds.`,
+        `Cancellation process.`,
+        `Exceptions and non-refundable items.`,
       ],
-      isPrimary: true,
     },
   ];
+
+  const selectedDocumentIds = normalizedAnswers.selectedPages?.length > 0
+    ? normalizedAnswers.selectedPages
+    : ["about-us", "contact-us", "privacy-policy", "cookie-policy", "terms-of-service", "legal-disclaimer", "refund-policy"];
+
+  const filteredDocuments = documents.filter((doc) => selectedDocumentIds.includes(doc.id));
 
   return {
     businessName: getProductName(normalizedAnswers),
@@ -267,7 +298,7 @@ export function buildComplianceSnapshot(
     alertMessage:
       "EU AI Act update detected. Your 'Data Processing' clause may need a refresh.",
     preferredDocumentId,
-    documents: sortDocumentsWithPrimaryFirst(documents, preferredDocumentId),
+    documents: sortDocumentsWithPrimaryFirst(filteredDocuments, preferredDocumentId),
   };
 }
 
@@ -318,6 +349,7 @@ export function normalizeAnswers(
   return {
     ...emptyOnboardingAnswers,
     ...value,
+    selectedPages: Array.isArray(value?.selectedPages) ? value.selectedPages : [],
     businessName: typeof value?.businessName === "string" ? value.businessName : "",
     websiteUrl: typeof value?.websiteUrl === "string" ? value.websiteUrl : "",
     productDescription:

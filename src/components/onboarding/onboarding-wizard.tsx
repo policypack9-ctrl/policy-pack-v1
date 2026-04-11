@@ -9,6 +9,7 @@ import {
   Check,
   CreditCard,
   Globe2,
+  FileText,
   Mail,
   MapPinned,
   PlugZap,
@@ -83,7 +84,7 @@ type SingleChoiceQuestion = BaseQuestion<SingleQuestionId> & {
   options: ChoiceOption[];
 };
 
-type MultiChoiceQuestion = BaseQuestion<CustomMultiQuestionId> & {
+type MultiChoiceQuestion = BaseQuestion<CustomMultiQuestionId | "selectedPages"> & {
   kind: "multi";
   options: ChoiceOption[];
 };
@@ -290,7 +291,14 @@ const optionItemVariants = {
   },
 };
 
-export function OnboardingWizard() {
+import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
+
+type OnboardingWizardProps = {
+  planId?: string;
+  launchSnapshot?: LaunchCampaignSnapshot;
+};
+
+export function OnboardingWizard({ planId = "free", launchSnapshot }: OnboardingWizardProps) {
   const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
   const [answers, setAnswers] = useState<OnboardingAnswers>(() => {
@@ -306,10 +314,51 @@ export function OnboardingWizard() {
   const [generationStep, setGenerationStep] = useState(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
 
-  const currentQuestion = questions[stepIndex];
-  const progress = ((stepIndex + 1) / questions.length) * 100;
-  const isLastStep = stepIndex === questions.length - 1;
-  const canContinue = questionHasAnswer(currentQuestion, answers);
+  const isEarlyUser = launchSnapshot?.isEligibleLaunchUser ?? false;
+  let availablePageIds: string[] = [];
+  let maxPages = 7;
+
+  if (isEarlyUser && planId === "free") {
+    availablePageIds = ["about-us", "contact-us", "privacy-policy", "cookie-policy", "terms-of-service", "legal-disclaimer", "refund-policy"];
+    maxPages = 4;
+  } else if (planId === "free") {
+    availablePageIds = ["about-us", "contact-us", "cookie-policy"];
+    maxPages = 2;
+  } else if (planId === "starter") {
+    availablePageIds = ["terms-of-service", "privacy-policy", "legal-disclaimer", "refund-policy"];
+    maxPages = 3;
+  } else {
+    availablePageIds = ["about-us", "contact-us", "privacy-policy", "cookie-policy", "terms-of-service", "legal-disclaimer", "refund-policy"];
+    maxPages = 7;
+  }
+
+  const allPageOptions: Record<string, ChoiceOption> = {
+    "about-us": { value: "about-us", label: "About Us", hint: "Company background" },
+    "contact-us": { value: "contact-us", label: "Contact Us", hint: "Support info" },
+    "privacy-policy": { value: "privacy-policy", label: "Privacy Policy", hint: "Data collection rules" },
+    "cookie-policy": { value: "cookie-policy", label: "Cookies Policy", hint: "Tracking details" },
+    "terms-of-service": { value: "terms-of-service", label: "Terms of Service", hint: "Usage rules" },
+    "legal-disclaimer": { value: "legal-disclaimer", label: "Legal Disclaimer", hint: "Liability limits" },
+    "refund-policy": { value: "refund-policy", label: "Refund Policy", hint: "Refund rules" },
+  };
+
+  const pageSelectionQuestion: MultiChoiceQuestion = {
+    id: "selectedPages",
+    kind: "multi",
+    title: "Which pages do you want to generate?",
+    description: `Select up to ${maxPages} pages based on your current plan.`,
+    icon: FileText,
+    options: availablePageIds.map(id => allPageOptions[id]),
+  };
+
+  const dynamicQuestions: Question[] = [pageSelectionQuestion, ...questions];
+
+  const currentQuestion = dynamicQuestions[stepIndex];
+  const progress = ((stepIndex + 1) / dynamicQuestions.length) * 100;
+  const isLastStep = stepIndex === dynamicQuestions.length - 1;
+  const canContinue = questionHasAnswer(currentQuestion, answers) && (
+    currentQuestion.id !== "selectedPages" || (answers.selectedPages.length > 0 && answers.selectedPages.length <= maxPages)
+  );
   const generationMessages = getGenerationMessages(answers);
 
   useEffect(() => {
@@ -382,7 +431,7 @@ export function OnboardingWizard() {
     setShowValidation(false);
   }
 
-  function toggleMultiAnswer(id: CustomMultiQuestionId, value: string) {
+  function toggleMultiAnswer(id: CustomMultiQuestionId | "selectedPages", value: string) {
     setAnswers((current) => {
       const currentValue = current[id];
       if (!Array.isArray(currentValue)) {
@@ -391,7 +440,7 @@ export function OnboardingWizard() {
 
       const isSelected = currentValue.includes(value);
       let nextValue: string[];
-      const customField = CUSTOM_MULTI_INPUT_FIELDS[id];
+      const customField = id !== "selectedPages" ? CUSTOM_MULTI_INPUT_FIELDS[id] : null;
 
       if (value === "None") {
         nextValue = isSelected ? [] : ["None"];
@@ -408,10 +457,10 @@ export function OnboardingWizard() {
       return {
         ...current,
         [id]: nextValue,
-        ...(value === OTHER_OPTION_VALUE && isSelected
+        ...(customField && value === OTHER_OPTION_VALUE && isSelected
           ? { [customField]: "" }
           : {}),
-        ...(value === "None" && !isSelected ? { [customField]: "" } : {}),
+        ...(customField && value === "None" && !isSelected ? { [customField]: "" } : {}),
       };
     });
     setShowValidation(false);
@@ -842,7 +891,7 @@ type QuestionContentProps = {
     id: keyof typeof CUSTOM_INPUT_FIELDS,
     value: string,
   ) => void;
-  toggleMultiAnswer: (id: CustomMultiQuestionId, value: string) => void;
+  toggleMultiAnswer: (id: CustomMultiQuestionId | "selectedPages", value: string) => void;
 };
 
 function QuestionContent({
@@ -895,7 +944,7 @@ function renderField(
     id: keyof typeof CUSTOM_INPUT_FIELDS,
     value: string,
   ) => void,
-  toggleMultiAnswer: (id: CustomMultiQuestionId, value: string) => void,
+  toggleMultiAnswer: (id: CustomMultiQuestionId | "selectedPages", value: string) => void,
 ) {
   if (question.kind === "text") {
     return (
@@ -1095,11 +1144,15 @@ function renderField(
 }
 
 function questionHasAnswer(question: Question, answers: OnboardingAnswers) {
-  const value = answers[question.id];
+  if (question.id === "selectedPages") {
+    return answers.selectedPages && answers.selectedPages.length > 0;
+  }
+
+  const value = answers[question.id as keyof OnboardingAnswers];
 
   if (question.kind === "multi") {
-    if (isCustomMultiQuestionId(question.id)) {
-      return getResolvedMultiAnswerValues(answers, question.id).length > 0;
+    if (isCustomMultiQuestionId(question.id as WizardQuestionId)) {
+      return getResolvedMultiAnswerValues(answers, question.id as CustomMultiQuestionId).length > 0;
     }
 
     return Array.isArray(value) && value.length > 0;

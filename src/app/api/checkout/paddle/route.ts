@@ -95,11 +95,13 @@ export async function POST(request: Request) {
       const currentProfile = await getAppUserProfileById(session.user.id);
 
       if (isVerified) {
-        await setUserPremium(session.user.id, true);
+        const customData = (verifiedTransaction.customData ??
+          {}) as Record<string, unknown>;
+        const planIdFromData = typeof customData.planId === "string" ? customData.planId : "premium";
+        
+        await setUserPremium(session.user.id, true, planIdFromData);
 
         if (!currentProfile?.isPremium) {
-          const customData = (verifiedTransaction.customData ??
-            {}) as Record<string, unknown>;
           const paymentEmail =
             verifiedTransaction.customer?.email ?? session.user.email ?? "Unknown";
           const paymentPlan =

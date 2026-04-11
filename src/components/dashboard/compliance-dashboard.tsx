@@ -53,14 +53,18 @@ import {
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 
 const documentIcons = {
+  "about-us": Eye,
+  "contact-us": FileText,
   "privacy-policy": ShieldCheck,
-  "terms-of-service": FileText,
   "cookie-policy": Cookie,
-  "gdpr-addendum": Globe2,
+  "terms-of-service": FileText,
+  "legal-disclaimer": TriangleAlert,
+  "refund-policy": CreditCard,
 } as const;
 
 type ComplianceDashboardProps = {
   initialIsPremium?: boolean;
+  planId?: string;
   initialPremiumUnlockedAt?: string | null;
   initialGeneratedDocuments?: SavedGeneratedDocument[];
   authenticatedEmail?: string | null;
@@ -259,7 +263,7 @@ export function ComplianceDashboard({
       : "Your workspace has not been saved yet";
   });
   const [activeDocumentId, setActiveDocumentId] =
-    useState<DashboardDocument["id"]>("gdpr-addendum");
+    useState<DashboardDocument["id"]>("privacy-policy");
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [isDocumentLoading, setIsDocumentLoading] = useState(false);
   const [exportNotice, setExportNotice] = useState("");
@@ -906,6 +910,35 @@ export function ComplianceDashboard({
   function startNewWorkspace() {
     clearPolicyWorkspace();
     router.push("/onboarding");
+  }
+
+  if (generatedDocumentCount === 0 && !isCheckoutBusy) {
+    return (
+      <motion.main
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{
+          duration: shouldReduceMotion ? 0 : 0.42,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+        className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-6 py-8 sm:px-10 sm:py-10 lg:px-12"
+      >
+        <div className="max-w-md text-center space-y-6">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/10">
+            <FileText className="size-10 text-amber-400" />
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">Welcome to PolicyPack</h1>
+          <p className="text-white/60 text-sm leading-relaxed">
+            Your dashboard is currently empty. Start by selecting the pages you want to generate based on your current plan.
+          </p>
+          <div className="pt-4">
+            <PremiumButton onClick={() => router.push("/onboarding")} className="h-12 px-8 text-base">
+              Start Creating Pages
+            </PremiumButton>
+          </div>
+        </div>
+      </motion.main>
+    );
   }
 
   return (

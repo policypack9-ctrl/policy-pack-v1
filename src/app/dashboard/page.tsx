@@ -29,6 +29,7 @@ export default async function DashboardPage({
   return (
     <ComplianceDashboard
       initialIsPremium={profile?.isPremium ?? false}
+      planId={profile?.planId ?? "free"}
       initialPremiumUnlockedAt={profile?.premiumUnlockedAt ?? null}
       initialGeneratedDocuments={generatedDocuments}
       authenticatedEmail={session.user.email ?? null}

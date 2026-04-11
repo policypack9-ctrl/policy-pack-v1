@@ -108,17 +108,18 @@ export async function POST(request: Request) {
     }
 
     if (isPaid && userId) {
-      await setUserPremium(userId, true);
-
       const email =
         readWebhookEmail(transactionData) ||
         verifiedTransaction.customer?.email ||
         "Unknown";
       
+      const planId = transactionData.customData?.planId ?? "premium";
       const planName =
         transactionData.customData?.planName ??
         transactionData.customData?.planId ??
         "Premium";
+
+      await setUserPremium(userId, true, planId);
 
       const notificationResult = await sendAdminNotification({
         kind: "payment",

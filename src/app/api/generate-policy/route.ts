@@ -5,6 +5,7 @@ import {
   getAppUserProfileById,
   getLaunchCampaignSnapshot,
   saveGeneratedDocumentForUser,
+  listGeneratedDocumentsForUser,
 } from "@/lib/auth-data";
 import {
   generatePolicyDocument,
@@ -31,10 +32,13 @@ export async function POST(request: Request) {
     };
 
     if (
+      body.documentType !== "about-us" &&
+      body.documentType !== "contact-us" &&
       body.documentType !== "privacy-policy" &&
-      body.documentType !== "terms-of-service" &&
       body.documentType !== "cookie-policy" &&
-      body.documentType !== "gdpr-addendum"
+      body.documentType !== "terms-of-service" &&
+      body.documentType !== "legal-disclaimer" &&
+      body.documentType !== "refund-policy"
     ) {
       return NextResponse.json(
         { error: "Invalid documentType." },
@@ -42,21 +46,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const [profile, launchSnapshot] = await Promise.all([
+    const [profile, launchSnapshot, generatedDocs] = await Promise.all([
       getAppUserProfileById(session.user.id),
       getLaunchCampaignSnapshot(session.user.id),
+      listGeneratedDocumentsForUser(session.user.id), // We need this function
     ]);
+
     const generationTier = profile?.isPremium ? "premium" : "free";
+    const planId = profile?.planId ?? "free";
+    const isEarlyUser = launchSnapshot?.isEligibleLaunchUser ?? false;
+    const hasGeneratedCurrentType = generatedDocs.some(doc => doc.id === body.documentType);
+    const documentCount = hasGeneratedCurrentType ? generatedDocs.length - 1 : generatedDocs.length;
 
-    if (!profile?.isPremium && !launchSnapshot.canGenerateComplimentaryDocument) {
-      const errorMessage = launchSnapshot.freeGenerationClosed
-        ? "The complimentary launch batch is full. Choose a package before document generation."
-        : "Your complimentary launch document has already been used. Choose a package to generate more documents.";
+    let maxAllowed = 7;
+    if (isEarlyUser && planId === "free") {
+      maxAllowed = 4;
+    } else if (planId === "free") {
+      maxAllowed = 2;
+    } else if (planId === "starter") {
+      maxAllowed = 3;
+    }
 
+    if (documentCount >= maxAllowed) {
       return NextResponse.json(
         {
-          error: errorMessage,
-          requiresCheckout: true,
+          error: "You have reached the maximum number of documents for your current plan.",
+          requiresCheckout: planId !== "premium",
           launchSnapshot,
         },
         { status: 402 },

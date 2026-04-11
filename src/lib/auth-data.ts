@@ -32,6 +32,7 @@ type UserProfileRow = {
   display_name: string | null;
   avatar_url: string | null;
   password_hash: string | null;
+  plan_id: string | null;
   is_premium: boolean | null;
   premium_unlocked_at: string | null;
   created_at: string | null;
@@ -61,6 +62,7 @@ export type AppUserProfile = {
   email: string | null;
   image: string | null;
   passwordHash: string | null;
+  planId: string;
   isPremium: boolean;
   premiumUnlockedAt: string | null;
   createdAt: string | null;
@@ -187,6 +189,7 @@ function mapProfile(
     email: profile?.email ?? user.email ?? null,
     image: profile?.avatar_url ?? user.image ?? null,
     passwordHash: profile?.password_hash ?? null,
+    planId: profile?.plan_id ?? "free",
     isPremium: Boolean(profile?.is_premium),
     premiumUnlockedAt: profile?.premium_unlocked_at ?? null,
     createdAt: profile?.created_at ?? null,
@@ -249,7 +252,7 @@ async function getUserProfileRow(userId: string) {
   const { data, error } = await supabase
     .from("user_profiles")
     .select(
-      "user_id, email, display_name, avatar_url, password_hash, is_premium, premium_unlocked_at, created_at, updated_at",
+      "user_id, email, display_name, avatar_url, password_hash, plan_id, is_premium, premium_unlocked_at, created_at, updated_at",
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -451,7 +454,7 @@ export async function verifyCredentials(email: string, password: string) {
   };
 }
 
-export async function setUserPremium(userId: string, isPremium = true) {
+export async function setUserPremium(userId: string, isPremium = true, planId = "premium") {
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {
@@ -464,6 +467,7 @@ export async function setUserPremium(userId: string, isPremium = true) {
       {
         user_id: userId,
         is_premium: isPremium,
+        plan_id: isPremium ? planId : "free",
         premium_unlocked_at: isPremium ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       },

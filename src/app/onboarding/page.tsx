@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { buildAuthRedirectHref } from "@/lib/auth-routing";
+import { getAppUserProfileById, getLaunchCampaignSnapshot } from "@/lib/auth-data";
 
 export default async function OnboardingPage() {
   const session = await auth();
@@ -11,5 +12,10 @@ export default async function OnboardingPage() {
     redirect(buildAuthRedirectHref("register", "/onboarding"));
   }
 
-  return <OnboardingWizard />;
+  const [profile, launchSnapshot] = await Promise.all([
+    getAppUserProfileById(session.user.id),
+    getLaunchCampaignSnapshot(session.user.id),
+  ]);
+
+  return <OnboardingWizard planId={profile?.planId ?? "free"} launchSnapshot={launchSnapshot} />;
 }
