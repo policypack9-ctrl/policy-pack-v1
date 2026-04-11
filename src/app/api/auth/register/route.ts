@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       );
     }
 
-    void sendAdminNotification({
+    const notificationResult = await sendAdminNotification({
       kind: "registration",
       subject: "New PolicyPack registration",
       summary:
@@ -102,7 +102,11 @@ export async function POST(request: Request) {
           value: new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }),
         },
       ],
-    }).catch(() => {});
+    });
+
+    if (!notificationResult.ok) {
+      console.error("Registration notification could not be delivered.");
+    }
 
     return NextResponse.json({
       ok: true,

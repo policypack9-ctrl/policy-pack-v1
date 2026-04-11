@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { Environment } from "@paddle/paddle-node-sdk";
 
 import { auth } from "@/auth";
-import { setUserPremium } from "@/lib/auth-data";
+import { getAppUserProfileById, setUserPremium } from "@/lib/auth-data";
 import { getBillingPlan, type BillingPlanId } from "@/lib/billing-plans";
+import { sendAdminNotification } from "@/lib/notifications";
 import {
   buildPolicyPackCheckoutItems,
   getPaddleClient,
@@ -91,9 +92,40 @@ export async function POST(request: Request) {
       const isVerified = isVerifiedPaddleTransactionStatus(
         verifiedTransaction.status,
       );
+      const currentProfile = await getAppUserProfileById(session.user.id);
 
       if (isVerified) {
         await setUserPremium(session.user.id, true);
+
+        if (!currentProfile?.isPremium) {
+          const customData = (verifiedTransaction.customData ??
+            {}) as Record<string, unknown>;
+          const paymentEmail =
+            verifiedTransaction.customer?.email ?? session.user.email ?? "Unknown";
+          const paymentPlan =
+            typeof customData.planName === "string"
+              ? customData.planName
+              : typeof customData.planId === "string"
+                ? customData.planId
+                : "Not specified";
+
+          void sendAdminNotification({
+            kind: "payment",
+            subject: "New PolicyPack payment confirmed",
+            summary:
+              "A customer payment was verified successfully and workspace access was unlocked.",
+            details: [
+              { label: "User ID", value: session.user.id },
+              { label: "Email", value: paymentEmail },
+              { label: "Package", value: paymentPlan },
+              { label: "Transaction ID", value: verifiedTransaction.id },
+              {
+                label: "Status",
+                value: verifiedTransaction.status ?? "Unknown",
+              },
+            ],
+          }).catch(() => {});
+        }
       }
 
       return NextResponse.json({

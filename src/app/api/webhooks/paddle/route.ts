@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     if (isPaid && userId) {
       await setUserPremium(userId, true);
 
-      void sendAdminNotification({
+      const notificationResult = await sendAdminNotification({
         kind: "payment",
         subject: "New PolicyPack payment confirmed",
         summary:
@@ -137,7 +137,11 @@ export async function POST(request: Request) {
             value: verifiedTransaction.status ?? "Unknown",
           },
         ],
-      }).catch(() => {});
+      });
+
+      if (!notificationResult.ok) {
+        console.error("Webhook payment notification could not be delivered.");
+      }
     }
 
     return NextResponse.json({
