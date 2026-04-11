@@ -11,7 +11,6 @@ import {
   Download,
   Eye,
   FileText,
-  Globe2,
   LoaderCircle,
   LockKeyhole,
   Save,
