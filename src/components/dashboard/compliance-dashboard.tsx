@@ -239,7 +239,7 @@ export function ComplianceDashboard({
     return Boolean(loadPolicyAccount() ?? loadStoredPolicySession());
   });
 
-  // Client-side auth guard ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â redirect to login if no email (extra safety layer)
+  // Client-side auth guard ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â redirect to login if no email (extra safety layer)
   useEffect(() => {
     if (!authenticatedEmail) {
       router.replace("/login?callbackUrl=/dashboard");
@@ -977,7 +977,6 @@ export function ComplianceDashboard({
   // -- Empty state: user has no documents and no saved session ----------
   if (showEmptyState) {
     const onboardingHref = `/onboarding`;
-    const isPromo = userTier === "promo";
     return (
       <motion.main
         initial={{ opacity: 0 }}
@@ -1021,41 +1020,55 @@ export function ComplianceDashboard({
               </p>
             )}
           </div>
-          {/* Plan selection */}
+          {/* â”€â”€ Plan selection: 4 tiers always visible â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="w-full space-y-3">
-            {isPromo && (
+            {/* Promo card â€” only during active promo */}
+            {launchSnapshot.promoActive && (
               <a
                 href={onboardingHref}
                 className="group flex w-full items-center justify-between rounded-[16px] border border-teal-300/25 bg-teal-300/[0.07] px-5 py-4 transition-all hover:border-teal-300/40 hover:bg-teal-300/[0.10]"
               >
                 <div className="text-left">
-                  <p className="text-sm font-semibold text-teal-100">Launch Offer â€” Free</p>
-                  <p className="mt-0.5 text-xs text-white/50">Choose up to 4 pages from all 7 documents</p>
+                  <p className="text-sm font-semibold text-teal-100">Launch Offer &mdash; Free</p>
+                  <p className="mt-0.5 text-xs text-white/50">4 pages from all 7 &mdash; complimentary during promo</p>
                 </div>
                 <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-medium text-teal-200">Free</span>
               </a>
             )}
+            {/* Free tier card */}
+            <a
+              href={onboardingHref}
+              className="group flex w-full items-center justify-between rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-5 py-4 transition-all hover:border-white/[0.14] hover:bg-white/[0.04]"
+            >
+              <div className="text-left">
+                <p className="text-sm font-semibold text-white/80">Free</p>
+                <p className="mt-0.5 text-xs text-white/40">2 basic pages &mdash; About Us, Contact Us, Cookies</p>
+              </div>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-medium text-white/50">Basic</span>
+            </a>
+            {/* Starter card */}
             <button
               type="button"
               onClick={() => { setIsPlanDialogOpen(true); }}
               className="group flex w-full items-center justify-between rounded-[16px] border border-amber-300/20 bg-amber-300/[0.05] px-5 py-4 transition-all hover:border-amber-300/35 hover:bg-amber-300/[0.09]"
             >
               <div className="text-left">
-                <p className="text-sm font-semibold text-amber-100">Starter Pages â€” $39</p>
-                <p className="mt-0.5 text-xs text-white/50">Choose 3 from Terms, Privacy, Disclaimer, Refund</p>
+                <p className="text-sm font-semibold text-amber-100">Starter Pages &mdash; $39</p>
+                <p className="mt-0.5 text-xs text-white/50">3 legal pages &mdash; Terms, Privacy, Disclaimer, Refund</p>
               </div>
               <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium text-amber-200">One-time</span>
             </button>
+            {/* Premium card */}
             <button
               type="button"
               onClick={() => { setIsPlanDialogOpen(true); }}
               className="group flex w-full items-center justify-between rounded-[16px] border border-white/[0.10] bg-white/[0.03] px-5 py-4 transition-all hover:border-teal-300/30 hover:bg-teal-300/[0.05]"
             >
               <div className="text-left">
-                <p className="text-sm font-semibold text-white">Premium Workspace â€” $29/mo</p>
+                <p className="text-sm font-semibold text-white">Premium Workspace &mdash; $29/mo</p>
                 <p className="mt-0.5 text-xs text-white/50">All 7 pages + auto-updates + monitoring</p>
               </div>
-              <span className="rounded-full border border-teal-300/15 bg-teal-300/[0.07] px-3 py-1 text-xs font-medium text-teal-200/80">Best</span>
+              <span className="rounded-full border border-teal-300/15 bg-teal-300/[0.07] px-3 py-1 text-xs font-medium text-teal-200/80">Best for SaaS</span>
             </button>
           </div>
         </div>
