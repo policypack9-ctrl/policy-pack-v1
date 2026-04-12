@@ -94,10 +94,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name ?? null,
           image: user.image ?? null,
         });
-        token.isPremium = profile.isPremium;
-        token.name = profile.name ?? token.name;
-        token.email = profile.email ?? token.email;
-        token.picture = profile.image ?? token.picture;
+        token.isPremium = profile?.isPremium ?? false;
+        token.name = profile?.name ?? token.name;
+        token.email = profile?.email ?? token.email;
+        token.picture = profile?.image ?? token.picture;
         return token;
       }
 
@@ -127,8 +127,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Return an empty session object which will cause the user to be treated as unauthenticated
         return {
           ...session,
-          user: undefined,
-        } as typeof session;
+          user: null as unknown as typeof session.user,
+        };
       }
 
       if (session.user) {
