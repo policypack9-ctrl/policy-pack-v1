@@ -35,19 +35,18 @@ function formatDate(value: string | null) {
 }
 
 function formatPlanLabel(planId: string, isPremium: boolean) {
-  if (!isPremium) {
-    return "Free";
-  }
-
-  if (planId === "starter") {
-    return "Starter";
-  }
-
-  if (planId === "premium") {
-    return "Premium";
-  }
-
+  if (isPremium && planId === "premium") return "Premium";
+  if (planId === "starter") return "Starter";
+  if (!isPremium) return "Free";
   return "Paid";
+}
+
+function formatPlanBadgeColor(planId: string, isPremium: boolean) {
+  if (isPremium && planId === "premium")
+    return "border-teal-300/20 bg-teal-400/[0.08] text-teal-100/80";
+  if (planId === "starter")
+    return "border-amber-300/20 bg-amber-400/[0.08] text-amber-100/80";
+  return "border-white/[0.08] bg-white/[0.03] text-white/50";
 }
 
 export function AdminUsersPanel({ initialUsers, adminEmail }: AdminUsersPanelProps) {
@@ -237,7 +236,7 @@ export function AdminUsersPanel({ initialUsers, adminEmail }: AdminUsersPanelPro
                       </div>
                       <p className="text-sm text-white/82">{user.email}</p>
                       <p className="text-xs text-white/48">
-                        Created: {formatDate(user.createdAt)} · Plan: {planLabel}
+                        Created: {formatDate(user.createdAt)} &nbsp;Ãƒâ€šÃ‚Â·&nbsp; Plan: {planLabel}
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {user.signInMethods.length > 0 ? (
