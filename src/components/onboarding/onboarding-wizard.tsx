@@ -64,6 +64,7 @@ type TextQuestionId =
   | "websiteUrl"
   | "productDescription";
 type SingleQuestionId =
+  | "planSelection"
   | "aiTransparencyLevel"
   | "companyLocation"
   | "userAccounts"
@@ -329,14 +330,28 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
 
   // Resolve tier from a single source of truth (tier-pages.ts)
+  const activePlanId = answers.planSelection || planId;
   const userTier = getUserTier({
-    isPremium: planId === "premium",
-    planId,
+    isPremium: activePlanId === "premium",
+    planId: activePlanId,
     isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
   });
   const tierConfig = getTierPageConfig(userTier);
   const availablePageIds: string[] = tierConfig.availablePages;
   const maxPages = tierConfig.maxSelectable;
+
+  const planSelectionQuestion: SingleChoiceQuestion = {
+    id: "planSelection",
+    kind: "single",
+    title: "Which package fits your workspace?",
+    description: "Choose a plan to set your page generation limits.",
+    icon: FileText,
+    options: [
+      { value: "free", label: "Free", hint: "Up to 2 basic pages" },
+      { value: "starter", label: "Starter Pages", hint: "Up to 3 core legal pages" },
+      { value: "premium", label: "Premium Workspace", hint: "All 7 pages" },
+    ],
+  };
 
   const allPageOptions: Record<string, ChoiceOption> = {
     "about-us": { value: "about-us", label: "About Us", hint: "Company background" },
@@ -352,7 +367,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
     id: "selectedPages",
     kind: "multi",
     title: "Which pages do you want to generate?",
-    description: `Select up to ${maxPages} pages based on your current plan.`,
+    description: `You can select up to ${maxPages} pages on the ${tierConfig.label} plan.`,
     icon: FileText,
     options: availablePageIds.map(id => allPageOptions[id]),
   };
@@ -366,7 +381,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
   const filteredQuestions = questions.filter((q) =>
     requiredQuestionIds.includes(q.id as OnboardingQuestionId),
   );
-  const dynamicQuestions: Question[] = [pageSelectionQuestion, ...filteredQuestions];
+  const dynamicQuestions: Question[] = [planSelectionQuestion, pageSelectionQuestion, ...filteredQuestions];
 
   const currentQuestion = dynamicQuestions[stepIndex];
   const progress = ((stepIndex + 1) / dynamicQuestions.length) * 100;
@@ -377,6 +392,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
       (answers.selectedPages.length > 0 &&
         answers.selectedPages.length <= maxPages));
   const generationMessages = getGenerationMessages(answers);
+  const isOverPageLimit = currentQuestion.id === "selectedPages" && answers.selectedPages.length > maxPages;
 
   useEffect(() => {
     if (!isGenerating) {
@@ -474,6 +490,10 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
       }
 
       const isSelected = currentValue.includes(value);
+      if (id === "selectedPages" && !isSelected && currentValue.length >= maxPages) {
+        return current;
+      }
+
       let nextValue: string[];
       const customField = id !== "selectedPages" ? CUSTOM_MULTI_INPUT_FIELDS[id] : null;
 
@@ -583,8 +603,10 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
                   </p>
                   <h1 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-white sm:text-3xl">
                     {stepIndex === 0
-                      ? "Which pages do you want to generate?"
-                      : `Answer ${filteredQuestions.length} quick questions to generate your selected pages.`}
+                      ? "Which package fits your workspace?"
+                      : stepIndex === 1
+                        ? "Which pages do you want to generate?"
+                        : `Answer ${filteredQuestions.length} quick questions to generate your selected pages.`}
                   </h1>
                 </div>
                   <div className="rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-sm text-white/58">
@@ -643,6 +665,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
                     question={currentQuestion}
                     answers={answers}
                     shouldReduceMotion={shouldReduceMotion}
+                    maxPages={maxPages}
                     updateTextAnswer={updateTextAnswer}
                     updateSingleAnswer={updateSingleAnswer}
                     updateCustomAnswer={updateCustomAnswer}
@@ -651,7 +674,9 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
 
                   {showValidation ? (
                     <p className="text-sm text-amber-200/88">
-                      Complete this question before continuing.
+                      {isOverPageLimit
+                        ? `You have selected too many pages. Please uncheck some pages to match your limit of ${maxPages}.`
+                        : "Complete this question before continuing."}
                     </p>
                   ) : null}
 
@@ -931,6 +956,7 @@ type QuestionContentProps = {
   question: Question;
   answers: OnboardingAnswers;
   shouldReduceMotion: boolean;
+  maxPages: number;
   updateTextAnswer: (id: keyof OnboardingAnswers, value: string) => void;
   updateSingleAnswer: (id: WizardQuestionId, value: string) => void;
   updateCustomAnswer: (
@@ -944,6 +970,7 @@ function QuestionContent({
   question,
   answers,
   shouldReduceMotion,
+  maxPages,
   updateTextAnswer,
   updateSingleAnswer,
   updateCustomAnswer,
@@ -963,6 +990,11 @@ function QuestionContent({
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-7 text-white/60">
             {question.description}
+            {question.id === "selectedPages" ? (
+              <span className="block mt-1 text-teal-200/80">
+                Selected: {answers.selectedPages.length} / {maxPages}
+              </span>
+            ) : null}
           </p>
         </div>
       </div>
@@ -971,6 +1003,7 @@ function QuestionContent({
         question,
         answers,
         shouldReduceMotion,
+        maxPages,
         updateTextAnswer,
         updateSingleAnswer,
         updateCustomAnswer,
@@ -984,6 +1017,7 @@ function renderField(
   question: Question,
   answers: OnboardingAnswers,
   shouldReduceMotion: boolean,
+  maxPages: number,
   updateTextAnswer: (id: keyof OnboardingAnswers, value: string) => void,
   updateSingleAnswer: (id: WizardQuestionId, value: string) => void,
   updateCustomAnswer: (
@@ -1125,20 +1159,24 @@ function renderField(
       >
         {question.options.map((option) => {
           const isSelected = currentValue.includes(option.value);
+          const isDisabled = question.id === "selectedPages" && !isSelected && currentValue.length >= maxPages;
 
           return (
             <motion.button
               key={option.value}
               type="button"
+              disabled={isDisabled}
               variants={shouldReduceMotion ? undefined : optionItemVariants}
-              whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
-              whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+              whileHover={shouldReduceMotion || isDisabled ? undefined : { scale: 1.02 }}
+              whileTap={shouldReduceMotion || isDisabled ? undefined : { scale: 0.98 }}
               onClick={() => toggleMultiAnswer(question.id, option.value)}
               className={cn(
                 "rounded-[22px] border px-4 py-4 text-left transition-colors",
                 isSelected
                   ? "border-teal-400/30 bg-teal-400/[0.08]"
-                  : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]",
+                  : isDisabled
+                    ? "border-white/[0.04] bg-white/[0.01] opacity-40 cursor-not-allowed"
+                    : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]",
               )}
             >
               <div className="flex items-center justify-between gap-3">

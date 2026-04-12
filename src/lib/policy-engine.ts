@@ -24,6 +24,7 @@ export type CustomMultiInputField =
   (typeof CUSTOM_MULTI_INPUT_FIELDS)[CustomMultiQuestionId];
 
 export type OnboardingAnswers = {
+  planSelection: string;
   selectedPages: string[];
   businessName: string;
   websiteUrl: string;
@@ -76,6 +77,7 @@ export type ComplianceSnapshot = {
 };
 
 export const emptyOnboardingAnswers: OnboardingAnswers = {
+  planSelection: "",
   selectedPages: [],
   businessName: "",
   websiteUrl: "",
@@ -96,6 +98,7 @@ export const emptyOnboardingAnswers: OnboardingAnswers = {
 };
 
 export const demoOnboardingAnswers: OnboardingAnswers = {
+  planSelection: "premium",
   selectedPages: ["about-us", "contact-us", "privacy-policy", "cookie-policy", "terms-of-service", "legal-disclaimer", "refund-policy"],
   businessName: "Example SaaS",
   websiteUrl: "https://example.com",
@@ -349,6 +352,7 @@ export function normalizeAnswers(
   return {
     ...emptyOnboardingAnswers,
     ...value,
+    planSelection: typeof value?.planSelection === "string" ? value.planSelection : "",
     selectedPages: Array.isArray(value?.selectedPages) ? value.selectedPages : [],
     businessName: typeof value?.businessName === "string" ? value.businessName : "",
     websiteUrl: typeof value?.websiteUrl === "string" ? value.websiteUrl : "",
