@@ -62,10 +62,8 @@ function getNotificationConfig() {
     secure,
     user,
     pass: process.env.SMTP_PASS?.trim() ?? "",
-    from:
-      process.env.SMTP_FROM?.trim() ??
-      user ??
-      COMPANY_SUPPORT_EMAIL,
+    from: process.env.SMTP_FROM?.trim() ?? `PolicyPack <${COMPANY_SUPPORT_EMAIL}>`,
+    replyTo: process.env.SMTP_REPLY_TO?.trim() ?? COMPANY_SUPPORT_EMAIL,
     recipients,
   };
 }
@@ -121,6 +119,7 @@ export async function sendAdminNotification(input: SendAdminNotificationInput) {
   try {
     await transporter.sendMail({
       from: config.from,
+      replyTo: config.replyTo,
       to: config.recipients.join(", "),
       subject: input.subject,
       text: textBody,
@@ -166,6 +165,7 @@ export async function sendWelcomeEmail(userEmail: string, userName: string) {
   try {
     await transporter.sendMail({
       from: config.from,
+      replyTo: config.replyTo,
       to: userEmail,
       subject,
       text: summary,
@@ -210,6 +210,7 @@ export async function sendPaymentReceiptEmail(userEmail: string, planName: strin
   try {
     await transporter.sendMail({
       from: config.from,
+      replyTo: config.replyTo,
       to: userEmail,
       subject,
       text: summary,

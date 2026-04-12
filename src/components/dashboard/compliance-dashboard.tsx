@@ -240,6 +240,17 @@ export function ComplianceDashboard({
     return Boolean(loadPolicyAccount() ?? loadStoredPolicySession());
   });
 
+  // Client-side auth guard — redirect to login if no email (extra safety layer)
+  useEffect(() => {
+    if (!authenticatedEmail) {
+      router.replace("/login?callbackUrl=/dashboard");
+    }
+  }, [authenticatedEmail, router]);
+
+  if (!authenticatedEmail) {
+    return null;
+  }
+
   const [isPremium, setIsPremium] = useState(initialIsPremium);
   const [premiumUnlockedAt, setPremiumUnlockedAt] = useState<string | null>(
     initialPremiumUnlockedAt,
@@ -326,6 +337,15 @@ export function ComplianceDashboard({
     generatedDocumentCount === 0 &&
     !hasRealSession &&
     initialGeneratedDocuments.length === 0;
+
+  const hasAutoOpenedPlanRef = useRef(false);
+
+  useEffect(() => {
+    if (showEmptyState && userTier === "free" && !hasAutoOpenedPlanRef.current) {
+      hasAutoOpenedPlanRef.current = true;
+      setIsPlanDialogOpen(true);
+    }
+  }, [showEmptyState, userTier]);
 
   const normalizedPlanId = planId === "starter" || planId === "premium" ? planId : "free";
   const canGenerateComplimentaryDocument =
@@ -949,109 +969,12 @@ export function ComplianceDashboard({
 
   function startNewWorkspace() {
     clearPolicyWorkspace();
-    router.push("/onboarding");
+    // Force full navigation (not client-side) so onboarding wizard
+    // re-initialises cleanly with fresh server state
+    window.location.href = "/onboarding";
   }
 
-  if (generatedDocumentCount === 0 && !isCheckoutBusy) {
-    const canStartFromFreeAccess = isPremium || canGenerateComplimentaryDocument;
-    const freeAccessLabel = isPremium
-      ? "Start with your active plan"
-      : canGenerateComplimentaryDocument
-        ? launchSnapshot.isEligibleLaunchUser
-          ? `Use launch promo (${launchSnapshot.complimentaryDocumentsRemaining} pages)`
-          : "Use free package"
-        : "Free package unavailable";
-    const freeAccessSummary = isPremium
-      ? "Your premium workspace is active. Start generating your first document now."
-      : canGenerateComplimentaryDocument
-        ? launchSnapshot.isEligibleLaunchUser
-          ? `You still have ${launchSnapshot.complimentaryDocumentsRemaining} complimentary document slots from the launch package.`
-          : "Start generating with the free package."
-        : complimentarySummary;
 
-    return (
-      <motion.main
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{
-          duration: shouldReduceMotion ? 0 : 0.42,
-          ease: [0.22, 1, 0.36, 1],
-        }}
-        className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-6 py-8 sm:px-10 sm:py-10 lg:px-12"
-      >
-        <div className="max-w-xl text-center space-y-6">
-          <div className="mx-auto h-24 w-24 rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-4 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.9)]">
-            <div
-              className="h-full w-full rounded-[18px] bg-contain bg-center bg-no-repeat"
-              style={{ backgroundImage: "url('/icon.svg')" }}
-            />
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-white">Welcome to PolicyPack</h1>
-          <p className="text-white/60 text-sm leading-relaxed sm:text-base">
-            Choose how you want to start: continue with free access when available, or unlock a paid package right away.
-          </p>
-          {isLaunchPromoActive ? (
-            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-400/22 bg-emerald-400/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-emerald-100">
-              <BadgeCheck className="size-4" />
-              Launch promo active Â· {launchSnapshot.complimentaryDocumentsRemaining} pages left
-            </div>
-          ) : null}
-          <p className="text-xs uppercase tracking-[0.2em] text-white/42">
-            {freeAccessSummary}
-          </p>
-          <div className="pt-3 grid gap-3 sm:grid-cols-2">
-            <PremiumButton
-              onClick={() =>
-                canStartFromFreeAccess
-                  ? void handleViewDocument(displayDocuments[0])
-                  : setExportNotice(complimentarySummary)
-              }
-              disabled={!canStartFromFreeAccess}
-              className="h-12 px-5 text-sm"
-            >
-              {freeAccessLabel}
-            </PremiumButton>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setIsPlanDialogOpen(true)}
-              className="h-12 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-5 text-sm text-white/76 hover:bg-white/[0.05] hover:text-white"
-            >
-              {isLaunchPromoActive ? "Skip promo and choose paid package" : "Choose paid package"}
-            </Button>
-          </div>
-          {isLaunchPromoActive ? (
-            <div className="space-y-3 rounded-[24px] border border-white/[0.08] bg-white/[0.02] p-4 sm:p-5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-white/48">
-                Choose your first page from the launch promo
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {displayDocuments.map((document) => {
-                  const DocumentIcon = documentIcons[document.id];
-
-                  return (
-                    <Button
-                      key={document.id}
-                      type="button"
-                      variant="ghost"
-                      onClick={() => void handleViewDocument(document)}
-                      className="h-11 justify-start rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-4 text-left text-sm text-white/76 hover:bg-white/[0.05] hover:text-white"
-                    >
-                      <DocumentIcon className="size-4" />
-                      {document.title}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-          {exportNotice ? (
-            <p className={`text-sm ${checkoutNoticeClassName}`}>{exportNotice}</p>
-          ) : null}
-        </div>
-      </motion.main>
-    );
-  }
 
   // -- Empty state: user has no documents and no saved session ----------
   if (showEmptyState) {
@@ -1094,7 +1017,7 @@ export function ComplianceDashboard({
             </div>
             {userTier !== "premium" && (
               <p className="mt-3 text-xs text-white/30">
-                Choose up to {tierConfig.maxSelectable} ï¿½{" "}
+                Choose up to {tierConfig.maxSelectable} &mdash;{" "}
                 {userTier === "promo" ? "Launch offer active" : "Upgrade to unlock more"}
               </p>
             )}
