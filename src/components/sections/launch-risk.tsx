@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import Link from "next/link";
@@ -445,8 +445,8 @@ export function LaunchRiskSection({
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
           <AuthAwarePremiumButton
-            authenticatedHref="/onboarding"
-            callbackHref="/onboarding"
+            authenticatedHref="/dashboard"
+            callbackHref="/dashboard"
             className="h-12 px-5 text-sm sm:text-base"
           >
             {primaryCtaLabel}

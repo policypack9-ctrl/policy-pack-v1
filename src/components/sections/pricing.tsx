@@ -101,8 +101,8 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
 
             <div className="mt-8 flex flex-1 flex-col justify-end gap-3">
               <AuthAwarePremiumButton
-                authenticatedHref="/onboarding?plan=starter"
-                callbackHref="/onboarding?plan=starter"
+                authenticatedHref="/dashboard"
+                callbackHref="/dashboard"
                 className="h-12 px-5 text-sm sm:text-base"
               >
                 Get 3 pages
@@ -157,8 +157,8 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
 
             <div className="mt-8 flex flex-1 flex-col justify-end gap-3">
               <AuthAwarePremiumButton
-                authenticatedHref="/onboarding?plan=premium"
-                callbackHref="/onboarding?plan=premium"
+                authenticatedHref="/dashboard"
+                callbackHref="/dashboard"
                 className="h-12 px-5 text-sm sm:text-base"
               >
                 {launchSnapshot.freeGenerationClosed

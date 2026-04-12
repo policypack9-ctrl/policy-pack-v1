@@ -98,9 +98,9 @@ export function HeroSection({ launchSnapshot }: HeroSectionProps) {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <AuthAwarePremiumButton
-                authenticatedHref="/onboarding"
+                authenticatedHref="/dashboard"
                 preferSavedWorkspaceHref="/dashboard"
-                callbackHref="/onboarding"
+                callbackHref="/dashboard"
                 className="h-12 px-5 text-sm sm:text-base"
               >
                 {primaryCtaLabel}
