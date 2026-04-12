@@ -12,6 +12,25 @@ jobs:
   quality-gates:
     name: Quality Gates
     runs-on: ubuntu-latest
+    env:
+      # Minimum stubs so Next.js build doesn't crash on missing vars
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_NAME: "PolicyPack"
+      AUTH_SECRET: "ci-test-secret-do-not-use-in-production"
+      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+      SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/policypack_ci"
+      OPENROUTER_API_KEY: "placeholder-openrouter-key"
+      OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
+      PADDLE_ENVIRONMENT: "sandbox"
+      NEXT_PUBLIC_PADDLE_ENV: "sandbox"
+      PADDLE_API_KEY: "placeholder-paddle-key"
+      PADDLE_CLIENT_TOKEN: "placeholder-client-token"
+      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "placeholder-client-token"
+      PADDLE_WEBHOOK_SECRET: "placeholder-webhook-secret"
+      PADDLE_PRICE_ID: "placeholder-price-id"
+      PROMO_ACTIVE: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,7 +38,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install dependencies
@@ -48,7 +67,5 @@ jobs:
 
       - name: Trigger Deployment
         run: |
-          echo "Triggering automated deployment..."
-          # In a real Vercel/Netlify environment, this happens automatically on push.
-          # We can also add vercel CLI or curl a webhook here if needed.
-          echo "Deployment triggered successfully."
+          echo "Deployment is handled automatically by Vercel on push to main."
+          echo "Commit SHA: ${{ github.sha }}"
