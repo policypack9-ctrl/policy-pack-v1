@@ -17,7 +17,6 @@ import {
   ScanSearch,
   Settings2,
   ShieldCheck,
-  Sparkles,
   TriangleAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -240,7 +239,7 @@ export function ComplianceDashboard({
     return Boolean(loadPolicyAccount() ?? loadStoredPolicySession());
   });
 
-  // Client-side auth guard — redirect to login if no email (extra safety layer)
+  // Client-side auth guard ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â redirect to login if no email (extra safety layer)
   useEffect(() => {
     if (!authenticatedEmail) {
       router.replace("/login?callbackUrl=/dashboard");
@@ -969,9 +968,8 @@ export function ComplianceDashboard({
 
   function startNewWorkspace() {
     clearPolicyWorkspace();
-    // Force full navigation (not client-side) so onboarding wizard
-    // re-initialises cleanly with fresh server state
-    window.location.href = "/onboarding";
+    router.push("/onboarding");
+    router.refresh();
   }
 
 
@@ -1022,16 +1020,43 @@ export function ComplianceDashboard({
               </p>
             )}
           </div>
-          <a
-            href={onboardingHref}
-            className="group inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-teal-400 px-6 py-4 text-base font-semibold text-[#0A0A0A] shadow-[0_4px_24px_-6px_rgba(45,212,191,0.45)] transition-all hover:bg-teal-300 hover:shadow-[0_4px_28px_-4px_rgba(45,212,191,0.55)]"
-          >
-            <Sparkles className="size-5" />
-            Generate My Pages
-          </a>
-          <p className="text-xs text-white/28">
-            You will answer a few quick questions and your pages will be generated automatically.
-          </p>
+          {/* Plan selection */}
+          <div className="w-full space-y-3">
+            {isPromo && (
+              <a
+                href={onboardingHref}
+                className="group flex w-full items-center justify-between rounded-[16px] border border-teal-300/25 bg-teal-300/[0.07] px-5 py-4 transition-all hover:border-teal-300/40 hover:bg-teal-300/[0.10]"
+              >
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-teal-100">Launch Offer â€” Free</p>
+                  <p className="mt-0.5 text-xs text-white/50">Choose up to 4 pages from all 7 documents</p>
+                </div>
+                <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-medium text-teal-200">Free</span>
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => { setIsPlanDialogOpen(true); }}
+              className="group flex w-full items-center justify-between rounded-[16px] border border-amber-300/20 bg-amber-300/[0.05] px-5 py-4 transition-all hover:border-amber-300/35 hover:bg-amber-300/[0.09]"
+            >
+              <div className="text-left">
+                <p className="text-sm font-semibold text-amber-100">Starter Pages â€” $39</p>
+                <p className="mt-0.5 text-xs text-white/50">Choose 3 from Terms, Privacy, Disclaimer, Refund</p>
+              </div>
+              <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium text-amber-200">One-time</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsPlanDialogOpen(true); }}
+              className="group flex w-full items-center justify-between rounded-[16px] border border-white/[0.10] bg-white/[0.03] px-5 py-4 transition-all hover:border-teal-300/30 hover:bg-teal-300/[0.05]"
+            >
+              <div className="text-left">
+                <p className="text-sm font-semibold text-white">Premium Workspace â€” $29/mo</p>
+                <p className="mt-0.5 text-xs text-white/50">All 7 pages + auto-updates + monitoring</p>
+              </div>
+              <span className="rounded-full border border-teal-300/15 bg-teal-300/[0.07] px-3 py-1 text-xs font-medium text-teal-200/80">Best</span>
+            </button>
+          </div>
         </div>
       </motion.main>
     );
