@@ -247,10 +247,6 @@ export function ComplianceDashboard({
     }
   }, [authenticatedEmail, router]);
 
-  if (!authenticatedEmail) {
-    return null;
-  }
-
   const [isPremium, setIsPremium] = useState(initialIsPremium);
   const [premiumUnlockedAt, setPremiumUnlockedAt] = useState<string | null>(
     initialPremiumUnlockedAt,
@@ -292,6 +288,27 @@ export function ComplianceDashboard({
   const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
   const [auditRefreshCount, setAuditRefreshCount] = useState(0);
   const [lastAuditAt, setLastAuditAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!initialPaddleTransactionId || queryTransactionHandledRef.current) {
+      return;
+    }
+
+    queryTransactionHandledRef.current = true;
+    if (isPremium) {
+      router.replace(pathname);
+      return;
+    }
+
+    activeTransactionIdRef.current = initialPaddleTransactionId;
+    void (async () => {
+      const opened = await openPaddleOverlayRef.current(initialPaddleTransactionId);
+
+      if (!opened) {
+        await verifyTransactionAccessRef.current(initialPaddleTransactionId);
+      }
+    })();
+  }, [initialPaddleTransactionId, isPremium, pathname, router]);
 
   useEffect(() => {
     return () => {
@@ -346,6 +363,10 @@ export function ComplianceDashboard({
       setIsPlanDialogOpen(true);
     }
   }, [showEmptyState, userTier]);
+
+  if (!authenticatedEmail) {
+    return null;
+  }
 
   const normalizedPlanId = planId === "starter" || planId === "premium" ? planId : "free";
   const canGenerateComplimentaryDocument =
@@ -840,27 +861,6 @@ export function ComplianceDashboard({
 
   openPaddleOverlayRef.current = openPaddleOverlay;
   verifyTransactionAccessRef.current = verifyTransactionAccess;
-
-  useEffect(() => {
-    if (!initialPaddleTransactionId || queryTransactionHandledRef.current) {
-      return;
-    }
-
-    queryTransactionHandledRef.current = true;
-    if (isPremium) {
-      router.replace(pathname);
-      return;
-    }
-
-    activeTransactionIdRef.current = initialPaddleTransactionId;
-    void (async () => {
-      const opened = await openPaddleOverlayRef.current(initialPaddleTransactionId);
-
-      if (!opened) {
-        await verifyTransactionAccessRef.current(initialPaddleTransactionId);
-      }
-    })();
-  }, [initialPaddleTransactionId, isPremium, pathname, router]);
 
   async function handleUpgradeToDownload(
     planId?: BillingPlanId,
