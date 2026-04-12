@@ -88,3 +88,36 @@ export function getTierPageConfig(tier: UserTier): TierPageConfig {
 export function isPageAvailableForTier(pageId: PageId, tier: UserTier): boolean {
   return TIER_PAGE_CONFIG[tier].availablePages.includes(pageId);
 }
+
+// Map each page to the minimum tier that unlocks it
+export const PAGE_MIN_TIER: Record<PageId, UserTier> = {
+  "about-us":        "free",
+  "contact-us":      "free",
+  "cookie-policy":   "free",
+  "privacy-policy":  "starter",
+  "terms-of-service":"starter",
+  "legal-disclaimer":"starter",
+  "refund-policy":   "starter",
+};
+
+// Human-readable label for the minimum tier needed to unlock a page
+export const TIER_UNLOCK_LABEL: Record<UserTier, string> = {
+  free:    "Free",
+  promo:   "Launch Offer",
+  starter: "Starter or Premium",
+  premium: "Premium",
+};
+
+/**
+ * Returns an upgrade message for a page that is locked for the given tier.
+ * Returns null if the page IS available for the tier.
+ */
+export function getPageLockMessage(
+  pageId: PageId,
+  tier: UserTier,
+): string | null {
+  if (isPageAvailableForTier(pageId, tier)) return null;
+  const minTier = PAGE_MIN_TIER[pageId];
+  const label = TIER_UNLOCK_LABEL[minTier] ?? "a higher plan";
+  return `Available in ${label}`;
+}

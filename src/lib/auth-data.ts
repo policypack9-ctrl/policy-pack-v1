@@ -803,15 +803,12 @@ export async function listGeneratedDocumentsForUser(userId: string) {
   })) satisfies SavedGeneratedDocument[];
 }
 
-function resolvePromoActive(): boolean {
-  // PROMO_ACTIVE=false ends the promo. Any other value (or unset) keeps it active.
-  return process.env.PROMO_ACTIVE?.trim().toLowerCase() !== "false";
-}
-
 export async function getLaunchCampaignSnapshot(
   userId?: string | null,
 ): Promise<LaunchCampaignSnapshot> {
-  const promoActive = resolvePromoActive();
+  // Read promo state from DB (with env fallback)
+  const { isPromoActiveFromDB } = await import("@/lib/promo-settings");
+  const promoActive = await isPromoActiveFromDB();
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {

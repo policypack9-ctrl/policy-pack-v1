@@ -10,6 +10,7 @@ import {
   CreditCard,
   Globe2,
   FileText,
+  LockKeyhole,
   Mail,
   MapPinned,
   PlugZap,
@@ -296,7 +297,7 @@ const optionItemVariants = {
 };
 
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
-import { getUserTier, getTierPageConfig } from "@/lib/tier-pages";
+import { getUserTier, getTierPageConfig, getPageLockMessage, isPageAvailableForTier, ALL_PAGE_IDS, type PageId } from "@/lib/tier-pages";
 
 type OnboardingWizardProps = {
   planId?: string;
@@ -337,7 +338,6 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
     isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
   });
   const tierConfig = getTierPageConfig(userTier);
-  const availablePageIds: string[] = tierConfig.availablePages;
   const maxPages = tierConfig.maxSelectable;
 
   const planSelectionQuestion: SingleChoiceQuestion = {
@@ -363,15 +363,15 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
     "refund-policy": { value: "refund-policy", label: "Refund Policy", hint: "Refund rules" },
   };
 
+  // Show ALL 7 pages Ã¢â‚¬â€ unavailable ones render as locked with upgrade hint
   const pageSelectionQuestion: MultiChoiceQuestion = {
     id: "selectedPages",
     kind: "multi",
     title: "Which pages do you want to generate?",
-    description: `You can select up to ${maxPages} pages on the ${tierConfig.label} plan.`,
+    description: `Select up to ${maxPages} pages. Pages outside your plan show an upgrade hint.`,
     icon: FileText,
-    options: availablePageIds.map(id => allPageOptions[id]),
+    options: ALL_PAGE_IDS.map(id => allPageOptions[id]),
   };
-
   // After page selection, only show questions relevant to the chosen pages.
   const selectedPageIds = answers.selectedPages as DashboardDocument["id"][];
   const requiredQuestionIds: OnboardingQuestionId[] =
@@ -1159,7 +1159,14 @@ function renderField(
       >
         {question.options.map((option) => {
           const isSelected = currentValue.includes(option.value);
-          const isDisabled = question.id === "selectedPages" && !isSelected && currentValue.length >= maxPages;
+          const isLockedByTier = question.id === "selectedPages" &&
+            !isPageAvailableForTier(option.value as PageId, userTier);
+          const lockMessage = isLockedByTier
+            ? getPageLockMessage(option.value as PageId, userTier)
+            : null;
+          const isDisabled =
+            isLockedByTier ||
+            (question.id === "selectedPages" && !isSelected && currentValue.length >= maxPages);
 
           return (
             <motion.button
@@ -1169,24 +1176,37 @@ function renderField(
               variants={shouldReduceMotion ? undefined : optionItemVariants}
               whileHover={shouldReduceMotion || isDisabled ? undefined : { scale: 1.02 }}
               whileTap={shouldReduceMotion || isDisabled ? undefined : { scale: 0.98 }}
-              onClick={() => toggleMultiAnswer(question.id, option.value)}
+              onClick={() => !isLockedByTier && toggleMultiAnswer(question.id, option.value)}
               className={cn(
                 "rounded-[22px] border px-4 py-4 text-left transition-colors",
                 isSelected
                   ? "border-teal-400/30 bg-teal-400/[0.08]"
-                  : isDisabled
-                    ? "border-white/[0.04] bg-white/[0.01] opacity-40 cursor-not-allowed"
-                    : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]",
+                  : isLockedByTier
+                    ? "border-white/[0.04] bg-white/[0.01] opacity-50 cursor-not-allowed"
+                    : isDisabled
+                      ? "border-white/[0.04] bg-white/[0.01] opacity-40 cursor-not-allowed"
+                      : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]",
               )}
             >
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-white">{option.label}</p>
-                  <p className="mt-1 text-sm text-white/52">{option.hint}</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    {isLockedByTier && (
+                      <LockKeyhole className="size-3.5 shrink-0 text-white/38" />
+                    )}
+                    <p className={cn("text-sm font-medium", isLockedByTier ? "text-white/50" : "text-white")}>
+                      {option.label}
+                    </p>
+                  </div>
+                  {lockMessage ? (
+                    <p className="mt-1 text-xs text-amber-300/70">{lockMessage}</p>
+                  ) : (
+                    <p className="mt-1 text-sm text-white/52">{option.hint}</p>
+                  )}
                 </div>
                 <span
                   className={cn(
-                    "inline-flex size-5 items-center justify-center rounded-md border",
+                    "inline-flex size-5 shrink-0 items-center justify-center rounded-md border",
                     isSelected
                       ? "border-teal-300 bg-teal-300/90 text-[#0A0A0A]"
                       : "border-white/[0.14] bg-transparent text-transparent",

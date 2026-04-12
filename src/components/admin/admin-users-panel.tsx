@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, LoaderCircle, RefreshCcw, ShieldAlert, Trash2, UserRound } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowLeft, AlertTriangle, CheckCircle2, LoaderCircle, Power, RefreshCcw, ShieldAlert, Trash2, UserRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { PremiumButton } from "@/components/ui/premium-button";
@@ -62,6 +62,18 @@ export function AdminUsersPanel({ initialUsers, adminEmail }: AdminUsersPanelPro
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
+
+  // Promo management state
+  type PromoStatus = { promoActive: boolean; latestArchive: null | { id: string; endedAt: string; endedBy: string; affectedUsers: number; notifiedUsers: number; canRollback: boolean; rolledBackAt: string | null } };
+  const [promoStatus, setPromoStatus] = useState<PromoStatus | null>(null);
+  const [isEndingPromo, setIsEndingPromo] = useState(false);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+  const [promoNotice, setPromoNotice] = useState("");
+  const [promoError, setPromoError] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/admin/promo/status").then(r => r.json()).then((data: PromoStatus) => setPromoStatus(data)).catch(() => null);
+  }, []);
   const sortedUsers = useMemo(
     () =>
       [...users].sort((first, second) =>
@@ -95,6 +107,30 @@ export function AdminUsersPanel({ initialUsers, adminEmail }: AdminUsersPanelPro
     } finally {
       setIsRefreshing(false);
     }
+  }
+
+  async function endPromo() {
+    setPromoError(""); setPromoNotice(""); setIsEndingPromo(true);
+    try {
+      const r = await fetch("/api/admin/promo/end", { method: "POST" });
+      const data = (await r.json()) as { ok?: boolean; error?: string; archiveId?: string; report?: { affectedUsers: number; notifiedUsers: number; durationMs: number } };
+      if (!r.ok) { setPromoError(data.error ?? "Failed to end promo."); return; }
+      setPromoNotice(`Promo ended. ${data.report?.affectedUsers ?? 0} users affected, ${data.report?.notifiedUsers ?? 0} notified. Archive: ${data.archiveId ?? ""}`);
+      const status = await fetch("/api/admin/promo/status").then(res => res.json()) as typeof promoStatus;
+      setPromoStatus(status);
+    } finally { setIsEndingPromo(false); }
+  }
+
+  async function rollbackPromoAction(archiveId: string) {
+    setPromoError(""); setPromoNotice(""); setIsRollingBack(true);
+    try {
+      const r = await fetch("/api/admin/promo/rollback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archiveId }) });
+      const data = (await r.json()) as { ok?: boolean; error?: string };
+      if (!r.ok) { setPromoError(data.error ?? "Rollback failed."); return; }
+      setPromoNotice("Promo re-enabled successfully.");
+      const status = await fetch("/api/admin/promo/status").then(res => res.json()) as typeof promoStatus;
+      setPromoStatus(status);
+    } finally { setIsRollingBack(false); }
   }
 
   async function deleteUser(user: AdminUserView) {
@@ -205,6 +241,48 @@ export function AdminUsersPanel({ initialUsers, adminEmail }: AdminUsersPanelPro
               {error}
             </p>
           ) : null}
+        </section>
+
+        {/* ── Promo Management ────────────────────────────────────── */}
+        <section className="soft-panel mt-6 rounded-[32px] p-6 sm:p-8">
+          <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/72">Launch Campaign</p>
+          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-white">Promotional Period</h2>
+          <div className="mt-4 flex items-center gap-3">
+            <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${promoStatus?.promoActive ? "border-teal-300/20 bg-teal-400/10 text-teal-100" : "border-red-300/20 bg-red-400/10 text-red-100"}`}>
+              {promoStatus?.promoActive ? <CheckCircle2 className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
+              {promoStatus === null ? "Loading..." : promoStatus.promoActive ? "Active" : "Ended"}
+            </span>
+          </div>
+
+          {promoNotice && <p className="mt-4 rounded-[14px] border border-emerald-300/18 bg-emerald-400/[0.08] px-4 py-3 text-sm text-emerald-100/90">{promoNotice}</p>}
+          {promoError && <p className="mt-4 rounded-[14px] border border-amber-300/18 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-100/90">{promoError}</p>}
+
+          {promoStatus?.latestArchive && (
+            <div className="mt-4 rounded-[18px] border border-white/[0.07] bg-white/[0.02] p-4 text-sm text-white/70 space-y-1">
+              <p><span className="text-white/40">Ended at:</span> {new Date(promoStatus.latestArchive.endedAt).toLocaleString()}</p>
+              <p><span className="text-white/40">Ended by:</span> {promoStatus.latestArchive.endedBy}</p>
+              <p><span className="text-white/40">Affected users:</span> {promoStatus.latestArchive.affectedUsers}</p>
+              <p><span className="text-white/40">Notified:</span> {promoStatus.latestArchive.notifiedUsers}</p>
+              {promoStatus.latestArchive.rolledBackAt && <p className="text-teal-300/80">Rolled back at: {new Date(promoStatus.latestArchive.rolledBackAt).toLocaleString()}</p>}
+            </div>
+          )}
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            {promoStatus?.promoActive && (
+              <Button type="button" variant="ghost" onClick={() => void endPromo()} disabled={isEndingPromo}
+                className="h-11 rounded-[14px] border border-red-300/22 bg-red-400/[0.08] px-5 text-sm text-red-100 hover:bg-red-400/[0.12]">
+                {isEndingPromo ? <LoaderCircle className="size-4 animate-spin" /> : <Power className="size-4" />}
+                {isEndingPromo ? "Ending..." : "End Promo"}
+              </Button>
+            )}
+            {promoStatus?.latestArchive?.canRollback && (
+              <Button type="button" variant="ghost" onClick={() => void rollbackPromoAction(promoStatus!.latestArchive!.id)} disabled={isRollingBack}
+                className="h-11 rounded-[14px] border border-teal-300/22 bg-teal-400/[0.06] px-5 text-sm text-teal-100 hover:bg-teal-400/[0.10]">
+                {isRollingBack ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCcw className="size-4" />}
+                {isRollingBack ? "Rolling back..." : "Rollback (within 24h)"}
+              </Button>
+            )}
+          </div>
         </section>
 
         <section className="soft-panel mt-6 rounded-[32px] p-6 sm:p-8">

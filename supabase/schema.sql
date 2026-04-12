@@ -83,3 +83,28 @@ alter table public.generated_documents enable row level security;
 -- We can add a deny-all policy for the anon_key to be explicit (which is the default when RLS is enabled without policies).
 
 
+
+-- App settings table for feature flags (e.g. promo_active)
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz not null default timezone('utc', now()),
+  updated_by text
+);
+
+-- Seed default promo setting
+insert into public.app_settings (key, value, updated_by)
+values ('promo_active', 'true', 'system')
+on conflict (key) do nothing;
+
+-- Promo archive log
+create table if not exists public.promo_archive_log (
+  id uuid primary key default gen_random_uuid(),
+  ended_at timestamptz not null default timezone('utc', now()),
+  ended_by text not null,
+  affected_users integer not null default 0,
+  notified_users integer not null default 0,
+  report jsonb,
+  rolled_back_at timestamptz,
+  rolled_back_by text
+);
