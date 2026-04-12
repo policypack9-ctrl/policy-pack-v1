@@ -310,6 +310,16 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
       return emptyOnboardingAnswers;
     }
 
+    const draftRaw = window.localStorage.getItem("policypack:wizard_draft:v1");
+    if (draftRaw) {
+      try {
+        const parsedDraft = JSON.parse(draftRaw) as Partial<OnboardingAnswers>;
+        return normalizeAnswers(parsedDraft);
+      } catch {
+        // Fall back below if parsing fails
+      }
+    }
+
     return loadStoredPolicySession()?.answers ?? emptyOnboardingAnswers;
   });
   const [stepIndex, setStepIndex] = useState(0);
@@ -412,18 +422,30 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
   }, [answers, isGenerating, router, shouldReduceMotion]);
 
   function updateTextAnswer(id: keyof OnboardingAnswers, value: string) {
-    setAnswers((current) => ({ ...current, [id]: value }));
+    setAnswers((current) => {
+      const next = { ...current, [id]: value };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
+      }
+      return next;
+    });
     setShowValidation(false);
   }
 
   function updateSingleAnswer(id: WizardQuestionId, value: string) {
-    setAnswers((current) => ({
-      ...current,
-      [id]: value,
-      ...(id === "companyLocation" && value !== OTHER_OPTION_VALUE
-        ? { [CUSTOM_INPUT_FIELDS.companyLocation]: "" }
-        : {}),
-    }));
+    setAnswers((current) => {
+      const next = {
+        ...current,
+        [id]: value,
+        ...(id === "companyLocation" && value !== OTHER_OPTION_VALUE
+          ? { [CUSTOM_INPUT_FIELDS.companyLocation]: "" }
+          : {}),
+      };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
+      }
+      return next;
+    });
     setShowValidation(false);
   }
 
@@ -431,10 +453,16 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
     id: keyof typeof CUSTOM_INPUT_FIELDS,
     value: string,
   ) {
-    setAnswers((current) => ({
-      ...current,
-      [CUSTOM_INPUT_FIELDS[id]]: value,
-    }));
+    setAnswers((current) => {
+      const next = {
+        ...current,
+        [CUSTOM_INPUT_FIELDS[id]]: value,
+      };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
+      }
+      return next;
+    });
     setShowValidation(false);
   }
 
@@ -461,7 +489,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
         nextValue = [...currentValue.filter((item) => item !== "None"), value];
       }
 
-      return {
+      const next = {
         ...current,
         [id]: nextValue,
         ...(customField && value === OTHER_OPTION_VALUE && isSelected
@@ -469,6 +497,12 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
           : {}),
         ...(customField && value === "None" && !isSelected ? { [customField]: "" } : {}),
       };
+      
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
+      }
+      
+      return next;
     });
     setShowValidation(false);
   }
@@ -484,6 +518,9 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
 
   function startFreshGeneration() {
     clearPolicyWorkspace();
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("policypack:wizard_draft:v1");
+    }
     setAnswers(emptyOnboardingAnswers);
     setStepIndex(0);
     setShowValidation(false);

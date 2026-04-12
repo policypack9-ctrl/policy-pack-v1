@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, LoaderCircle, RefreshCcw, ShieldAlert, Trash2, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -50,6 +51,7 @@ function formatPlanBadgeColor(planId: string, isPremium: boolean) {
 }
 
 export function AdminUsersPanel({ initialUsers, adminEmail }: AdminUsersPanelProps) {
+  const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
   const [users, setUsers] = useState<AdminUserView[]>(initialUsers);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -134,6 +136,9 @@ export function AdminUsersPanel({ initialUsers, adminEmail }: AdminUsersPanelPro
         return next;
       });
       setNotice(`User ${user.email} has been deleted.`);
+      
+      // Refresh the page data from the server to ensure consistency
+      router.refresh();
     } finally {
       setPendingDeleteUserId(null);
     }
