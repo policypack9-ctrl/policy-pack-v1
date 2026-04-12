@@ -236,7 +236,7 @@ export function AdminUsersPanel({ initialUsers, adminEmail }: AdminUsersPanelPro
                       </div>
                       <p className="text-sm text-white/82">{user.email}</p>
                       <p className="text-xs text-white/48">
-                        Created: {formatDate(user.createdAt)} &nbsp;Ãƒâ€šÃ‚Â·&nbsp; Plan: {planLabel}
+                        Created: {formatDate(user.createdAt)} &middot; <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${formatPlanBadgeColor(user.planId, user.isPremium)}`}>{planLabel}</span>
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {user.signInMethods.length > 0 ? (
