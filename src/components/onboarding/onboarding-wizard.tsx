@@ -65,7 +65,6 @@ type TextQuestionId =
   | "websiteUrl"
   | "productDescription";
 type SingleQuestionId =
-  | "planSelection"
   | "aiTransparencyLevel"
   | "companyLocation"
   | "userAccounts"
@@ -331,27 +330,14 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
 
   // Resolve tier from a single source of truth (tier-pages.ts)
-  const activePlanId = answers.planSelection || planId;
+  // Tier comes from planId prop (server-side from user DB profile)
   const userTier = getUserTier({
-    isPremium: activePlanId === "premium",
-    planId: activePlanId,
+    isPremium: planId === "premium",
+    planId,
     isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
   });
   const tierConfig = getTierPageConfig(userTier);
   const maxPages = tierConfig.maxSelectable;
-
-  const planSelectionQuestion: SingleChoiceQuestion = {
-    id: "planSelection",
-    kind: "single",
-    title: "Which package fits your workspace?",
-    description: "Choose a plan to set your page generation limits.",
-    icon: FileText,
-    options: [
-      { value: "free", label: "Free", hint: "Up to 2 basic pages" },
-      { value: "starter", label: "Starter Pages", hint: "Up to 3 core legal pages" },
-      { value: "premium", label: "Premium Workspace", hint: "All 7 pages" },
-    ],
-  };
 
   const allPageOptions: Record<string, ChoiceOption> = {
     "about-us": { value: "about-us", label: "About Us", hint: "Company background" },
@@ -363,7 +349,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
     "refund-policy": { value: "refund-policy", label: "Refund Policy", hint: "Refund rules" },
   };
 
-  // Show ALL 7 pages ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â unavailable ones render as locked with upgrade hint
+  // Show ALL 7 pages ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â unavailable ones render as locked with upgrade hint
   const pageSelectionQuestion: MultiChoiceQuestion = {
     id: "selectedPages",
     kind: "multi",
@@ -381,7 +367,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
   const filteredQuestions = questions.filter((q) =>
     requiredQuestionIds.includes(q.id as OnboardingQuestionId),
   );
-  const dynamicQuestions: Question[] = [planSelectionQuestion, pageSelectionQuestion, ...filteredQuestions];
+  const dynamicQuestions: Question[] = [pageSelectionQuestion, ...filteredQuestions];
 
   const currentQuestion = dynamicQuestions[stepIndex];
   const progress = ((stepIndex + 1) / dynamicQuestions.length) * 100;
