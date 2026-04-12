@@ -977,6 +977,7 @@ export function ComplianceDashboard({
   // -- Empty state: user has no documents and no saved session ----------
   if (showEmptyState) {
     const onboardingHref = `/onboarding`;
+    const isPromo = userTier === "promo";
     return (
       <motion.main
         initial={{ opacity: 0 }}

@@ -297,7 +297,7 @@ const optionItemVariants = {
 };
 
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
-import { getUserTier, getTierPageConfig, getPageLockMessage, isPageAvailableForTier, ALL_PAGE_IDS, type PageId } from "@/lib/tier-pages";
+import { getUserTier, getTierPageConfig, getPageLockMessage, isPageAvailableForTier, ALL_PAGE_IDS, type PageId, type UserTier } from "@/lib/tier-pages";
 
 type OnboardingWizardProps = {
   planId?: string;
@@ -363,7 +363,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
     "refund-policy": { value: "refund-policy", label: "Refund Policy", hint: "Refund rules" },
   };
 
-  // Show ALL 7 pages Ã¢â‚¬â€ unavailable ones render as locked with upgrade hint
+  // Show ALL 7 pages ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â unavailable ones render as locked with upgrade hint
   const pageSelectionQuestion: MultiChoiceQuestion = {
     id: "selectedPages",
     kind: "multi",
@@ -666,6 +666,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
                     answers={answers}
                     shouldReduceMotion={shouldReduceMotion}
                     maxPages={maxPages}
+                    userTier={userTier}
                     updateTextAnswer={updateTextAnswer}
                     updateSingleAnswer={updateSingleAnswer}
                     updateCustomAnswer={updateCustomAnswer}
@@ -957,6 +958,7 @@ type QuestionContentProps = {
   answers: OnboardingAnswers;
   shouldReduceMotion: boolean;
   maxPages: number;
+  userTier: UserTier;
   updateTextAnswer: (id: keyof OnboardingAnswers, value: string) => void;
   updateSingleAnswer: (id: WizardQuestionId, value: string) => void;
   updateCustomAnswer: (
@@ -971,6 +973,7 @@ function QuestionContent({
   answers,
   shouldReduceMotion,
   maxPages,
+  userTier,
   updateTextAnswer,
   updateSingleAnswer,
   updateCustomAnswer,
@@ -1004,6 +1007,7 @@ function QuestionContent({
         answers,
         shouldReduceMotion,
         maxPages,
+        userTier,
         updateTextAnswer,
         updateSingleAnswer,
         updateCustomAnswer,
@@ -1018,6 +1022,7 @@ function renderField(
   answers: OnboardingAnswers,
   shouldReduceMotion: boolean,
   maxPages: number,
+  userTier: UserTier,
   updateTextAnswer: (id: keyof OnboardingAnswers, value: string) => void,
   updateSingleAnswer: (id: WizardQuestionId, value: string) => void,
   updateCustomAnswer: (
