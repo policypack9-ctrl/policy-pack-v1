@@ -12,6 +12,7 @@ import {
   type PolicyDocumentType,
 } from "@/lib/policy-generator";
 import { normalizeAnswers } from "@/lib/policy-engine";
+import { getUserTier, isPageAvailableForTier } from "@/lib/tier-pages";
 
 export const maxDuration = 60;
 
@@ -54,24 +55,36 @@ export async function POST(request: Request) {
 
     const generationTier = profile?.isPremium ? "premium" : "free";
     const planId = profile?.planId ?? "free";
-    const isEarlyUser = launchSnapshot?.isEligibleLaunchUser ?? false;
+
+    // Resolve tier and enforce page access rules
+    const userTier = getUserTier({
+      isPremium: profile?.isPremium ?? false,
+      planId,
+      isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
+    });
+
+    // Check if this page type is allowed for the tier
+    if (!isPageAvailableForTier(body.documentType, userTier)) {
+      return NextResponse.json(
+        {
+          error: `The "${body.documentType}" page is not available on your current plan. Upgrade to access it.`,
+          requiresCheckout: true,
+          userTier,
+        },
+        { status: 403 },
+      );
+    }
+
     const hasGeneratedCurrentType = generatedDocs.some(doc => doc.id === body.documentType);
     const documentCount = hasGeneratedCurrentType ? generatedDocs.length - 1 : generatedDocs.length;
-
-    let maxAllowed = 7;
-    if (isEarlyUser && planId === "free") {
-      maxAllowed = 4;
-    } else if (planId === "free") {
-      maxAllowed = 2;
-    } else if (planId === "starter") {
-      maxAllowed = 3;
-    }
+    const maxAllowed = { promo: 4, free: 2, starter: 3, premium: 7 }[userTier];
 
     if (documentCount >= maxAllowed) {
       return NextResponse.json(
         {
           error: "You have reached the maximum number of documents for your current plan.",
-          requiresCheckout: planId !== "premium",
+          requiresCheckout: userTier !== "premium",
+          userTier,
           launchSnapshot,
         },
         { status: 402 },
@@ -101,3 +114,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+

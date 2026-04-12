@@ -66,9 +66,9 @@ export function GenerationResult({
       ? "Complimentary launch access is closed."
       : "Your complimentary draft has already been used.";
   const unlockSummary = canClaimComplimentaryDocument
-    ? "This account is inside the launch cohort and can still generate one complimentary document before billing becomes required."
+    ? "This account is registered during the promotional period and can still generate complimentary documents before billing becomes required."
     : initialLaunchSnapshot.freeGenerationClosed
-      ? "The first 50 complimentary launch accounts have been claimed. New workspaces now choose a package before generation starts."
+      ? "The complimentary promotional period has ended. New workspaces now choose a package before generation starts."
       : "Your account already used its complimentary launch document. Choose a package to unlock the rest of the legal stack.";
 
   async function handleUnlock(planId?: BillingPlanId) {

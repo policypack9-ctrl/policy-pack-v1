@@ -1,5 +1,15 @@
-export const FREE_GENERATION_USER_LIMIT = 50;
-export const URGENCY_SWITCH_THRESHOLD = 10;
+/**
+ * Launch campaign logic.
+ *
+ * PROMO_ACTIVE (env flag):
+ *   - "true" or unset  → promotional period is ON  → all registered users are eligible
+ *   - "false"          → promotional period is OFF → no new users are eligible
+ *
+ * Change PROMO_ACTIVE=false in your .env / Vercel environment to end the promo instantly.
+ */
+
+export const COMPLIMENTARY_DOCUMENT_LIMIT = 4;
+export const URGENCY_THRESHOLD_USERS = 10;
 
 export type LaunchBannerTone = "launch" | "urgency" | "closed";
 
@@ -19,13 +29,14 @@ export type LaunchCampaignSnapshot = {
   complimentaryDocumentsRemaining: number;
   canGenerateComplimentaryDocument: boolean;
   requiresPaymentWall: boolean;
+  promoActive: boolean;
 };
 
 type BuildLaunchCampaignSnapshotInput = {
   registeredUsers: number;
-  eligibleUserIds?: string[];
   userId?: string | null;
   generatedDocumentCount?: number;
+  promoActive: boolean;
 };
 
 export function buildDefaultLaunchCampaignSnapshot(
@@ -33,49 +44,52 @@ export function buildDefaultLaunchCampaignSnapshot(
 ): LaunchCampaignSnapshot {
   return buildLaunchCampaignSnapshot({
     registeredUsers: 0,
-    eligibleUserIds: [],
     userId,
     generatedDocumentCount: 0,
+    promoActive: true,
   });
 }
 
 export function buildLaunchCampaignSnapshot({
   registeredUsers,
-  eligibleUserIds = [],
   userId = null,
   generatedDocumentCount = 0,
+  promoActive,
 }: BuildLaunchCampaignSnapshotInput): LaunchCampaignSnapshot {
   const safeRegisteredUsers = Math.max(0, Math.floor(registeredUsers));
-  const freeSpotsRemaining = Math.max(
-    0,
-    FREE_GENERATION_USER_LIMIT - safeRegisteredUsers,
-  );
-  const freeGenerationClosed = freeSpotsRemaining === 0;
+
+  // During active promo, every registered user is eligible.
+  // After promo ends (PROMO_ACTIVE=false), no new user is eligible.
+  const isEligibleLaunchUser = promoActive && Boolean(userId);
+
+  const freeUserLimit = 0;
+  const freeSpotsRemaining = 0;
+  const freeGenerationClosed = !promoActive;
   const showUrgencyBanner =
-    safeRegisteredUsers >= URGENCY_SWITCH_THRESHOLD && !freeGenerationClosed;
-  const eligibleIndex =
-    userId && eligibleUserIds.length > 0 ? eligibleUserIds.indexOf(userId) : -1;
-  const userRank = eligibleIndex >= 0 ? eligibleIndex + 1 : null;
-  const isEligibleLaunchUser = eligibleIndex >= 0;
-  const hasUsedComplimentaryDocument = generatedDocumentCount >= 4;
+    promoActive && safeRegisteredUsers >= URGENCY_THRESHOLD_USERS;
+
+  const hasUsedComplimentaryDocument =
+    generatedDocumentCount >= COMPLIMENTARY_DOCUMENT_LIMIT;
   const canGenerateComplimentaryDocument =
     isEligibleLaunchUser && !hasUsedComplimentaryDocument;
-  const complimentaryDocumentsRemaining =
-    canGenerateComplimentaryDocument ? 4 - generatedDocumentCount : 0;
-  const requiresPaymentWall = !canGenerateComplimentaryDocument && generatedDocumentCount >= 2;
+  const complimentaryDocumentsRemaining = canGenerateComplimentaryDocument
+    ? COMPLIMENTARY_DOCUMENT_LIMIT - generatedDocumentCount
+    : 0;
+  const requiresPaymentWall =
+    !canGenerateComplimentaryDocument && generatedDocumentCount >= 2;
 
   let bannerTone: LaunchBannerTone = "launch";
-  let bannerText = `Free generation for a limited time`;
+  let bannerText = "Free generation for a limited time";
   let bannerDescription =
     "Each eligible launch account can generate up to 4 complimentary legal documents before package selection unlocks the full document suite.";
   let calloutLabel = "4 complimentary documents per verified account";
 
   if (showUrgencyBanner) {
     bannerTone = "urgency";
-    bannerText = `Due to high demand, this limited time offer is ending soon. Act now.`;
+    bannerText = "Due to high demand, this limited time offer is ending soon. Act now.";
     bannerDescription =
       "Launch access is moving quickly. Verified accounts registered during this period receive up to 4 complimentary drafts before package selection becomes mandatory.";
-    calloutLabel = `Limited time offer ending soon`;
+    calloutLabel = "Limited time offer ending soon";
   }
 
   if (freeGenerationClosed) {
@@ -89,7 +103,7 @@ export function buildLaunchCampaignSnapshot({
 
   return {
     registeredUsers: safeRegisteredUsers,
-    freeUserLimit: FREE_GENERATION_USER_LIMIT,
+    freeUserLimit,
     freeSpotsRemaining,
     freeGenerationClosed,
     showUrgencyBanner,
@@ -97,11 +111,12 @@ export function buildLaunchCampaignSnapshot({
     bannerText,
     bannerDescription,
     calloutLabel,
-    userRank,
+    userRank: null,
     isEligibleLaunchUser,
     hasUsedComplimentaryDocument,
     complimentaryDocumentsRemaining,
     canGenerateComplimentaryDocument,
     requiresPaymentWall,
+    promoActive,
   };
 }

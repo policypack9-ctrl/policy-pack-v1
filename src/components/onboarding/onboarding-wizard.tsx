@@ -40,13 +40,16 @@ import {
   getResolvedMultiAnswerValues,
   getProductName,
   getGenerationMessages,
+  getQuestionsForSelectedPages,
   normalizeAnswers,
   resolvePrimaryRegion,
   type CustomInputField,
   type CustomMultiQuestionId,
   type OnboardingAnswers,
+  type OnboardingQuestionId,
   type StoredPolicySession,
 } from "@/lib/policy-engine";
+import type { DashboardDocument } from "@/lib/policy-engine";
 import { cn } from "@/lib/utils";
 
 type ChoiceOption = {
@@ -292,6 +295,7 @@ const optionItemVariants = {
 };
 
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
+import { getUserTier, getTierPageConfig } from "@/lib/tier-pages";
 
 type OnboardingWizardProps = {
   planId?: string;
@@ -314,23 +318,15 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
   const [generationStep, setGenerationStep] = useState(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
 
-  const isEarlyUser = launchSnapshot?.isEligibleLaunchUser ?? false;
-  let availablePageIds: string[] = [];
-  let maxPages = 7;
-
-  if (isEarlyUser && planId === "free") {
-    availablePageIds = ["about-us", "contact-us", "privacy-policy", "cookie-policy", "terms-of-service", "legal-disclaimer", "refund-policy"];
-    maxPages = 4;
-  } else if (planId === "free") {
-    availablePageIds = ["about-us", "contact-us", "cookie-policy"];
-    maxPages = 2;
-  } else if (planId === "starter") {
-    availablePageIds = ["terms-of-service", "privacy-policy", "legal-disclaimer", "refund-policy"];
-    maxPages = 3;
-  } else {
-    availablePageIds = ["about-us", "contact-us", "privacy-policy", "cookie-policy", "terms-of-service", "legal-disclaimer", "refund-policy"];
-    maxPages = 7;
-  }
+  // Resolve tier from a single source of truth (tier-pages.ts)
+  const userTier = getUserTier({
+    isPremium: planId === "premium",
+    planId,
+    isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
+  });
+  const tierConfig = getTierPageConfig(userTier);
+  const availablePageIds: string[] = tierConfig.availablePages;
+  const maxPages = tierConfig.maxSelectable;
 
   const allPageOptions: Record<string, ChoiceOption> = {
     "about-us": { value: "about-us", label: "About Us", hint: "Company background" },
@@ -351,14 +347,25 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
     options: availablePageIds.map(id => allPageOptions[id]),
   };
 
-  const dynamicQuestions: Question[] = [pageSelectionQuestion, ...questions];
+  // After page selection, only show questions relevant to the chosen pages.
+  const selectedPageIds = answers.selectedPages as DashboardDocument["id"][];
+  const requiredQuestionIds: OnboardingQuestionId[] =
+    selectedPageIds.length > 0
+      ? getQuestionsForSelectedPages(selectedPageIds)
+      : questions.map((q) => q.id as OnboardingQuestionId);
+  const filteredQuestions = questions.filter((q) =>
+    requiredQuestionIds.includes(q.id as OnboardingQuestionId),
+  );
+  const dynamicQuestions: Question[] = [pageSelectionQuestion, ...filteredQuestions];
 
   const currentQuestion = dynamicQuestions[stepIndex];
   const progress = ((stepIndex + 1) / dynamicQuestions.length) * 100;
   const isLastStep = stepIndex === dynamicQuestions.length - 1;
-  const canContinue = questionHasAnswer(currentQuestion, answers) && (
-    currentQuestion.id !== "selectedPages" || (answers.selectedPages.length > 0 && answers.selectedPages.length <= maxPages)
-  );
+  const canContinue =
+    questionHasAnswer(currentQuestion, answers) &&
+    (currentQuestion.id !== "selectedPages" ||
+      (answers.selectedPages.length > 0 &&
+        answers.selectedPages.length <= maxPages));
   const generationMessages = getGenerationMessages(answers);
 
   useEffect(() => {
@@ -538,11 +545,13 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
                     Policy Setup
                   </p>
                   <h1 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-white sm:text-3xl">
-                    {`Answer ${questions.length} quick questions to generate your first policy pack.`}
+                    {stepIndex === 0
+                      ? "Which pages do you want to generate?"
+                      : `Answer ${filteredQuestions.length} quick questions to generate your selected pages.`}
                   </h1>
                 </div>
                   <div className="rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-sm text-white/58">
-                    {`Step ${stepIndex + 1} of ${questions.length}`}
+                    {`Step ${stepIndex + 1} of ${dynamicQuestions.length}`}
                   </div>
                 </div>
 
@@ -1207,3 +1216,8 @@ function formatValue(value: string | string[]) {
 
   return value.length > 88 ? `${value.slice(0, 85)}...` : value;
 }
+
+
+
+
+

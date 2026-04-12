@@ -17,6 +17,7 @@ import {
   ScanSearch,
   Settings2,
   ShieldCheck,
+  Sparkles,
   TriangleAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -50,6 +51,7 @@ import {
   type StoredPolicySession,
 } from "@/lib/policy-engine";
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
+import { getUserTier, getTierPageConfig, type UserTier } from "@/lib/tier-pages";
 
 const documentIcons = {
   "about-us": Eye,
@@ -232,6 +234,12 @@ export function ComplianceDashboard({
       loadPolicyAccount()?.session ?? loadStoredPolicySession() ?? fallbackSession
     );
   });
+  // Track whether the user has a real session (not just demo fallback).
+  const [hasRealSession] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean(loadPolicyAccount() ?? loadStoredPolicySession());
+  });
+
   const [isPremium, setIsPremium] = useState(initialIsPremium);
   const [premiumUnlockedAt, setPremiumUnlockedAt] = useState<string | null>(
     initialPremiumUnlockedAt,
@@ -306,6 +314,19 @@ export function ComplianceDashboard({
     displayDocuments[0];
   const activeGeneratedDocument = documentCache[activeDocument.id];
   const generatedDocumentCount = Object.keys(documentCache).length;
+
+  // Determine user tier and whether to show the empty state.
+  const userTier: UserTier = getUserTier({
+    isPremium,
+    planId,
+    isEligibleLaunchUser: launchSnapshot.isEligibleLaunchUser,
+  });
+  const tierConfig = getTierPageConfig(userTier);
+  const showEmptyState =
+    generatedDocumentCount === 0 &&
+    !hasRealSession &&
+    initialGeneratedDocuments.length === 0;
+
   const normalizedPlanId = planId === "starter" || planId === "premium" ? planId : "free";
   const canGenerateComplimentaryDocument =
     !isPremium &&
@@ -328,7 +349,7 @@ export function ComplianceDashboard({
     : hasUnlockedComplimentaryDraft
       ? "Your complimentary launch draft is already available in this workspace. Generate more documents by choosing a package."
       : launchSnapshot.freeGenerationClosed
-        ? "The first 50 complimentary launch slots are gone. New workspaces now choose a package before generation starts."
+        ? "The complimentary launch period has ended. New workspaces now choose a package before generation starts."
         : "This account has already used its complimentary launch draft. Choose a package to unlock the rest of the document suite.";
   const workspaceActionLabel = canGenerateComplimentaryDocument
     ? "Generate Complimentary Draft"
@@ -972,7 +993,7 @@ export function ComplianceDashboard({
           {isLaunchPromoActive ? (
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-400/22 bg-emerald-400/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-emerald-100">
               <BadgeCheck className="size-4" />
-              Launch promo active · {launchSnapshot.complimentaryDocumentsRemaining} pages left
+              Launch promo active Â· {launchSnapshot.complimentaryDocumentsRemaining} pages left
             </div>
           ) : null}
           <p className="text-xs uppercase tracking-[0.2em] text-white/42">
@@ -1031,6 +1052,68 @@ export function ComplianceDashboard({
       </motion.main>
     );
   }
+
+  // -- Empty state: user has no documents and no saved session ----------
+  if (showEmptyState) {
+    const onboardingHref = `/onboarding`;
+    return (
+      <motion.main
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: shouldReduceMotion ? 0 : 0.42, ease: [0.22, 1, 0.36, 1] }}
+        className="flex min-h-screen flex-col items-center justify-center bg-[#0A0A0A] px-6 py-16"
+      >
+        <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-8 text-center">
+          <span className="inline-flex size-16 items-center justify-center rounded-[22px] border border-teal-300/20 bg-teal-300/[0.06]">
+            <ShieldCheck className="size-8 text-teal-200/80" />
+          </span>
+          <div className="space-y-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/60">
+              {tierConfig.label}
+            </p>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
+              Your workspace is ready
+            </h1>
+            <p className="text-base leading-relaxed text-white/50">
+              {tierConfig.description}
+            </p>
+          </div>
+          <div className="w-full rounded-[20px] border border-white/[0.07] bg-white/[0.03] p-5 text-left">
+            <p className="mb-3 text-xs font-medium uppercase tracking-[0.24em] text-white/40">
+              Pages available to you
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {tierConfig.availablePages.map((pageId) => (
+                <span
+                  key={pageId}
+                  className="rounded-full border border-teal-300/15 bg-teal-300/[0.06] px-3 py-1 text-xs font-medium capitalize text-teal-100/70"
+                >
+                  {pageId.replace(/-/g, " ")}
+                </span>
+              ))}
+            </div>
+            {userTier !== "premium" && (
+              <p className="mt-3 text-xs text-white/30">
+                Choose up to {tierConfig.maxSelectable} ï¿½{" "}
+                {userTier === "promo" ? "Launch offer active" : "Upgrade to unlock more"}
+              </p>
+            )}
+          </div>
+          <a
+            href={onboardingHref}
+            className="group inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-teal-400 px-6 py-4 text-base font-semibold text-[#0A0A0A] shadow-[0_4px_24px_-6px_rgba(45,212,191,0.45)] transition-all hover:bg-teal-300 hover:shadow-[0_4px_28px_-4px_rgba(45,212,191,0.55)]"
+          >
+            <Sparkles className="size-5" />
+            Generate My Pages
+          </a>
+          <p className="text-xs text-white/28">
+            You will answer a few quick questions and your pages will be generated automatically.
+          </p>
+        </div>
+      </motion.main>
+    );
+  }
+  // ----------------------------------------------------------------------------
 
   return (
     <>
@@ -1542,3 +1625,8 @@ export function ComplianceDashboard({
     </>
   );
 }
+
+
+
+
+

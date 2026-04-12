@@ -13,7 +13,6 @@ import type { SavedGeneratedDocument } from "@/lib/db";
 import {
   buildLaunchCampaignSnapshot,
   buildDefaultLaunchCampaignSnapshot,
-  FREE_GENERATION_USER_LIMIT,
   type LaunchCampaignSnapshot,
 } from "@/lib/launch-campaign";
 import type { GeneratedPolicyDocument, PolicyDocumentType } from "@/lib/policy-generator";
@@ -804,9 +803,15 @@ export async function listGeneratedDocumentsForUser(userId: string) {
   })) satisfies SavedGeneratedDocument[];
 }
 
+function resolvePromoActive(): boolean {
+  // PROMO_ACTIVE=false ends the promo. Any other value (or unset) keeps it active.
+  return process.env.PROMO_ACTIVE?.trim().toLowerCase() !== "false";
+}
+
 export async function getLaunchCampaignSnapshot(
   userId?: string | null,
 ): Promise<LaunchCampaignSnapshot> {
+  const promoActive = resolvePromoActive();
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {
@@ -816,12 +821,7 @@ export async function getLaunchCampaignSnapshot(
   const registeredUsersPromise = supabase
     .from("user_profiles")
     .select("user_id", { count: "exact", head: true });
-  const eligibleUsersPromise = supabase
-    .from("user_profiles")
-    .select("user_id")
-    .order("created_at", { ascending: true })
-    .order("user_id", { ascending: true })
-    .limit(FREE_GENERATION_USER_LIMIT);
+
   const generatedDocumentsPromise = userId
     ? supabase
         .from("generated_documents")
@@ -829,24 +829,15 @@ export async function getLaunchCampaignSnapshot(
         .eq("user_id", userId)
     : Promise.resolve({ count: 0, error: null } as const);
 
-  const [registeredUsersResult, eligibleUsersResult, generatedDocumentsResult] =
-    await Promise.all([
-      registeredUsersPromise,
-      eligibleUsersPromise,
-      generatedDocumentsPromise,
-    ]);
+  const [registeredUsersResult, generatedDocumentsResult] = await Promise.all([
+    registeredUsersPromise,
+    generatedDocumentsPromise,
+  ]);
 
   if (registeredUsersResult.error) {
     throw formatSupabaseAuthError(
       registeredUsersResult.error,
       "Unable to count registered users for the launch campaign.",
-    );
-  }
-
-  if (eligibleUsersResult.error) {
-    throw formatSupabaseAuthError(
-      eligibleUsersResult.error,
-      "Unable to read launch campaign eligibility.",
     );
   }
 
@@ -857,14 +848,12 @@ export async function getLaunchCampaignSnapshot(
     );
   }
 
-  const eligibleUserIds = (
-    (eligibleUsersResult.data as Array<{ user_id: string }> | null) ?? []
-  ).map((row) => row.user_id);
-
   return buildLaunchCampaignSnapshot({
     registeredUsers: registeredUsersResult.count ?? 0,
-    eligibleUserIds,
     userId,
     generatedDocumentCount: generatedDocumentsResult.count ?? 0,
+    promoActive,
   });
 }
+
+

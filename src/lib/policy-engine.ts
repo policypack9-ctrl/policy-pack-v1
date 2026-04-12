@@ -587,3 +587,97 @@ function dedupeAnswerItems(items: string[]) {
 
   return deduped;
 }
+
+// ---------------------------------------------------------------------------
+// Page-specific question mapping
+// Defines which OnboardingAnswers fields are relevant for each document type.
+// The wizard uses this to show only questions needed for the selected pages.
+// ---------------------------------------------------------------------------
+
+export type OnboardingQuestionId = keyof Omit<OnboardingAnswers, "selectedPages">;
+
+export const PAGE_QUESTION_MAP: Record<DashboardDocument["id"], OnboardingQuestionId[]> = {
+  "about-us": [
+    "businessName",
+    "websiteUrl",
+    "productDescription",
+    "companyLocation",
+  ],
+  "contact-us": [
+    "businessName",
+    "websiteUrl",
+    "companyLocation",
+  ],
+  "privacy-policy": [
+    "businessName",
+    "websiteUrl",
+    "productDescription",
+    "companyLocation",
+    "customerRegions",
+    "collectedData",
+    "vendors",
+    "outreachChannels",
+    "aiTransparencyLevel",
+    "userAccounts",
+    "acceptsPayments",
+  ],
+  "cookie-policy": [
+    "businessName",
+    "websiteUrl",
+    "outreachChannels",
+    "vendors",
+    "customerRegions",
+  ],
+  "terms-of-service": [
+    "businessName",
+    "websiteUrl",
+    "productDescription",
+    "companyLocation",
+    "customerRegions",
+    "userAccounts",
+    "acceptsPayments",
+    "aiTransparencyLevel",
+  ],
+  "legal-disclaimer": [
+    "businessName",
+    "websiteUrl",
+    "productDescription",
+    "aiTransparencyLevel",
+  ],
+  "refund-policy": [
+    "businessName",
+    "websiteUrl",
+    "acceptsPayments",
+  ],
+};
+
+/**
+ * Returns the deduplicated set of question IDs needed
+ * for the given array of selected page IDs.
+ * Order is preserved based on a canonical question priority list.
+ */
+const CANONICAL_QUESTION_ORDER: OnboardingQuestionId[] = [
+  "businessName",
+  "websiteUrl",
+  "productDescription",
+  "companyLocation",
+  "customerRegions",
+  "collectedData",
+  "vendors",
+  "userAccounts",
+  "acceptsPayments",
+  "outreachChannels",
+  "aiTransparencyLevel",
+];
+
+export function getQuestionsForSelectedPages(
+  selectedPageIds: DashboardDocument["id"][],
+): OnboardingQuestionId[] {
+  const needed = new Set<OnboardingQuestionId>();
+  for (const pageId of selectedPageIds) {
+    for (const q of PAGE_QUESTION_MAP[pageId] ?? []) {
+      needed.add(q);
+    }
+  }
+  return CANONICAL_QUESTION_ORDER.filter((q) => needed.has(q));
+}
