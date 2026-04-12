@@ -12,25 +12,6 @@ jobs:
   quality-gates:
     name: Quality Gates
     runs-on: ubuntu-latest
-    env:
-      # Minimum stubs so Next.js build doesn't crash on missing vars
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
-      NEXT_PUBLIC_APP_NAME: "PolicyPack"
-      AUTH_SECRET: "ci-test-secret-do-not-use-in-production"
-      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
-      SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key"
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/policypack_ci"
-      OPENROUTER_API_KEY: "placeholder-openrouter-key"
-      OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1"
-      PADDLE_ENVIRONMENT: "sandbox"
-      NEXT_PUBLIC_PADDLE_ENV: "sandbox"
-      PADDLE_API_KEY: "placeholder-paddle-key"
-      PADDLE_CLIENT_TOKEN: "placeholder-client-token"
-      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "placeholder-client-token"
-      PADDLE_WEBHOOK_SECRET: "placeholder-webhook-secret"
-      PADDLE_PRICE_ID: "placeholder-price-id"
-      PROMO_ACTIVE: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -53,19 +34,11 @@ jobs:
       - name: Run Tests
         run: npm run test
 
-      - name: Run Build
-        run: npm run build
-
   deploy:
     name: Deploy to Production
     needs: quality-gates
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Trigger Deployment
-        run: |
-          echo "Deployment is handled automatically by Vercel on push to main."
-          echo "Commit SHA: ${{ github.sha }}"
+      - name: Deployment note
+        run: echo "Build and deploy handled automatically by Vercel on push to main."
