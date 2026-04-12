@@ -94,25 +94,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name ?? null,
           image: user.image ?? null,
         });
-        token.isPremium = profile?.isPremium ?? false;
-        token.name = profile?.name ?? token.name;
-        token.email = profile?.email ?? token.email;
-        token.picture = profile?.image ?? token.picture;
+        token.isPremium = profile.isPremium;
+        token.name = profile.name ?? token.name;
+        token.email = profile.email ?? token.email;
+        token.picture = profile.image ?? token.picture;
         return token;
       }
 
       if (userId) {
         const profile = await getAppUserProfileById(userId);
+        
+        // If profile doesn't exist, it means the user was deleted
+        if (!profile) {
+          // Clear token properties to force invalidation
+          token.userId = "";
+          token.sub = "";
+          return token;
+        }
+
         token.userId = userId;
-        token.isPremium = profile?.isPremium ?? false;
-        token.name = profile?.name ?? token.name;
-        token.email = profile?.email ?? token.email;
-        token.picture = profile?.image ?? token.picture;
+        token.isPremium = profile.isPremium;
+        token.name = profile.name ?? token.name;
+        token.email = profile.email ?? token.email;
+        token.picture = profile.image ?? token.picture;
       }
 
       return token;
     },
     async session({ session, token }) {
+      // If token has no userId, it means the user was deleted or invalid
+      if (!token.userId && !token.sub) {
+        // Return an empty session object which will cause the user to be treated as unauthenticated
+        return {
+          ...session,
+          user: undefined,
+        } as typeof session;
+      }
+
       if (session.user) {
         session.user.id = String(token.userId ?? token.sub ?? "");
         session.user.isPremium = Boolean(token.isPremium);
