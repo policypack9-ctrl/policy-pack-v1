@@ -432,7 +432,7 @@ export function OnboardingWizard({
 
   function updateAnswers(updater: (current: OnboardingAnswers) => OnboardingAnswers) {
     setAnswers((current) => {
-      const next = normalizeAnswers(updater(current));
+      const next = updater(current);
       persistDraft(next);
       return next;
     });

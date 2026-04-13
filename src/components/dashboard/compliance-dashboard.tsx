@@ -1475,6 +1475,11 @@ export function ComplianceDashboard({
                       : canGenerateComplimentaryDocument
                         ? "Use Free Draft"
                         : "Upgrade";
+                const downloadButtonLabel = isPremium
+                  ? "Export PDF"
+                  : hasGeneratedDraft
+                    ? "Download PDF"
+                    : "Unlock PDF";
                 const overlayLabel = isPremium
                   ? null
                   : hasGeneratedDraft
@@ -1548,7 +1553,7 @@ export function ComplianceDashboard({
                                 ) : (
                                   <Sparkles className="size-3.5" />
                                 )}
-                                {isPremium ? "Export PDF" : "Upgrade"}
+                                {downloadButtonLabel}
                               </Button>
                             ) : null}
                           </div>
