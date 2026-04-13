@@ -78,19 +78,35 @@ export async function generatePolicyDocument({
   }
 
   try {
-    const researchStage = await runResearchStage({
-      answers: normalizedAnswers,
-      documentType,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-      siteName: config.siteName,
-      siteUrl: config.siteUrl,
-      model: config.researchModel,
-    });
+    // For free tier: run research with a timeout to stay within Vercel 60s limit.
+    // If research times out or fails, draft directly from answers (still high quality).
+    let researchSummary = "";
+    let researchModel = config.researchModel;
+
+    if (generationTier === "premium" || generationTier === "internal") {
+      // Premium: full two-stage pipeline
+      const researchStage = await runResearchStage({
+        answers: normalizedAnswers,
+        documentType,
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+        siteName: config.siteName,
+        siteUrl: config.siteUrl,
+        model: config.researchModel,
+      });
+      researchSummary = researchStage.content;
+      researchModel = researchStage.model;
+    } else {
+      // Free tier: skip web-search research stage to stay within 60s Vercel timeout.
+      // Draft directly from the structured onboarding answers (fast + reliable).
+      researchSummary = buildFallbackResearchSummary(normalizedAnswers);
+      researchModel = "answers-only";
+    }
+
     const draftingStage = await runDraftingStage({
       answers: normalizedAnswers,
       documentType,
-      researchSummary: researchStage.content,
+      researchSummary,
       apiKey: config.apiKey,
       baseUrl: config.baseUrl,
       siteName: config.siteName,
@@ -107,8 +123,8 @@ export async function generatePolicyDocument({
       title,
       generatedAt,
       research: {
-        model: researchStage.model,
-        summary: researchStage.content,
+        model: researchModel,
+        summary: researchSummary,
       },
     };
   } catch {
