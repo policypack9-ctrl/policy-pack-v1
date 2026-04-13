@@ -76,7 +76,8 @@ export function getUserTier(params: {
   isEligibleLaunchUser: boolean;
 }): UserTier {
   if (params.isPremium && params.planId === "premium") return "premium";
-  if (params.planId === "starter") return "starter";
+  // starter requires isPremium=true to prevent access without valid payment
+  if (params.isPremium && params.planId === "starter") return "starter";
   if (params.isEligibleLaunchUser) return "promo";
   return "free";
 }

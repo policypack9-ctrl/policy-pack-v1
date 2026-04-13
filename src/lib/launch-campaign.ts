@@ -2,8 +2,8 @@
  * Launch campaign logic.
  *
  * PROMO_ACTIVE (env flag):
- *   - "true" or unset  → promotional period is ON  → all registered users are eligible
- *   - "false"          → promotional period is OFF → no new users are eligible
+ *   - "true" or unset  â†’ promotional period is ON  â†’ all registered users are eligible
+ *   - "false"          â†’ promotional period is OFF â†’ no new users are eligible
  *
  * Change PROMO_ACTIVE=false in your .env / Vercel environment to end the promo instantly.
  */
@@ -72,8 +72,9 @@ export function buildLaunchCampaignSnapshot({
     generatedDocumentCount >= COMPLIMENTARY_DOCUMENT_LIMIT;
   const canGenerateComplimentaryDocument =
     isEligibleLaunchUser && !hasUsedComplimentaryDocument;
-  const complimentaryDocumentsRemaining = canGenerateComplimentaryDocument
-    ? COMPLIMENTARY_DOCUMENT_LIMIT - generatedDocumentCount
+  // Keep showing remaining even after promo closes so existing users know their balance
+  const complimentaryDocumentsRemaining = isEligibleLaunchUser
+    ? Math.max(0, COMPLIMENTARY_DOCUMENT_LIMIT - generatedDocumentCount)
     : 0;
   const requiresPaymentWall =
     !canGenerateComplimentaryDocument && generatedDocumentCount >= 2;
