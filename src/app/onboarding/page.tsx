@@ -22,6 +22,7 @@ export default async function OnboardingPage() {
   return (
     <OnboardingWizard
       planId={planId}
+      isPremium={profile?.isPremium ?? false}
       launchSnapshot={launchSnapshot}
     />
   );

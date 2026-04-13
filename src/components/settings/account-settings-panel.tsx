@@ -23,8 +23,11 @@ import { formatDisplayDateTime } from "@/lib/policy-engine";
 type AccountSettingsPanelProps = {
   displayName: string;
   email: string;
+  planId: string;
   isPremium: boolean;
+  billingStatus: string;
   premiumUnlockedAt: string | null;
+  currentPeriodEndsAt: string | null;
   createdAt: string | null;
   signInMethods: Array<"password" | "google">;
   canChangePassword: boolean;
@@ -35,11 +38,43 @@ const signInMethodLabels = {
   google: "Google",
 } as const;
 
+function getPlanLabel(planId: string) {
+  if (planId === "starter") return "Starter";
+  if (planId === "premium") return "Premium";
+  return "Free";
+}
+
+function getBillingLabel(billingStatus: string, isPremium: boolean) {
+  switch (billingStatus) {
+    case "one_time":
+      return "One-time access active";
+    case "active":
+      return "Subscription active";
+    case "trialing":
+      return "Trial active";
+    case "canceled":
+      return isPremium ? "Access active until period end" : "Subscription canceled";
+    case "past_due":
+      return "Payment past due";
+    case "paused":
+      return "Subscription paused";
+    case "refunded":
+      return "Refunded";
+    case "chargeback":
+      return "Chargeback";
+    default:
+      return isPremium ? "Access active" : "Free access";
+  }
+}
+
 export function AccountSettingsPanel({
   displayName,
   email,
+  planId,
   isPremium,
+  billingStatus,
   premiumUnlockedAt,
+  currentPeriodEndsAt,
   createdAt,
   signInMethods,
   canChangePassword,
@@ -60,6 +95,8 @@ export function AccountSettingsPanel({
   const [deletePhrase, setDeletePhrase] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const planLabel = getPlanLabel(planId);
+  const billingLabel = getBillingLabel(billingStatus, isPremium);
 
   async function handleProfileSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -215,7 +252,7 @@ export function AccountSettingsPanel({
                 ) : (
                   <LockKeyhole className="size-4" />
                 )}
-                {isPremium ? "Plan: Premium" : "Plan: Free"}
+                {`Plan: ${planLabel}`}
               </div>
               <p className="text-xs uppercase tracking-[0.22em] text-white/34">
                 Member since {formatDisplayDateTime(createdAt ?? new Date().toISOString())}
@@ -321,7 +358,7 @@ export function AccountSettingsPanel({
               </h2>
               <p className="mt-3 text-sm leading-7 text-white/60">
                 {isPremium
-                  ? "Premium access is active and document downloads are available now."
+                  ? `${planLabel} access is active and document downloads are available now.`
                   : "You can review and save your documents now, then unlock downloads any time from the dashboard."}
               </p>
 
@@ -332,12 +369,14 @@ export function AccountSettingsPanel({
                   ) : (
                     <CreditCard className="size-4 text-teal-200" />
                   )}
-                  {isPremium ? "Premium active" : "Free access"}
+                  {billingLabel}
                 </div>
                 <p className="mt-4 text-sm text-white/58">
-                  {isPremium && premiumUnlockedAt
-                    ? `Unlocked on ${formatDisplayDateTime(premiumUnlockedAt)}`
-                    : "Manage upgrades and document downloads from your dashboard."}
+                  {billingStatus === "canceled" && currentPeriodEndsAt
+                    ? `Access remains available until ${formatDisplayDateTime(currentPeriodEndsAt)}`
+                    : isPremium && premiumUnlockedAt
+                      ? `Unlocked on ${formatDisplayDateTime(premiumUnlockedAt)}`
+                      : "Manage upgrades and document downloads from your dashboard."}
                 </p>
               </div>
 

@@ -300,10 +300,15 @@ import { getUserTier, getTierPageConfig, getPageLockMessage, isPageAvailableForT
 
 type OnboardingWizardProps = {
   planId?: string;
+  isPremium?: boolean;
   launchSnapshot?: LaunchCampaignSnapshot;
 };
 
-export function OnboardingWizard({ planId = "free", launchSnapshot }: OnboardingWizardProps) {
+export function OnboardingWizard({
+  planId = "free",
+  isPremium = false,
+  launchSnapshot,
+}: OnboardingWizardProps) {
   const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
   const [answers, setAnswers] = useState<OnboardingAnswers>(() => {
@@ -330,9 +335,9 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
 
   // Resolve tier from a single source of truth (tier-pages.ts)
-  // Tier comes from planId prop (server-side from user DB profile)
+  // Tier comes from the server-side profile snapshot.
   const userTier = getUserTier({
-    isPremium: planId === "premium",
+    isPremium,
     planId,
     isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
   });
@@ -349,7 +354,7 @@ export function OnboardingWizard({ planId = "free", launchSnapshot }: Onboarding
     "refund-policy": { value: "refund-policy", label: "Refund Policy", hint: "Refund rules" },
   };
 
-  // Show ALL 7 pages ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â unavailable ones render as locked with upgrade hint
+  // Show all pages so locked ones can render with an upgrade hint.
   const pageSelectionQuestion: MultiChoiceQuestion = {
     id: "selectedPages",
     kind: "multi",

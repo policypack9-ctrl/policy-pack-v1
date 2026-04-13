@@ -95,7 +95,7 @@ export function LoginForm({
             autoComplete="email"
             required
             className="soft-input h-12 w-full rounded-[18px] px-4 text-sm"
-            placeholder="team@policypack.org"
+            placeholder="team@company.com"
           />
         </label>
 
@@ -118,10 +118,9 @@ export function LoginForm({
             autoComplete="current-password"
             required
             className="soft-input h-12 w-full rounded-[18px] px-4 text-sm"
-            placeholder="••••••••"
+            placeholder="********"
           />
         </label>
-
         {error ? (
           <div className="rounded-[18px] border border-amber-300/14 bg-amber-300/[0.06] px-4 py-3 text-sm text-amber-50/90">
             {error}

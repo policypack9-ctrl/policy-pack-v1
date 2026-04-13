@@ -50,11 +50,11 @@ function getNotificationConfig() {
   const host = configuredHost || (isGmail ? "smtp.gmail.com" : "");
   const port = Number(process.env.SMTP_PORT?.trim() ?? (isGmail ? "465" : "465"));
   const secure = readBooleanEnv("SMTP_SECURE") ?? port === 465;
-  const recipients = uniqueEmails([
-    ...parseEmailList(adminNotificationEmails),
-    "support@policypack.org",
-    "policypack9@gmail.com"
-  ]);
+  const recipients = uniqueEmails(
+    adminNotificationEmails
+      ? parseEmailList(adminNotificationEmails)
+      : [COMPANY_SUPPORT_EMAIL.toLowerCase()],
+  );
 
   return {
     host,

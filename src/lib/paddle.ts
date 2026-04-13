@@ -189,6 +189,10 @@ export function buildPolicyPackCheckoutItems(
             amount: "2900",
             currencyCode: "USD" as const,
           },
+          billingCycle: {
+            interval: "month" as const,
+            frequency: 1,
+          },
           product: {
             name: "PolicyPack Premium Workspace",
             taxCategory: "saas" as const,

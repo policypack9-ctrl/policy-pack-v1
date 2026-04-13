@@ -137,11 +137,12 @@ async function runResearchStage(input: {
   siteUrl: string;
   model: string;
 }) {
+  const currentYear = new Date().getUTCFullYear();
   const systemPrompt = [
     "You are PolicyPack's legal research stage.",
     `Prompt version: ${POLICY_PROMPT_VERSION}.`,
     "Search the web and summarize only the most relevant legal clauses or disclosure changes from the last 12 months.",
-    "Prioritize 2026-relevant guidance and law updates that affect the user's region, payment handling, tracking, AI usage, and SaaS operations.",
+    `Prioritize guidance and law updates that are relevant in ${currentYear} and affect the user's region, payment handling, tracking, AI usage, and SaaS operations.`,
     "If the onboarding data includes custom values entered through an Other field, treat them as first-class facts and search for requirements that apply to them.",
     "Return Markdown with these headings only: # Research Summary, ## Key Updates, ## Clauses To Include, ## Sources.",
     "Under ## Sources, include concise bullet links with source title and URL.",

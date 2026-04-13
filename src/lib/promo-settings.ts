@@ -14,6 +14,15 @@ function getClient() {
   });
 }
 
+function assertPromoQuerySucceeded(
+  error: { message: string } | null,
+  fallbackMessage: string,
+) {
+  if (error) {
+    throw new Error(error.message || fallbackMessage);
+  }
+}
+
 /** Read promo_active from DB, fallback to PROMO_ACTIVE env var */
 export async function isPromoActiveFromDB(): Promise<boolean> {
   const supabase = getClient();
@@ -40,10 +49,11 @@ export async function setPromoActiveInDB(
 ): Promise<void> {
   const supabase = getClient();
   if (!supabase) throw new Error("Supabase not configured.");
-  await supabase.from("app_settings").upsert(
+  const { error } = await supabase.from("app_settings").upsert(
     { key: "promo_active", value: String(active), updated_at: new Date().toISOString(), updated_by: updatedBy },
     { onConflict: "key" },
   );
+  assertPromoQuerySucceeded(error, "Unable to update promo_active.");
 }
 
 /** Get all promo-eligible users (registered before promo ended) */
@@ -52,12 +62,13 @@ export async function getPromoUsers(): Promise<
 > {
   const supabase = getClient();
   if (!supabase) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_profiles")
     .select("user_id, email, display_name, created_at")
     .eq("plan_id", "free")
     .eq("is_premium", false)
     .order("created_at", { ascending: true });
+  assertPromoQuerySucceeded(error, "Unable to list promo users.");
   return (data ?? []).map((row) => ({
     userId: row.user_id,
     email: row.email ?? null,
@@ -75,7 +86,7 @@ export async function logPromoArchive(input: {
 }): Promise<string> {
   const supabase = getClient();
   if (!supabase) throw new Error("Supabase not configured.");
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("promo_archive_log")
     .insert({
       ended_by: input.endedBy,
@@ -85,6 +96,7 @@ export async function logPromoArchive(input: {
     })
     .select("id")
     .single();
+  assertPromoQuerySucceeded(error, "Unable to write promo archive log.");
   return data?.id ?? "";
 }
 
@@ -92,12 +104,13 @@ export async function logPromoArchive(input: {
 export async function getLatestPromoArchive() {
   const supabase = getClient();
   if (!supabase) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("promo_archive_log")
     .select("*")
     .order("ended_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  assertPromoQuerySucceeded(error, "Unable to load the latest promo archive.");
   return data ?? null;
 }
 
@@ -109,11 +122,14 @@ export async function rollbackPromo(
   const supabase = getClient();
   if (!supabase) return { ok: false, error: "Supabase not configured." };
 
-  const { data: archive } = await supabase
+  const { data: archive, error: archiveError } = await supabase
     .from("promo_archive_log")
     .select("ended_at, rolled_back_at")
     .eq("id", archiveId)
     .maybeSingle();
+  if (archiveError) {
+    return { ok: false, error: archiveError.message || "Unable to load the archive record." };
+  }
 
   if (!archive) return { ok: false, error: "Archive record not found." };
   if (archive.rolled_back_at) return { ok: false, error: "Already rolled back." };
@@ -122,11 +138,25 @@ export async function rollbackPromo(
   const hoursElapsed = (Date.now() - endedAt.getTime()) / 3_600_000;
   if (hoursElapsed > 24) return { ok: false, error: "Rollback window (24h) has expired." };
 
-  await setPromoActiveInDB(true, rolledBackBy);
-  await supabase
+  try {
+    await setPromoActiveInDB(true, rolledBackBy);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unable to restore promo_active.",
+    };
+  }
+
+  const { error: rollbackError } = await supabase
     .from("promo_archive_log")
     .update({ rolled_back_at: new Date().toISOString(), rolled_back_by: rolledBackBy })
     .eq("id", archiveId);
+  if (rollbackError) {
+    return {
+      ok: false,
+      error: rollbackError.message || "Unable to mark the archive as rolled back.",
+    };
+  }
 
   return { ok: true };
 }

@@ -15,6 +15,12 @@ import {
   buildDefaultLaunchCampaignSnapshot,
   type LaunchCampaignSnapshot,
 } from "@/lib/launch-campaign";
+import {
+  hasActiveBillingAccess,
+  normalizeBillingStatus,
+  normalizeStoredBillingPlanId,
+  type BillingStatus,
+} from "@/lib/billing-state";
 import type { GeneratedPolicyDocument, PolicyDocumentType } from "@/lib/policy-generator";
 
 type NextAuthUserRow = {
@@ -34,6 +40,11 @@ type UserProfileRow = {
   plan_id: string | null;
   is_premium: boolean | null;
   premium_unlocked_at: string | null;
+  billing_status: string | null;
+  paddle_transaction_id: string | null;
+  paddle_subscription_id: string | null;
+  current_period_ends_at: string | null;
+  billing_updated_at: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -64,6 +75,11 @@ export type AppUserProfile = {
   planId: string;
   isPremium: boolean;
   premiumUnlockedAt: string | null;
+  billingStatus: BillingStatus;
+  paddleTransactionId: string | null;
+  paddleSubscriptionId: string | null;
+  currentPeriodEndsAt: string | null;
+  billingUpdatedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -103,6 +119,9 @@ export type SupabaseAuthHealth =
       details?: string;
       missingKeys?: string[];
     };
+
+const USER_PROFILE_SELECT =
+  "user_id, email, display_name, avatar_url, password_hash, plan_id, is_premium, premium_unlocked_at, billing_status, paddle_transaction_id, paddle_subscription_id, current_period_ends_at, billing_updated_at, created_at, updated_at";
 
 function getSupabaseAdminClient() {
   if (!isSupabaseConfigured()) {
@@ -192,15 +211,31 @@ function mapProfile(
   user: NextAuthUserRow,
   profile?: UserProfileRow | null,
 ): AppUserProfile {
+  const planId = normalizeStoredBillingPlanId(profile?.plan_id);
+  const billingStatus = normalizeBillingStatus(
+    profile?.billing_status,
+    profile?.is_premium ? "active" : "inactive",
+  );
+
   return {
     userId: user.id,
     name: profile?.display_name ?? user.name ?? null,
     email: profile?.email ?? user.email ?? null,
     image: profile?.avatar_url ?? user.image ?? null,
     passwordHash: profile?.password_hash ?? null,
-    planId: profile?.plan_id ?? "free",
-    isPremium: Boolean(profile?.is_premium),
+    planId,
+    isPremium: hasActiveBillingAccess({
+      planId,
+      billingStatus,
+      currentPeriodEndsAt: profile?.current_period_ends_at,
+      isPremium: profile?.is_premium,
+    }),
     premiumUnlockedAt: profile?.premium_unlocked_at ?? null,
+    billingStatus,
+    paddleTransactionId: profile?.paddle_transaction_id ?? null,
+    paddleSubscriptionId: profile?.paddle_subscription_id ?? null,
+    currentPeriodEndsAt: profile?.current_period_ends_at ?? null,
+    billingUpdatedAt: profile?.billing_updated_at ?? null,
     createdAt: profile?.created_at ?? null,
     updatedAt: profile?.updated_at ?? null,
   };
@@ -260,9 +295,7 @@ async function getUserProfileRow(userId: string) {
 
   const { data, error } = await supabase
     .from("user_profiles")
-    .select(
-      "user_id, email, display_name, avatar_url, password_hash, plan_id, is_premium, premium_unlocked_at, created_at, updated_at",
-    )
+    .select(USER_PROFILE_SELECT)
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -274,6 +307,55 @@ async function getUserProfileRow(userId: string) {
   }
 
   return (data as UserProfileRow | null) ?? null;
+}
+
+async function getUserProfileRowByBillingReference(input: {
+  subscriptionId?: string | null;
+  transactionId?: string | null;
+}) {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return null;
+  }
+
+  if (input.subscriptionId) {
+    const subscriptionLookup = await supabase
+      .from("user_profiles")
+      .select(USER_PROFILE_SELECT)
+      .eq("paddle_subscription_id", input.subscriptionId)
+      .maybeSingle();
+
+    if (subscriptionLookup.error) {
+      throw formatSupabaseAuthError(
+        subscriptionLookup.error,
+        "Unable to read public.user_profiles by subscription id.",
+      );
+    }
+
+    if (subscriptionLookup.data) {
+      return subscriptionLookup.data as UserProfileRow;
+    }
+  }
+
+  if (!input.transactionId) {
+    return null;
+  }
+
+  const transactionLookup = await supabase
+    .from("user_profiles")
+    .select(USER_PROFILE_SELECT)
+    .eq("paddle_transaction_id", input.transactionId)
+    .maybeSingle();
+
+  if (transactionLookup.error) {
+    throw formatSupabaseAuthError(
+      transactionLookup.error,
+      "Unable to read public.user_profiles by transaction id.",
+    );
+  }
+
+  return (transactionLookup.data as UserProfileRow | null) ?? null;
 }
 
 async function getNextAuthAccountsByUserId(userId: string) {
@@ -337,6 +419,25 @@ export async function getAppUserProfileByEmail(email: string) {
   }
 
   const profile = await getUserProfileRow(user.id);
+  return mapProfile(user, profile);
+}
+
+export async function getAppUserProfileByBillingReference(input: {
+  subscriptionId?: string | null;
+  transactionId?: string | null;
+}) {
+  const profile = await getUserProfileRowByBillingReference(input);
+
+  if (!profile) {
+    return null;
+  }
+
+  const user = await getNextAuthUserById(profile.user_id);
+
+  if (!user) {
+    return null;
+  }
+
   return mapProfile(user, profile);
 }
 
@@ -463,21 +564,60 @@ export async function verifyCredentials(email: string, password: string) {
   };
 }
 
-export async function setUserPremium(userId: string, isPremium = true, planId = "premium") {
+export async function setUserBillingState(input: {
+  userId: string;
+  isPremium: boolean;
+  planId?: string | null;
+  billingStatus?: BillingStatus;
+  paddleTransactionId?: string | null;
+  paddleSubscriptionId?: string | null;
+  currentPeriodEndsAt?: string | null;
+  premiumUnlockedAt?: string | null;
+}) {
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {
     throw new Error("Supabase is not configured.");
   }
 
+  const existingProfile = await getUserProfileRow(input.userId);
+  const nextPlanId = normalizeStoredBillingPlanId(
+    input.planId,
+    normalizeStoredBillingPlanId(existingProfile?.plan_id),
+  );
+  const nextBillingStatus = input.billingStatus
+    ? normalizeBillingStatus(input.billingStatus)
+    : input.isPremium
+      ? "active"
+      : normalizeBillingStatus(existingProfile?.billing_status, "inactive");
+  const premiumUnlockedAt = input.isPremium
+    ? input.premiumUnlockedAt ??
+      existingProfile?.premium_unlocked_at ??
+      new Date().toISOString()
+    : null;
+
   const { error } = await supabase
     .from("user_profiles")
     .upsert(
       {
-        user_id: userId,
-        is_premium: isPremium,
-        plan_id: isPremium ? planId : "free",
-        premium_unlocked_at: isPremium ? new Date().toISOString() : null,
+        user_id: input.userId,
+        is_premium: input.isPremium,
+        plan_id: nextPlanId,
+        premium_unlocked_at: premiumUnlockedAt,
+        billing_status: nextBillingStatus,
+        paddle_transaction_id:
+          input.paddleTransactionId === undefined
+            ? existingProfile?.paddle_transaction_id ?? null
+            : input.paddleTransactionId,
+        paddle_subscription_id:
+          input.paddleSubscriptionId === undefined
+            ? existingProfile?.paddle_subscription_id ?? null
+            : input.paddleSubscriptionId,
+        current_period_ends_at:
+          input.currentPeriodEndsAt === undefined
+            ? existingProfile?.current_period_ends_at ?? null
+            : input.currentPeriodEndsAt,
+        billing_updated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
@@ -490,7 +630,21 @@ export async function setUserPremium(userId: string, isPremium = true, planId = 
     );
   }
 
-  return getAppUserProfileById(userId);
+  return getAppUserProfileById(input.userId);
+}
+
+export async function setUserPremium(
+  userId: string,
+  isPremium = true,
+  planId = "premium",
+) {
+  return setUserBillingState({
+    userId,
+    isPremium,
+    planId,
+    billingStatus: isPremium ? "active" : "inactive",
+    currentPeriodEndsAt: null,
+  });
 }
 
 export async function getAccountSettingsSummary(userId: string) {
@@ -654,9 +808,7 @@ export async function listAdminUsers(limit = 200) {
       .limit(safeLimit),
     supabase
       .from("user_profiles")
-      .select(
-        "user_id, email, display_name, avatar_url, password_hash, plan_id, is_premium, premium_unlocked_at, created_at, updated_at",
-      )
+      .select(USER_PROFILE_SELECT)
       .order("created_at", { ascending: false })
       .limit(safeLimit),
     supabase

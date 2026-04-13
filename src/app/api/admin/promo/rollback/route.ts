@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
   await sendAdminNotification({
     kind: "payment",
-    subject: "PolicyPack — Promo Rollback Executed",
+    subject: "PolicyPack - Promo Rollback Executed",
     summary: `The promotional campaign was re-enabled by ${adminEmail}.`,
     details: [
       { label: "Rolled Back By", value: adminEmail },

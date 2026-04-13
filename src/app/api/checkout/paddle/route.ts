@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { Environment } from "@paddle/paddle-node-sdk";
 
 import { auth } from "@/auth";
-import { getAppUserProfileById, setUserPremium } from "@/lib/auth-data";
+import { getAppUserProfileById, setUserBillingState } from "@/lib/auth-data";
+import {
+  buildBillingUpdateFromTransaction,
+  isTransactionOwnedByUser,
+  readPaddleCustomDataValue,
+} from "@/lib/billing-state";
 import { getBillingPlan, type BillingPlanId } from "@/lib/billing-plans";
 import { sendAdminNotification, sendPaymentReceiptEmail } from "@/lib/notifications";
 import {
@@ -89,27 +94,54 @@ export async function POST(request: Request) {
 
     if (paddle && body.transactionId) {
       const verifiedTransaction = await paddle.transactions.get(body.transactionId);
-      const isVerified = isVerifiedPaddleTransactionStatus(
-        verifiedTransaction.status,
-      );
       const currentProfile = await getAppUserProfileById(session.user.id);
+      const customData = (verifiedTransaction.customData ??
+        {}) as Record<string, unknown>;
 
-      if (isVerified) {
-        const customData = (verifiedTransaction.customData ??
-          {}) as Record<string, unknown>;
-        const planIdFromData = typeof customData.planId === "string" ? customData.planId : "premium";
-        
-        await setUserPremium(session.user.id, true, planIdFromData);
+      if (!isTransactionOwnedByUser(customData, session.user.id)) {
+        return NextResponse.json(
+          {
+            error:
+              "This transaction does not belong to the signed-in account.",
+          },
+          { status: 403 },
+        );
+      }
 
-        if (!currentProfile?.isPremium) {
+      const billingUpdate = buildBillingUpdateFromTransaction({
+        customData,
+        fallbackPlanId: currentProfile?.planId ?? "free",
+        status: verifiedTransaction.status,
+        transactionId: verifiedTransaction.id,
+        subscriptionId: verifiedTransaction.subscriptionId,
+        currentPeriodEndsAt: verifiedTransaction.billingPeriod?.endsAt ?? null,
+      });
+      let updatedProfile = currentProfile;
+
+      if (billingUpdate.billingStatus !== "pending") {
+        updatedProfile = await setUserBillingState({
+          userId: session.user.id,
+          isPremium: billingUpdate.isPremium,
+          planId: billingUpdate.planId,
+          billingStatus: billingUpdate.billingStatus,
+          paddleTransactionId: billingUpdate.paddleTransactionId,
+          paddleSubscriptionId: billingUpdate.paddleSubscriptionId,
+          currentPeriodEndsAt: billingUpdate.currentPeriodEndsAt,
+          premiumUnlockedAt: currentProfile?.premiumUnlockedAt ?? undefined,
+        });
+      }
+
+      if (
+        updatedProfile?.isPremium &&
+        !currentProfile?.isPremium &&
+        isVerifiedPaddleTransactionStatus(verifiedTransaction.status)
+      ) {
           const paymentEmail =
             verifiedTransaction.customer?.email ?? session.user.email ?? "Unknown";
           const paymentPlan =
-            typeof customData.planName === "string"
-              ? customData.planName
-              : typeof customData.planId === "string"
-                ? customData.planId
-                : "Not specified";
+            readPaddleCustomDataValue(customData, "planName") ??
+            readPaddleCustomDataValue(customData, "planId") ??
+            "Not specified";
 
           void sendAdminNotification({
             kind: "payment",
@@ -131,7 +163,6 @@ export async function POST(request: Request) {
           if (paymentEmail && paymentEmail !== "Unknown") {
             void sendPaymentReceiptEmail(paymentEmail, paymentPlan).catch(() => {});
           }
-        }
       }
 
       return NextResponse.json({
@@ -140,11 +171,11 @@ export async function POST(request: Request) {
         providerMode: "paddle-verified",
         transactionId: verifiedTransaction.id,
         verifiedStatus: verifiedTransaction.status,
-        premiumUnlocked: isVerified,
+        premiumUnlocked: updatedProfile?.isPremium ?? false,
         environment: config.environment,
         sandbox: config.environment === Environment.sandbox,
         legalUrls,
-        message: isVerified
+        message: updatedProfile?.isPremium
           ? "Payment verified. Export access is now unlocked for this account."
           : `Transaction ${verifiedTransaction.id} is ${verifiedTransaction.status} and not ready to unlock premium access yet.`,
       });

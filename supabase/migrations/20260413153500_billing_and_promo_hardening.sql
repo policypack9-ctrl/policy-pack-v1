@@ -98,18 +98,9 @@ create table if not exists public.generated_documents (
 create index if not exists generated_documents_user_idx
   on public.generated_documents (user_id);
 
--- Enable Row Level Security (RLS) to prevent unauthorized access via anon_key
 alter table public.user_profiles enable row level security;
 alter table public.generated_documents enable row level security;
 
--- Since the application uses NextAuth and the Supabase Service Role Key on the server side,
--- we don't need to define complex policies for the anon_key. 
--- The Service Role Key will automatically bypass RLS.
--- We can add a deny-all policy for the anon_key to be explicit (which is the default when RLS is enabled without policies).
-
-
-
--- App settings table for feature flags (e.g. promo_active)
 create table if not exists public.app_settings (
   key text primary key,
   value text not null,
@@ -117,12 +108,10 @@ create table if not exists public.app_settings (
   updated_by text
 );
 
--- Seed default promo setting
 insert into public.app_settings (key, value, updated_by)
 values ('promo_active', 'true', 'system')
 on conflict (key) do nothing;
 
--- Promo archive log
 create table if not exists public.promo_archive_log (
   id uuid primary key default gen_random_uuid(),
   ended_at timestamptz not null default timezone('utc', now()),
