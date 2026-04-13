@@ -239,7 +239,7 @@ export function ComplianceDashboard({
     return Boolean(loadPolicyAccount() ?? loadStoredPolicySession());
   });
 
-  // Client-side auth guard ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â redirect to login if no email (extra safety layer)
+  // Client-side auth guard ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â redirect to login if no email (extra safety layer)
   useEffect(() => {
     if (!authenticatedEmail) {
       router.replace("/login?callbackUrl=/dashboard");
@@ -1020,9 +1020,9 @@ export function ComplianceDashboard({
               </p>
             )}
           </div>
-          {/* â”€â”€ Plan selection: 4 tiers always visible â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Plan selection: 4 tiers always visible ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
           <div className="w-full space-y-3">
-            {/* Promo card â€” only during active promo */}
+            {/* Promo card ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â only during active promo */}
             {launchSnapshot.promoActive && (
               <a
                 href={onboardingHref}
@@ -1453,17 +1453,21 @@ export function ComplianceDashboard({
               {displayDocuments.map((document, index) => {
                 const DocumentIcon = documentIcons[document.id];
                 const hasGeneratedDraft = Boolean(documentCache[document.id]);
+                const isEligiblePromoUser = launchSnapshot.isEligibleLaunchUser && !isPremium;
                 const isFullyLocked =
                   !isPremium &&
+                  !isEligiblePromoUser &&
                   !hasGeneratedDraft &&
                   !canGenerateComplimentaryDocument;
                 const viewButtonLabel = isPremium
                   ? "View Document"
                   : hasGeneratedDraft
                     ? "View Draft"
-                    : canGenerateComplimentaryDocument
-                      ? "Use Free Draft"
-                      : "Choose a Package";
+                    : isEligiblePromoUser
+                      ? "Generate Now"
+                      : canGenerateComplimentaryDocument
+                        ? "Use Free Draft"
+                        : "Choose a Package";
                 const overlayLabel = isPremium
                   ? null
                   : hasGeneratedDraft
