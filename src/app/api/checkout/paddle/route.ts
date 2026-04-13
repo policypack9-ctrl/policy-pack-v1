@@ -136,14 +136,14 @@ export async function POST(request: Request) {
         !currentProfile?.isPremium &&
         isVerifiedPaddleTransactionStatus(verifiedTransaction.status)
       ) {
-          const paymentEmail =
-            verifiedTransaction.customer?.email ?? session.user.email ?? "Unknown";
-          const paymentPlan =
-            readPaddleCustomDataValue(customData, "planName") ??
-            readPaddleCustomDataValue(customData, "planId") ??
-            "Not specified";
-
-          void sendAdminNotification({
+        const paymentEmail =
+          verifiedTransaction.customer?.email ?? session.user.email ?? "Unknown";
+        const paymentPlan =
+          readPaddleCustomDataValue(customData, "planName") ??
+          readPaddleCustomDataValue(customData, "planId") ??
+          "Not specified";
+        const notificationTasks: Array<Promise<{ ok: boolean; skipped: boolean }>> = [
+          sendAdminNotification({
             kind: "payment",
             subject: "New PolicyPack payment confirmed",
             summary:
@@ -158,11 +158,24 @@ export async function POST(request: Request) {
                 value: verifiedTransaction.status ?? "Unknown",
               },
             ],
-          }).catch(() => {});
+          }),
+        ];
 
-          if (paymentEmail && paymentEmail !== "Unknown") {
-            void sendPaymentReceiptEmail(paymentEmail, paymentPlan).catch(() => {});
+        if (paymentEmail && paymentEmail !== "Unknown") {
+          notificationTasks.push(
+            sendPaymentReceiptEmail(paymentEmail, paymentPlan),
+          );
+        }
+
+        const notificationResults = await Promise.allSettled(notificationTasks);
+
+        for (const result of notificationResults) {
+          if (result.status === "rejected") {
+            console.error("Payment notification failed to send.", result.reason);
+          } else if (!result.value.ok && !result.value.skipped) {
+            console.error("Payment notification returned a delivery failure.");
           }
+        }
       }
 
       return NextResponse.json({
