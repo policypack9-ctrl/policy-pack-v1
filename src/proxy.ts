@@ -1,10 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 
+import { auth } from "@/auth";
 import { PRIMARY_DOMAIN, WWW_DOMAIN } from "@/lib/site-config";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/profile", "/admin"];
+
+// These are always public — never redirect them
+const PUBLIC_PREFIXES = ["/login", "/register", "/api", "/_next", "/favicon"];
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -25,21 +28,21 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // 2. Auth guard — JWT-only, no DB call
   const pathname = request.nextUrl.pathname;
-  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
 
-  if (isProtected) {
-    const token = await getToken({
-      req: request,
-      secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET ?? "",
-    });
-    // Valid token must have a userId (cleared tokens mean deleted user)
-    if (!token?.userId && !token?.sub) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+  // 2. Skip auth check for public routes to prevent redirect loops
+  const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+  if (isPublic) return NextResponse.next();
+
+  // 3. Auth guard for protected routes only
+  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
+  if (!isProtected) return NextResponse.next();
+
+  const session = await auth();
+  if (!session?.user?.id) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
@@ -47,6 +50,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|api/).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)",
   ],
 };
