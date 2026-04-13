@@ -56,16 +56,26 @@ export function GenerationResult({
     () => normalizeAnswers(storedSession?.answers),
     [storedSession],
   );
+  const selectedPlanId = answers.planSelection;
+  const hasChosenPlan =
+    selectedPlanId === "free" ||
+    selectedPlanId === "promo" ||
+    selectedPlanId === "starter" ||
+    selectedPlanId === "premium";
   const productName = answers.businessName || "PolicyPack";
   const region = resolvePrimaryRegion(answers);
   const canClaimComplimentaryDocument =
     !isPremium && initialLaunchSnapshot.canGenerateComplimentaryDocument;
-  const unlockHeading = canClaimComplimentaryDocument
+  const unlockHeading = hasChosenPlan
+    ? "Your workspace is ready."
+    : canClaimComplimentaryDocument
     ? "Your launch access is still available."
     : initialLaunchSnapshot.freeGenerationClosed
       ? "Complimentary launch access is closed."
       : "Your complimentary draft has already been used.";
-  const unlockSummary = canClaimComplimentaryDocument
+  const unlockSummary = hasChosenPlan
+    ? "Your selected package is already attached to this workspace. Continue to the dashboard to review your package details and selected pages."
+    : canClaimComplimentaryDocument
     ? "This account is registered during the promotional period and can still generate complimentary documents before billing becomes required."
     : initialLaunchSnapshot.freeGenerationClosed
       ? "The complimentary promotional period has ended. New workspaces now choose a package before generation starts."
@@ -81,7 +91,7 @@ export function GenerationResult({
       return;
     }
 
-    if (isPremium || canClaimComplimentaryDocument) {
+    if (isPremium || canClaimComplimentaryDocument || hasChosenPlan) {
       router.push("/dashboard");
       return;
     }
@@ -200,8 +210,10 @@ export function GenerationResult({
                 What unlocks
               </p>
               <div className="mt-4 space-y-3">
-                  {[
-                    canClaimComplimentaryDocument
+                {[
+                    hasChosenPlan
+                      ? "Your selected package is already locked into this workspace"
+                      : canClaimComplimentaryDocument
                       ? "One complimentary launch document is still available on this account"
                       : "Choose a package before new document generation begins",
                     "A personal dashboard with live document viewing and saved workspace history",
@@ -245,6 +257,8 @@ export function GenerationResult({
                       <ShieldCheck className="size-4" />
                     ) : isPremium ? (
                       <ShieldCheck className="size-4" />
+                    ) : hasChosenPlan ? (
+                      <ShieldCheck className="size-4" />
                     ) : canClaimComplimentaryDocument ? (
                       <BadgeCheck className="size-4" />
                     ) : (
@@ -259,6 +273,8 @@ export function GenerationResult({
                         ? "Create Account to Continue"
                         : "Create Account to Claim Free Spot"
                       : isPremium
+                        ? "Go to Dashboard"
+                        : hasChosenPlan
                         ? "Go to Dashboard"
                         : canClaimComplimentaryDocument
                           ? "Open My Complimentary Document"
@@ -284,14 +300,16 @@ export function GenerationResult({
         </motion.section>
       </div>
 
-      <PlanSelectionDialog
-        isOpen={isPlanDialogOpen}
-        onClose={() => setIsPlanDialogOpen(false)}
-        onSelectPlan={(planId) => void handleUnlock(planId)}
-        isSubmitting={isUnlocking}
-        title="Choose the package you want to unlock"
-        description="Pick the simpler one-time pack or the full workspace before continuing to billing."
-      />
+      {hasChosenPlan ? null : (
+        <PlanSelectionDialog
+          isOpen={isPlanDialogOpen}
+          onClose={() => setIsPlanDialogOpen(false)}
+          onSelectPlan={(planId) => void handleUnlock(planId)}
+          isSubmitting={isUnlocking}
+          title="Choose the package you want to unlock"
+          description="Pick the simpler one-time pack or the full workspace before continuing to billing."
+        />
+      )}
     </main>
   );
 }

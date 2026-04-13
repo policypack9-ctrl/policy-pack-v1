@@ -5,8 +5,13 @@ import { buildAuthRedirectHref } from "@/lib/auth-routing";
 import { getAppUserProfileById, getLaunchCampaignSnapshot } from "@/lib/auth-data";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ _ptxn?: string }>;
+}) {
   const session = await auth();
+  const resolvedSearchParams = (await searchParams) ?? {};
 
   if (!session?.user) {
     redirect(buildAuthRedirectHref("register", "/onboarding"));
@@ -23,6 +28,8 @@ export default async function OnboardingPage() {
     <OnboardingWizard
       planId={planId}
       isPremium={profile?.isPremium ?? false}
+      authenticatedEmail={session.user.email ?? null}
+      initialPaddleTransactionId={resolvedSearchParams._ptxn ?? null}
       launchSnapshot={launchSnapshot}
     />
   );

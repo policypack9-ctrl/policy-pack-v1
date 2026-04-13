@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CheckoutEventNames, initializePaddle, type Environments, type Paddle, type PaddleEventData } from "@paddle/paddle-js";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -9,6 +10,7 @@ import {
   Check,
   CreditCard,
   Globe2,
+  LoaderCircle,
   FileText,
   LockKeyhole,
   Mail,
@@ -19,10 +21,12 @@ import {
   UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { PlanSelectionDialog } from "@/components/billing/plan-selection-dialog";
 import { Button } from "@/components/ui/button";
 import { PremiumButton } from "@/components/ui/premium-button";
+import { type BillingPlanId } from "@/lib/billing-plans";
 import {
   buildSavedPolicyAccount,
   clearPolicyWorkspace,
@@ -295,22 +299,84 @@ const optionItemVariants = {
   },
 };
 
+function waitFor(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 import { getUserTier, getTierPageConfig, getPageLockMessage, isPageAvailableForTier, ALL_PAGE_IDS, type PageId, type UserTier } from "@/lib/tier-pages";
+
+type WorkspacePlanId = "free" | "promo" | BillingPlanId;
+type CheckoutState =
+  | "idle"
+  | "initializing"
+  | "ready"
+  | "opening"
+  | "verifying"
+  | "success"
+  | "error";
 
 type OnboardingWizardProps = {
   planId?: string;
   isPremium?: boolean;
+  authenticatedEmail?: string | null;
+  initialPaddleTransactionId?: string | null;
   launchSnapshot?: LaunchCampaignSnapshot;
 };
+
+function normalizePlanSelection(value?: string | null): WorkspacePlanId | "" {
+  if (value === "free" || value === "promo" || value === "starter" || value === "premium") {
+    return value;
+  }
+
+  return "";
+}
+
+function resolveSelectedTier(input: {
+  selectedPlanId: WorkspacePlanId | "";
+  paidPlanId: BillingPlanId | null;
+  isEligibleLaunchUser: boolean;
+}): UserTier | null {
+  if (input.selectedPlanId === "promo" && input.isEligibleLaunchUser) {
+    return "promo";
+  }
+
+  if (input.selectedPlanId === "free") {
+    return "free";
+  }
+
+  if (input.selectedPlanId === "starter" && input.paidPlanId === "starter") {
+    return "starter";
+  }
+
+  if (input.selectedPlanId === "premium" && input.paidPlanId === "premium") {
+    return "premium";
+  }
+
+  return null;
+}
 
 export function OnboardingWizard({
   planId = "free",
   isPremium = false,
+  authenticatedEmail = null,
+  initialPaddleTransactionId = null,
   launchSnapshot,
 }: OnboardingWizardProps) {
   const router = useRouter();
   const shouldReduceMotion = Boolean(useReducedMotion());
+  const paddleRef = useRef<Paddle | null>(null);
+  const paddleInitPromiseRef = useRef<Promise<Paddle | null> | null>(null);
+  const activeTransactionIdRef = useRef<string | null>(null);
+  const verificationInFlightRef = useRef<string | null>(null);
+  const handledTransactionRef = useRef(false);
+  const pendingPlanRef = useRef<BillingPlanId | null>(null);
+  const paddleEventHandlerRef = useRef<(event: PaddleEventData) => void>(() => {});
+  const verifyTransactionAccessRef = useRef<(transactionId: string) => Promise<void>>(
+    async () => {},
+  );
   const [answers, setAnswers] = useState<OnboardingAnswers>(() => {
     if (typeof window === "undefined") {
       return emptyOnboardingAnswers;
@@ -333,14 +399,51 @@ export function OnboardingWizard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
+  const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
+  const [checkoutNotice, setCheckoutNotice] = useState("");
+  const [billingPlanOverride, setBillingPlanOverride] = useState<BillingPlanId | null>(null);
 
-  // Resolve tier from a single source of truth (tier-pages.ts)
-  // Tier comes from the server-side profile snapshot.
-  const userTier = getUserTier({
+  const persistedPaidPlanId =
+    isPremium && (planId === "starter" || planId === "premium")
+      ? planId
+      : null;
+  const paidPlanId = billingPlanOverride ?? persistedPaidPlanId;
+  const selectedPlanId =
+    normalizePlanSelection(paidPlanId) ||
+    normalizePlanSelection(answers.planSelection);
+  const selectedTier = resolveSelectedTier({
+    selectedPlanId,
+    paidPlanId,
+    isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
+  });
+  const isCheckoutBusy =
+    checkoutState === "initializing" ||
+    checkoutState === "opening" ||
+    checkoutState === "verifying";
+
+  function persistDraft(next: OnboardingAnswers) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
+  }
+
+  function updateAnswers(updater: (current: OnboardingAnswers) => OnboardingAnswers) {
+    setAnswers((current) => {
+      const next = normalizeAnswers(updater(current));
+      persistDraft(next);
+      return next;
+    });
+  }
+
+  const serverTier = getUserTier({
     isPremium,
     planId,
     isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
   });
+  const userTier = selectedTier ?? serverTier;
   const tierConfig = getTierPageConfig(userTier);
   const maxPages = tierConfig.maxSelectable;
 
@@ -374,16 +477,52 @@ export function OnboardingWizard({
   );
   const dynamicQuestions: Question[] = [pageSelectionQuestion, ...filteredQuestions];
 
-  const currentQuestion = dynamicQuestions[stepIndex];
-  const progress = ((stepIndex + 1) / dynamicQuestions.length) * 100;
-  const isLastStep = stepIndex === dynamicQuestions.length - 1;
+  const currentQuestion = dynamicQuestions[stepIndex] ?? null;
+  const progress = currentQuestion
+    ? ((stepIndex + 1) / dynamicQuestions.length) * 100
+    : 0;
+  const isLastStep = currentQuestion
+    ? stepIndex === dynamicQuestions.length - 1
+    : false;
   const canContinue =
+    currentQuestion !== null &&
     questionHasAnswer(currentQuestion, answers) &&
     (currentQuestion.id !== "selectedPages" ||
       (answers.selectedPages.length > 0 &&
         answers.selectedPages.length <= maxPages));
   const generationMessages = getGenerationMessages(answers);
-  const isOverPageLimit = currentQuestion.id === "selectedPages" && answers.selectedPages.length > maxPages;
+  const isOverPageLimit =
+    currentQuestion?.id === "selectedPages" &&
+    answers.selectedPages.length > maxPages;
+
+  useEffect(() => {
+    if (!selectedPlanId && !isGenerating) {
+      setIsPlanDialogOpen(true);
+    }
+  }, [isGenerating, selectedPlanId]);
+
+  useEffect(() => {
+    if (stepIndex < dynamicQuestions.length) {
+      return;
+    }
+
+    setStepIndex(Math.max(dynamicQuestions.length - 1, 0));
+  }, [dynamicQuestions.length, stepIndex]);
+
+  useEffect(() => {
+    return () => {
+      paddleRef.current?.Checkout.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!initialPaddleTransactionId || handledTransactionRef.current) {
+      return;
+    }
+
+    handledTransactionRef.current = true;
+    void verifyTransactionAccessRef.current(initialPaddleTransactionId);
+  }, [initialPaddleTransactionId]);
 
   useEffect(() => {
     if (!isGenerating) {
@@ -429,30 +568,18 @@ export function OnboardingWizard({
   }, [answers, isGenerating, router, shouldReduceMotion]);
 
   function updateTextAnswer(id: keyof OnboardingAnswers, value: string) {
-    setAnswers((current) => {
-      const next = { ...current, [id]: value };
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
-      }
-      return next;
-    });
+    updateAnswers((current) => ({ ...current, [id]: value }));
     setShowValidation(false);
   }
 
   function updateSingleAnswer(id: WizardQuestionId, value: string) {
-    setAnswers((current) => {
-      const next = {
+    updateAnswers((current) => ({
         ...current,
         [id]: value,
         ...(id === "companyLocation" && value !== OTHER_OPTION_VALUE
           ? { [CUSTOM_INPUT_FIELDS.companyLocation]: "" }
           : {}),
-      };
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
-      }
-      return next;
-    });
+      }));
     setShowValidation(false);
   }
 
@@ -460,21 +587,15 @@ export function OnboardingWizard({
     id: keyof typeof CUSTOM_INPUT_FIELDS,
     value: string,
   ) {
-    setAnswers((current) => {
-      const next = {
+    updateAnswers((current) => ({
         ...current,
         [CUSTOM_INPUT_FIELDS[id]]: value,
-      };
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
-      }
-      return next;
-    });
+      }));
     setShowValidation(false);
   }
 
   function toggleMultiAnswer(id: CustomMultiQuestionId | "selectedPages", value: string) {
-    setAnswers((current) => {
+    updateAnswers((current) => {
       const currentValue = current[id];
       if (!Array.isArray(currentValue)) {
         return current;
@@ -508,14 +629,322 @@ export function OnboardingWizard({
           : {}),
         ...(customField && value === "None" && !isSelected ? { [customField]: "" } : {}),
       };
-      
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
-      }
-      
+
       return next;
     });
     setShowValidation(false);
+  }
+
+  function applyPlanSelection(nextPlanId: WorkspacePlanId) {
+    const nextTier = resolveSelectedTier({
+      selectedPlanId: nextPlanId,
+      paidPlanId:
+        nextPlanId === "starter" || nextPlanId === "premium"
+          ? nextPlanId
+          : paidPlanId,
+      isEligibleLaunchUser: launchSnapshot?.isEligibleLaunchUser ?? false,
+    });
+
+    if (!nextTier) {
+      return;
+    }
+
+    const nextTierConfig = getTierPageConfig(nextTier);
+    updateAnswers((current) => ({
+      ...current,
+      planSelection: nextPlanId,
+      selectedPages: current.selectedPages
+        .filter((pageId) => isPageAvailableForTier(pageId as PageId, nextTier))
+        .slice(0, nextTierConfig.maxSelectable),
+    }));
+    setStepIndex(0);
+    setShowValidation(false);
+    setCheckoutNotice("");
+    setCheckoutState("idle");
+    setIsPlanDialogOpen(false);
+  }
+
+  async function initializePaddleOverlay() {
+    if (paddleRef.current) {
+      return paddleRef.current;
+    }
+
+    if (paddleInitPromiseRef.current) {
+      return paddleInitPromiseRef.current;
+    }
+
+    setCheckoutState("initializing");
+    setCheckoutNotice("Preparing billing...");
+
+    paddleInitPromiseRef.current = (async () => {
+      const response = await fetch("/api/checkout/paddle/client-token", {
+        cache: "no-store",
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            token?: string;
+            environment?: Environments;
+          }
+        | null;
+
+      if (!response.ok || !payload?.token || !payload.environment) {
+        setCheckoutState("error");
+        setCheckoutNotice(
+          payload?.error ??
+            "Billing is temporarily unavailable. Please try again in a moment.",
+        );
+        return null;
+      }
+
+      const paddle = await initializePaddle({
+        token: payload.token,
+        environment: payload.environment,
+        checkout: {
+          settings: {
+            displayMode: "overlay",
+            theme: "dark",
+            successUrl: `${window.location.origin}/onboarding`,
+          },
+        },
+        eventCallback: (event) => {
+          paddleEventHandlerRef.current(event);
+        },
+      });
+
+      if (!paddle) {
+        setCheckoutState("error");
+        setCheckoutNotice("Billing could not be opened on this browser.");
+        return null;
+      }
+
+      paddleRef.current = paddle;
+      setCheckoutState("ready");
+      return paddle;
+    })().finally(() => {
+      paddleInitPromiseRef.current = null;
+    });
+
+    return paddleInitPromiseRef.current;
+  }
+
+  async function verifyTransactionAccess(transactionId: string) {
+    if (verificationInFlightRef.current === transactionId) {
+      return;
+    }
+
+    verificationInFlightRef.current = transactionId;
+    setCheckoutState("verifying");
+    setCheckoutNotice("Confirming your payment...");
+
+    try {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const response = await fetch("/api/checkout/paddle", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            transactionId,
+          }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              error?: string;
+              details?: string;
+              premiumUnlocked?: boolean;
+              verifiedStatus?: string;
+              verifiedPlanId?: BillingPlanId;
+            }
+          | null;
+
+        if (!response.ok) {
+          setCheckoutState("error");
+          setCheckoutNotice(
+            payload?.error ??
+              payload?.details ??
+              "We couldn't verify your payment yet.",
+          );
+          return;
+        }
+
+        if (payload?.premiumUnlocked && payload.verifiedPlanId) {
+          setBillingPlanOverride(payload.verifiedPlanId);
+          applyPlanSelection(payload.verifiedPlanId);
+          setCheckoutState("success");
+          setCheckoutNotice("Payment confirmed. Your package is active.");
+          activeTransactionIdRef.current = null;
+          pendingPlanRef.current = null;
+          router.replace("/onboarding");
+          router.refresh();
+          return;
+        }
+
+        if (attempt < 11) {
+          setCheckoutNotice(
+            payload?.verifiedStatus
+              ? `Your payment is ${payload.verifiedStatus}. Waiting for final confirmation...`
+              : "Payment submitted. Waiting for final confirmation...",
+          );
+          await waitFor(2500);
+        }
+      }
+
+      setCheckoutState("ready");
+      setCheckoutNotice(
+        "Billing finished, but the payment is still processing. Try again in a few seconds.",
+      );
+    } finally {
+      verificationInFlightRef.current = null;
+    }
+  }
+
+  async function openPaddleOverlay(transactionId: string) {
+    const paddle = await initializePaddleOverlay();
+
+    if (!paddle) {
+      return false;
+    }
+
+    activeTransactionIdRef.current = transactionId;
+    setCheckoutState("opening");
+    setCheckoutNotice("Opening billing...");
+
+    paddle.Checkout.open({
+      transactionId,
+      settings: {
+        displayMode: "overlay",
+        theme: "dark",
+        successUrl: `${window.location.origin}/onboarding?_ptxn=${transactionId}`,
+      },
+    });
+
+    return true;
+  }
+
+  paddleEventHandlerRef.current = (event) => {
+    switch (event.name) {
+      case CheckoutEventNames.CHECKOUT_LOADED:
+        setCheckoutState("opening");
+        setCheckoutNotice("Billing is ready.");
+        break;
+      case CheckoutEventNames.CHECKOUT_PAYMENT_INITIATED:
+        setCheckoutState("verifying");
+        setCheckoutNotice("Payment submitted. Waiting for final confirmation...");
+        break;
+      case CheckoutEventNames.CHECKOUT_COMPLETED: {
+        const completedTransactionId =
+          event.data?.transaction_id ?? activeTransactionIdRef.current;
+
+        if (completedTransactionId) {
+          void verifyTransactionAccess(completedTransactionId);
+        }
+        break;
+      }
+      case CheckoutEventNames.CHECKOUT_CLOSED:
+        if (checkoutState !== "success") {
+          setCheckoutState("ready");
+          setCheckoutNotice("Billing was closed. You can reopen it any time.");
+        }
+        break;
+      case CheckoutEventNames.CHECKOUT_FAILED:
+      case CheckoutEventNames.CHECKOUT_ERROR:
+      case CheckoutEventNames.CHECKOUT_PAYMENT_ERROR:
+      case CheckoutEventNames.CHECKOUT_PAYMENT_FAILED:
+        setCheckoutState("error");
+        setCheckoutNotice(
+          event.detail || "Checkout encountered an error. Please try again.",
+        );
+        break;
+      default:
+        break;
+    }
+  };
+  verifyTransactionAccessRef.current = verifyTransactionAccess;
+
+  async function handlePaidPlanSelection(nextPlanId: BillingPlanId) {
+    if (isCheckoutBusy) {
+      return;
+    }
+
+    if (paidPlanId === nextPlanId) {
+      applyPlanSelection(nextPlanId);
+      return;
+    }
+
+    pendingPlanRef.current = nextPlanId;
+    setCheckoutState("initializing");
+    setCheckoutNotice("");
+
+    try {
+      const response = await fetch("/api/checkout/paddle", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: authenticatedEmail,
+          productName: getProductName(answers),
+          planId: nextPlanId,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            details?: string;
+            checkoutUrl?: string | null;
+            transactionId?: string;
+            premiumUnlocked?: boolean;
+            verifiedPlanId?: BillingPlanId;
+            message?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        setCheckoutState("error");
+        setCheckoutNotice(
+          payload?.error ??
+            payload?.details ??
+            "Unable to start billing.",
+        );
+        return;
+      }
+
+      setCheckoutNotice(payload?.message ?? "Billing is ready.");
+
+      if (payload?.premiumUnlocked) {
+        const verifiedPlanId = payload.verifiedPlanId ?? nextPlanId;
+        setBillingPlanOverride(verifiedPlanId);
+        applyPlanSelection(verifiedPlanId);
+        router.refresh();
+        return;
+      }
+
+      if (payload?.transactionId) {
+        const opened = await openPaddleOverlay(payload.transactionId);
+
+        if (opened) {
+          return;
+        }
+      }
+
+      if (payload?.checkoutUrl) {
+        window.location.assign(payload.checkoutUrl);
+        return;
+      }
+
+      setCheckoutState("error");
+      setCheckoutNotice(
+        "The billing session was created, but it could not be opened on this device.",
+      );
+    } finally {
+      if (!activeTransactionIdRef.current && !verificationInFlightRef.current) {
+        pendingPlanRef.current = null;
+      }
+    }
   }
 
   function goBack() {
@@ -533,15 +962,19 @@ export function OnboardingWizard({
       window.localStorage.removeItem("policypack:wizard_draft:v1");
     }
     setAnswers(emptyOnboardingAnswers);
+    setBillingPlanOverride(null);
     setStepIndex(0);
     setShowValidation(false);
     setIsGenerating(false);
     setGenerationStep(0);
     setIsTransitioningOut(false);
+    setCheckoutNotice("");
+    setCheckoutState("idle");
+    setIsPlanDialogOpen(true);
   }
 
   function goNext() {
-    if (!canContinue) {
+    if (!currentQuestion || !canContinue) {
       setShowValidation(true);
       return;
     }
@@ -570,6 +1003,107 @@ export function OnboardingWizard({
     );
   }
 
+  if (!selectedTier || !currentQuestion) {
+    return (
+      <>
+        <main className="min-h-screen bg-[#0A0A0A] px-6 py-8 sm:px-10 sm:py-10 lg:px-12">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-8 flex items-center justify-between gap-4">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-sm font-medium text-white/58 transition-colors hover:text-white"
+              >
+                <ArrowLeft className="size-4" />
+                Back to landing page
+              </Link>
+              <div className="text-sm text-white/44">Onboarding</div>
+            </div>
+
+            <section className="soft-panel rounded-[32px] p-6 sm:p-8">
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/72">
+                    Package Selection
+                  </p>
+                  <h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">
+                    Choose your package before the questions start.
+                  </h1>
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-white/60">
+                    We use your selected package to decide which pages can be generated,
+                    how many you can choose, and which questions are necessary for your workspace.
+                  </p>
+
+                  <div className="mt-8 flex flex-wrap gap-3">
+                    <PremiumButton
+                      type="button"
+                      onClick={() => setIsPlanDialogOpen(true)}
+                      className="h-12 px-5 text-sm"
+                      icon={
+                        isCheckoutBusy ? (
+                          <LoaderCircle className="size-4 animate-spin" />
+                        ) : (
+                          <CreditCard className="size-4" />
+                        )
+                      }
+                    >
+                      {isCheckoutBusy ? "Preparing billing..." : "Choose Package"}
+                    </PremiumButton>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={startFreshGeneration}
+                      className="h-12 rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-5 text-sm text-white/72 hover:bg-white/[0.05] hover:text-white"
+                    >
+                      Reset Draft
+                    </Button>
+                  </div>
+
+                  {checkoutNotice ? (
+                    <p className="mt-5 text-sm text-teal-100/78">{checkoutNotice}</p>
+                  ) : null}
+                </div>
+
+                <aside className="space-y-4">
+                  <div className="soft-panel rounded-[26px] p-5">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-teal-200/72">
+                      How this works
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {[
+                        "1. Choose the package that matches your launch stage.",
+                        "2. Answer only the questions needed for the pages in that package.",
+                        "3. Open your dashboard with your package details and selected pages already attached to the workspace.",
+                      ].map((item) => (
+                        <div
+                          key={item}
+                          className="rounded-[18px] border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm leading-6 text-white/70"
+                        >
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </section>
+          </div>
+        </main>
+
+        <PlanSelectionDialog
+          isOpen={isPlanDialogOpen}
+          onClose={() => setIsPlanDialogOpen(false)}
+          onSelectPlan={(planId) => void handlePaidPlanSelection(planId)}
+          isSubmitting={isCheckoutBusy}
+          title="Choose the package for this workspace"
+          description="Pick the package first, then we will open only the relevant onboarding questions."
+          promoActive={launchSnapshot?.promoActive ?? false}
+          onSelectFree={() => applyPlanSelection("free")}
+          onSelectPromo={() => applyPlanSelection("promo")}
+        />
+      </>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#0A0A0A] px-6 py-8 sm:px-10 sm:py-10 lg:px-12">
       <div className="mx-auto max-w-7xl">
@@ -594,10 +1128,8 @@ export function OnboardingWizard({
                   </p>
                   <h1 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-white sm:text-3xl">
                     {stepIndex === 0
-                      ? "Which package fits your workspace?"
-                      : stepIndex === 1
-                        ? "Which pages do you want to generate?"
-                        : `Answer ${filteredQuestions.length} quick questions to generate your selected pages.`}
+                      ? "Which pages do you want to generate?"
+                      : `Answer ${filteredQuestions.length} quick questions to generate your selected pages.`}
                   </h1>
                 </div>
                   <div className="rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-sm text-white/58">
@@ -701,9 +1233,9 @@ export function OnboardingWizard({
               </p>
               <div className="mt-4 space-y-3">
                 {[
-                  "Privacy Policy tailored to your product and stack",
-                  "Terms of Service aligned to accounts and billing",
-                  "Automated monitoring for global privacy and platform changes",
+                  `${tierConfig.label}: choose up to ${tierConfig.maxSelectable} page${tierConfig.maxSelectable > 1 ? "s" : ""}`,
+                  "Questions are filtered automatically based on the pages you pick",
+                  "Your dashboard will open with this package and page set already saved",
                 ].map((item) => (
                   <div
                     key={item}
@@ -735,6 +1267,18 @@ export function OnboardingWizard({
           </aside>
         </div>
       </div>
+
+      <PlanSelectionDialog
+        isOpen={isPlanDialogOpen}
+        onClose={() => setIsPlanDialogOpen(false)}
+        onSelectPlan={(planId) => void handlePaidPlanSelection(planId)}
+        isSubmitting={isCheckoutBusy}
+        title="Switch package"
+        description="Choose a different package before you finish this setup."
+        promoActive={launchSnapshot?.promoActive ?? false}
+        onSelectFree={() => applyPlanSelection("free")}
+        onSelectPromo={() => applyPlanSelection("promo")}
+      />
     </main>
   );
 }

@@ -11,7 +11,7 @@ export default async function RegisterPage({
   searchParams?: Promise<{ callbackUrl?: string }>;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const callbackUrl = resolvedSearchParams.callbackUrl || "/dashboard";
+  const callbackUrl = resolvedSearchParams.callbackUrl || "/onboarding";
   const session = await auth();
   const googleEnabled = isGoogleAuthConfigured();
 

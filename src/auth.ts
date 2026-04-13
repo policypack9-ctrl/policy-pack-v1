@@ -151,8 +151,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const pathname = url.startsWith(baseUrl)
           ? url.slice(baseUrl.length) || "/"
           : url;
-        const safePathname = pathname === "/onboarding" ? "/dashboard" : pathname;
-        return `${baseUrl}${safePathname}`;
+        return `${baseUrl}${pathname}`;
       }
 
       try {

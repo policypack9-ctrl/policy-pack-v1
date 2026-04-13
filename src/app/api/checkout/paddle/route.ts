@@ -171,6 +171,7 @@ export async function POST(request: Request) {
         providerMode: "paddle-verified",
         transactionId: verifiedTransaction.id,
         verifiedStatus: verifiedTransaction.status,
+        verifiedPlanId: billingUpdate.planId,
         premiumUnlocked: updatedProfile?.isPremium ?? false,
         environment: config.environment,
         sandbox: config.environment === Environment.sandbox,

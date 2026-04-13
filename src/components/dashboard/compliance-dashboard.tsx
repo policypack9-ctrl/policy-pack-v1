@@ -42,8 +42,8 @@ import {
 import { type BillingPlanId } from "@/lib/billing-plans";
 import {
   buildComplianceSnapshot,
+  emptyOnboardingAnswers,
   formatAnswerList,
-  demoOnboardingAnswers,
   formatDisplayDateTime,
   getProductName,
   type DashboardDocument,
@@ -51,7 +51,6 @@ import {
   type StoredPolicySession,
 } from "@/lib/policy-engine";
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
-import { getUserTier, getTierPageConfig, type UserTier } from "@/lib/tier-pages";
 import { runAuditEngine, type DocumentUpdate } from "@/lib/audit-engine";
 
 const documentIcons = {
@@ -228,17 +227,21 @@ export function ComplianceDashboard({
   const verifyTransactionAccessRef = useRef<(transactionId: string) => Promise<void>>(
     async () => {},
   );
-  // Server-safe: start with empty session, hydrate from localStorage in useEffect
   const [session, setSession] = useState<StoredPolicySession>({
-    answers: demoOnboardingAnswers,
-    completedAt: new Date(0).toISOString(),
+    answers: emptyOnboardingAnswers,
+    completedAt: new Date().toISOString(),
   });
+  const [hasHydratedWorkspace, setHasHydratedWorkspace] = useState(false);
+  const [hasWorkspaceSession, setHasWorkspaceSession] = useState(false);
 
   // Hydrate localStorage after mount to avoid a server/client mismatch.
   useEffect(() => {
     const savedAccount = loadPolicyAccount();
     const storedSession = savedAccount?.session ?? loadStoredPolicySession();
-    if (storedSession) setSession(storedSession);
+    if (storedSession) {
+      setSession(storedSession);
+    }
+    setHasWorkspaceSession(Boolean(storedSession));
     const localDocs = loadGeneratedDocuments();
     if (Object.keys(localDocs).length > 0) {
       setDocumentCache((prev) => ({ ...buildInitialDocumentCache(initialGeneratedDocuments), ...localDocs, ...prev }));
@@ -248,6 +251,7 @@ export function ComplianceDashboard({
     } else if (loadStoredPolicySession()) {
       setSaveLabel("Your workspace has not been saved yet");
     }
+    setHasHydratedWorkspace(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Redirect deleted or expired sessions as soon as the client detects them.
@@ -335,29 +339,21 @@ export function ComplianceDashboard({
     displayDocuments[0];
   const activeGeneratedDocument = documentCache[activeDocument.id];
   const generatedDocumentCount = Object.keys(documentCache).length;
+  const selectedPageLabels = displayDocuments.map((document) => document.title);
 
   // Determine user tier and whether to show the empty state.
-  const userTier: UserTier = getUserTier({
-    isPremium,
-    planId,
-    isEligibleLaunchUser: launchSnapshot.isEligibleLaunchUser,
-  });
-  const tierConfig = getTierPageConfig(userTier);
-  // Empty state: no documents in DB and no local session
+  // Empty state: no generated documents and no completed onboarding session after hydration.
   const showEmptyState =
+    hasHydratedWorkspace &&
     generatedDocumentCount === 0 &&
-    initialGeneratedDocuments.length === 0;
-
-  const hasAutoOpenedPlanRef = useRef(false);
-
-  useEffect(() => {
-    if (showEmptyState && userTier === "free" && !hasAutoOpenedPlanRef.current) {
-      hasAutoOpenedPlanRef.current = true;
-      setIsPlanDialogOpen(true);
-    }
-  }, [showEmptyState, userTier]);
+    initialGeneratedDocuments.length === 0 &&
+    !hasWorkspaceSession;
 
   if (!authenticatedEmail) {
+    return null;
+  }
+
+  if (!hasHydratedWorkspace && initialGeneratedDocuments.length === 0) {
     return null;
   }
 
@@ -982,7 +978,6 @@ export function ComplianceDashboard({
 
   // -- Empty state: user has no documents and no saved session ----------
   if (showEmptyState) {
-    const onboardingHref = `/onboarding`;
     return (
       <motion.main
         initial={{ opacity: 0 }}
@@ -996,86 +991,35 @@ export function ComplianceDashboard({
           </span>
           <div className="space-y-3">
             <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-teal-200/60">
-              {tierConfig.label}
+              Workspace Setup
             </p>
             <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
-              Your workspace is ready
+              Finish onboarding to open your dashboard
             </h1>
             <p className="text-base leading-relaxed text-white/50">
-              {tierConfig.description}
+              Choose your package first, answer the guided questions once, and then
+              come back to a dashboard that shows your package details and selected pages.
             </p>
           </div>
           <div className="w-full rounded-[20px] border border-white/[0.07] bg-white/[0.03] p-5 text-left">
             <p className="mb-3 text-xs font-medium uppercase tracking-[0.24em] text-white/40">
-              Pages available to you
+              What happens next
             </p>
-            <div className="flex flex-wrap gap-2">
-              {tierConfig.availablePages.map((pageId) => (
-                <span
-                  key={pageId}
-                  className="rounded-full border border-teal-300/15 bg-teal-300/[0.06] px-3 py-1 text-xs font-medium capitalize text-teal-100/70"
-                >
-                  {pageId.replace(/-/g, " ")}
-                </span>
-              ))}
+            <div className="space-y-3 text-sm leading-6 text-white/68">
+              <p>1. Pick the package that matches your launch.</p>
+              <p>2. Answer only the questions required for the pages in that package.</p>
+              <p>3. Return here with your package details and generated pages already attached to the workspace.</p>
             </div>
-            {userTier !== "premium" && (
-              <p className="mt-3 text-xs text-white/30">
-                Choose up to {tierConfig.maxSelectable} &mdash;{" "}
-                {userTier === "promo" ? "Launch offer active" : "Upgrade to unlock more"}
-              </p>
-            )}
           </div>
-          {/* Locked pages keep the upgrade CTA visible in the dashboard grid. */}
-          <div className="w-full space-y-3">
-            {/* Locked pages keep the upgrade CTA visible in the dashboard grid. */}
-            {launchSnapshot.promoActive && (
-              <a
-                href={onboardingHref}
-                className="group flex w-full items-center justify-between rounded-[16px] border border-teal-300/25 bg-teal-300/[0.07] px-5 py-4 transition-all hover:border-teal-300/40 hover:bg-teal-300/[0.10]"
-              >
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-teal-100">Launch Offer &mdash; Free</p>
-                  <p className="mt-0.5 text-xs text-white/50">4 pages from all 7 &mdash; complimentary during promo</p>
-                </div>
-                <span className="rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-medium text-teal-200">Free</span>
-              </a>
-            )}
-            {/* Free tier card */}
-            <a
-              href={onboardingHref}
-              className="group flex w-full items-center justify-between rounded-[16px] border border-white/[0.08] bg-white/[0.02] px-5 py-4 transition-all hover:border-white/[0.14] hover:bg-white/[0.04]"
-            >
-              <div className="text-left">
-                <p className="text-sm font-semibold text-white/80">Free</p>
-                <p className="mt-0.5 text-xs text-white/40">2 basic pages &mdash; About Us, Contact Us, Cookies</p>
-              </div>
-              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-medium text-white/50">Basic</span>
-            </a>
-            {/* Starter card */}
-            <button
+          <div className="w-full">
+            <Button
               type="button"
-              onClick={() => { setIsPlanDialogOpen(true); }}
-              className="group flex w-full items-center justify-between rounded-[16px] border border-amber-300/20 bg-amber-300/[0.05] px-5 py-4 transition-all hover:border-amber-300/35 hover:bg-amber-300/[0.09]"
+              variant="ghost"
+              onClick={() => router.push("/onboarding")}
+              className="h-12 w-full rounded-[18px] border border-teal-300/20 bg-teal-300/[0.07] px-5 text-sm text-teal-100 hover:bg-teal-300/[0.12] hover:text-white"
             >
-              <div className="text-left">
-                <p className="text-sm font-semibold text-amber-100">Starter Pages &mdash; $39</p>
-                <p className="mt-0.5 text-xs text-white/50">3 legal pages &mdash; Terms, Privacy, Disclaimer, Refund</p>
-              </div>
-              <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium text-amber-200">One-time</span>
-            </button>
-            {/* Premium card */}
-            <button
-              type="button"
-              onClick={() => { setIsPlanDialogOpen(true); }}
-              className="group flex w-full items-center justify-between rounded-[16px] border border-white/[0.10] bg-white/[0.03] px-5 py-4 transition-all hover:border-teal-300/30 hover:bg-teal-300/[0.05]"
-            >
-              <div className="text-left">
-                <p className="text-sm font-semibold text-white">Premium Workspace &mdash; $29/mo</p>
-                <p className="mt-0.5 text-xs text-white/50">All 7 pages + auto-updates + monitoring</p>
-              </div>
-              <span className="rounded-full border border-teal-300/15 bg-teal-300/[0.07] px-3 py-1 text-xs font-medium text-teal-200/80">Best for SaaS</span>
-            </button>
+              Continue Onboarding
+            </Button>
           </div>
         </div>
       </motion.main>
@@ -1199,6 +1143,23 @@ export function ComplianceDashboard({
                 <p className="mt-2 text-sm text-white/58">
                   {currentPackageSummary}
                 </p>
+                {selectedPageLabels.length > 0 ? (
+                  <div className="mt-4">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-white/38">
+                      Selected pages
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {selectedPageLabels.map((label) => (
+                        <span
+                          key={label}
+                          className="rounded-full border border-teal-300/15 bg-teal-300/[0.06] px-3 py-1 text-xs font-medium text-teal-100/78"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {authenticatedEmail ? (
                   <p className="mt-2 text-xs uppercase tracking-[0.22em] text-white/28">
                     Signed in as {authenticatedEmail}
