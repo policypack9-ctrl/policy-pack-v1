@@ -83,25 +83,11 @@ export async function generatePolicyDocument({
     let researchSummary = "";
     let researchModel = config.researchModel;
 
-    if (generationTier === "premium" || generationTier === "internal") {
-      // Premium: full two-stage pipeline
-      const researchStage = await runResearchStage({
-        answers: normalizedAnswers,
-        documentType,
-        apiKey: config.apiKey,
-        baseUrl: config.baseUrl,
-        siteName: config.siteName,
-        siteUrl: config.siteUrl,
-        model: config.researchModel,
-      });
-      researchSummary = researchStage.content;
-      researchModel = researchStage.model;
-    } else {
-      // Free tier: skip web-search research stage to stay within 60s Vercel timeout.
-      // Draft directly from the structured onboarding answers (fast + reliable).
-      researchSummary = buildFallbackResearchSummary(normalizedAnswers);
-      researchModel = "answers-only";
-    }
+    // Both tiers use single-stage generation to stay within Vercel 60s timeout.
+    // Premium uses Claude with an enriched prompt that includes built-in regulation knowledge.
+    // Free uses DeepSeek with a solid structured prompt from answers.
+    researchSummary = buildEnrichedResearchContext(documentType, normalizedAnswers, generationTier);
+    researchModel = generationTier === "free" ? "answers-only" : "built-in-regulations";
 
     const draftingStage = await runDraftingStage({
       answers: normalizedAnswers,
@@ -143,51 +129,6 @@ export async function generatePolicyDocument({
     };
   }
 }
-
-async function runResearchStage(input: {
-  answers: OnboardingAnswers;
-  documentType: PolicyDocumentType;
-  apiKey: string;
-  baseUrl: string | null;
-  siteName: string;
-  siteUrl: string;
-  model: string;
-}) {
-  const currentYear = new Date().getUTCFullYear();
-  const systemPrompt = [
-    "You are PolicyPack's legal research stage.",
-    `Prompt version: ${POLICY_PROMPT_VERSION}.`,
-    "Search the web and summarize only the most relevant legal clauses or disclosure changes from the last 12 months.",
-    `Prioritize guidance and law updates that are relevant in ${currentYear} and affect the user's region, payment handling, tracking, AI usage, and SaaS operations.`,
-    "If the onboarding data includes custom values entered through an Other field, treat them as first-class facts and search for requirements that apply to them.",
-    "Return Markdown with these headings only: # Research Summary, ## Key Updates, ## Clauses To Include, ## Sources.",
-    "Under ## Sources, include concise bullet links with source title and URL.",
-    "Do not draft the full legal document in this stage.",
-  ].join(" ");
-
-  const userPrompt = buildResearchUserPrompt(input.documentType, input.answers);
-
-  return callOpenRouterChat({
-    apiKey: input.apiKey,
-    baseUrl: input.baseUrl,
-    siteName: input.siteName,
-    siteUrl: input.siteUrl,
-    model: input.model,
-    systemPrompt,
-    userPrompt,
-    maxTokens: 1800,
-    temperature: 0.1,
-    plugins: [
-      {
-        id: "web",
-        max_results: 5,
-        search_prompt:
-          "Find only the most relevant legal clauses for the user region that changed in the last 12 months.",
-      },
-    ],
-  });
-}
-
 async function runDraftingStage(input: {
   answers: OnboardingAnswers;
   documentType: PolicyDocumentType;
@@ -219,36 +160,6 @@ async function runDraftingStage(input: {
     maxTokens: 4096,
     temperature: 0.2,
   });
-}
-
-function buildResearchUserPrompt(
-  documentType: PolicyDocumentType,
-  answers: OnboardingAnswers,
-) {
-  const productName = getProductName(answers);
-  const primaryRegion = resolvePrimaryRegion(answers);
-  const operatorIdentity = resolveDocumentOperatorLabel(answers);
-  const policyPackContext = isPolicyPackDocumentContext(answers);
-
-  return [
-    `Document type: ${documentType}`,
-    `Product name: ${productName}`,
-    `Service brand: ${COMPANY_BRAND_NAME}`,
-    `Company legal name: ${policyPackContext ? COMPANY_LEGAL_NAME : "Not provided by user"}`,
-    `Operating entity wording: ${operatorIdentity}`,
-    `Official domain: ${policyPackContext ? COMPANY_PRIMARY_DOMAIN : answers.websiteUrl || "Not provided"}`,
-    `Website: ${answers.websiteUrl || "Not provided"}`,
-    `Product description: ${answers.productDescription || "Not provided"}`,
-    `Company location: ${answers.companyLocation || "Not provided"}`,
-    `Primary user region: ${primaryRegion}`,
-    `Customer regions: ${formatList(answers.customerRegions, "Not provided")}`,
-    `Data collected: ${formatList(answers.collectedData, "Not provided")}`,
-    `Third-party vendors: ${formatList(answers.vendors, "Not provided")}`,
-    `Paid plans: ${answers.acceptsPayments || "Unknown"}`,
-    `Tracking and outreach: ${formatList(answers.outreachChannels, "Not provided")}`,
-    `Custom user inputs: ${formatCustomInputs(answers)}`,
-    "Find only the most relevant legal clauses for this region and product that changed in the last 12 months.",
-  ].join("\n");
 }
 
 function buildPolicySystemPrompt(
@@ -488,6 +399,101 @@ function getDocumentTitle(
   return matched?.title ?? "Policy Document";
 }
 
+/**
+ * Builds an enriched research context that bakes in regulation knowledge directly.
+ * Premium gets full regulation details; free gets a lighter version.
+ * Both avoid a separate web-search API call, staying within Vercel 60s timeout.
+ */
+function buildEnrichedResearchContext(
+  documentType: PolicyDocumentType,
+  answers: OnboardingAnswers,
+  tier: OpenRouterGenerationTier,
+): string {
+  const primaryRegion = resolvePrimaryRegion(answers);
+  const productName = getProductName(answers);
+  const usesPayments = answers.acceptsPayments === "Yes";
+  const usesAccounts = answers.userAccounts === "Yes";
+  const usesAI = answers.aiTransparencyLevel && answers.aiTransparencyLevel !== "None";
+  const isEU = primaryRegion === "European Union" || primaryRegion === "Global";
+  const isUS = primaryRegion === "United States" || primaryRegion === "Global";
+
+  const currentYear = new Date().getUTCFullYear();
+
+  if (tier === "free") {
+    return buildFallbackResearchSummary(answers);
+  }
+
+  // Premium: rich regulation knowledge baked into the context
+  const regulations: string[] = [];
+
+  if (isEU) {
+    regulations.push(
+      `GDPR (${currentYear}): Art.13/14 disclosures required. Lawful basis must be stated. Data subject rights: access, erasure, portability, restriction, objection. DPO required for large-scale processing. Art.28 processor agreements needed for all subprocessors.`,
+      `ePrivacy Directive: Cookie consent required before non-essential cookies. IAB TCF 2.2 consent string format recommended. Legitimate interest not valid for tracking.`,
+    );
+    if (usesAI) {
+      regulations.push(
+        `EU AI Act (${currentYear}): SaaS with AI task automation may be "limited risk" requiring transparency disclosures. Users must be informed when interacting with AI systems.`,
+      );
+    }
+  }
+
+  if (isUS) {
+    regulations.push(
+      `CCPA/CPRA: "Do Not Sell or Share My Personal Information" right required. Opt-out mechanism must be prominent. Annual data category disclosures required. Sensitive personal information has additional protections.`,
+    );
+    if (usesPayments) {
+      regulations.push(
+        `FTC Subscription Rules (${currentYear}): Clear and conspicuous auto-renewal disclosure required. Simple cancellation mechanism mandatory. Negative option marketing must be explicitly consented to.`,
+        `Payment Card Industry (PCI DSS): Card data must never be logged. Processor (Stripe etc.) handles PCI compliance but merchant must disclose scope.`,
+      );
+    }
+  }
+
+  if (usesPayments) {
+    regulations.push(
+      `Stripe/Payment Processor TOS (${currentYear}): Refund and dispute timelines updated — 7-day standard window. Chargeback liability terms require explicit disclosure in Terms of Service.`,
+    );
+  }
+
+  if (usesAI) {
+    regulations.push(
+      `AI Transparency: Automated decision-making disclosure required under GDPR Art.22 where AI makes decisions with legal effects. Privacy Policy must describe AI use, data inputs, and human oversight.`,
+    );
+  }
+
+  if (usesAccounts) {
+    regulations.push(
+      `Account Security: Password storage requirements (bcrypt/Argon2), breach notification obligations (72h under GDPR, state laws in US), session management disclosures.`,
+    );
+  }
+
+  const docGuidance: Partial<Record<PolicyDocumentType, string>> = {
+    "privacy-policy": `For ${productName}: Include all ${primaryRegion} data rights. List every processor/subprocessor by category. State retention periods per data category. Include international transfer mechanisms (SCCs for EU→US).`,
+    "terms-of-service": `For ${productName}: Define service scope clearly. Include AI output disclaimer. Billing terms must state renewal, cancellation, and refund policy explicitly. Limit liability to fees paid in last 12 months.`,
+    "cookie-policy": `For ${productName}: Categorize cookies (strictly necessary, functional, analytics, marketing). List third-party cookies by vendor. Provide opt-out instructions for each category.`,
+    "refund-policy": `For ${productName}: State refund window clearly (7+ days recommended). Define non-refundable items. Include dispute resolution process. Reference payment processor (Stripe) timelines.`,
+    "legal-disclaimer": `For ${productName}: Disclaim professional advice. Limit accuracy warranties. Include jurisdiction-specific liability caps. AI-generated content disclaimer if applicable.`,
+    "about-us": `For ${productName}: Include AI transparency statement if using AI. State company jurisdiction. List relevant certifications or compliance standards.`,
+    "contact-us": `For ${productName}: Include GDPR data controller contact. DPO contact if applicable. Response time commitment. Regulatory body contacts for complaints.`,
+  };
+
+  return `# Regulation Research — ${documentType} for ${productName}
+
+## Applicable Regulations (${currentYear})
+${regulations.map((r) => `- ${r}`).join("\n")}
+
+## Document-Specific Guidance
+${docGuidance[documentType] ?? `Write a comprehensive ${documentType} for ${productName} in ${primaryRegion}.`}
+
+## Key Clauses to Include
+- Operator identity: legal name, jurisdiction, contact details
+- Regional rights specific to ${primaryRegion}
+- ${usesPayments ? "Payment, billing, and refund terms" : "Free tier and upgrade terms"}
+- ${usesAI ? "AI system transparency and limitations" : "Service scope and limitations"}
+- Security safeguards and incident response
+- Changes to policy and user notification process`;
+}
 function buildFallbackResearchSummary(answers: OnboardingAnswers) {
   const primaryRegion = resolvePrimaryRegion(answers);
   const productName = getProductName(answers);
