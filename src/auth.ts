@@ -145,8 +145,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
     async redirect({ url, baseUrl }) {
-      if (url.startsWith("/")) {
-        return `${baseUrl}${url}`;
+      // Never redirect to /onboarding directly — always go to /dashboard first.
+      // The dashboard empty state will guide the user from there.
+      if (url.startsWith("/") || url.startsWith(baseUrl)) {
+        const pathname = url.startsWith(baseUrl)
+          ? url.slice(baseUrl.length) || "/"
+          : url;
+        const safePathname = pathname === "/onboarding" ? "/dashboard" : pathname;
+        return `${baseUrl}${safePathname}`;
       }
 
       try {

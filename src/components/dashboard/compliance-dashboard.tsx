@@ -1581,8 +1581,11 @@ export function ComplianceDashboard({
         onClose={() => setIsPlanDialogOpen(false)}
         onSelectPlan={(planId) => void handleUpgradeToDownload(planId, pendingDocumentExportRef.current ?? undefined)}
         isSubmitting={isCheckoutBusy}
-        title="Choose the package you want for this workspace"
-        description="Select the one-time starter pack or the full workspace before continuing."
+        title="Choose the package for this workspace"
+        description="Select your plan to unlock document generation and downloads."
+        promoActive={launchSnapshot.promoActive}
+        onSelectFree={() => { setIsPlanDialogOpen(false); router.push("/onboarding"); }}
+        onSelectPromo={() => { setIsPlanDialogOpen(false); router.push("/onboarding"); }}
       />
     </>
   );
