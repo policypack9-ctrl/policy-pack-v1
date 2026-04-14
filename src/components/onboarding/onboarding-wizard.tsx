@@ -399,6 +399,7 @@ export function OnboardingWizard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
+  const [liveMessages, setLiveMessages] = useState<string[]>([]);
   const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
   const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
   const [checkoutNotice, setCheckoutNotice] = useState("");
@@ -525,46 +526,67 @@ export function OnboardingWizard({
   }, [initialPaddleTransactionId]);
 
   useEffect(() => {
-    if (!isGenerating) {
-      return;
-    }
+    if (!isGenerating) return;
 
-    const totalMessages = getGenerationMessages(answers).length;
-    const generationDuration = totalMessages * 1500;
-    const fadeDuration = shouldReduceMotion ? 0 : 420;
     const completedAt = new Date().toISOString();
-
-    const session: StoredPolicySession = {
-      answers,
-      completedAt,
-    };
-
-    saveStoredPolicySession(session);
-    savePolicyPackToAccount(
-      buildSavedPolicyAccount(answers, completedAt),
-    );
+    const sessionData: StoredPolicySession = { answers, completedAt };
+    saveStoredPolicySession(sessionData);
+    savePolicyPackToAccount(buildSavedPolicyAccount(answers, completedAt));
     clearGeneratedDocuments();
     clearUnlockState();
 
-    const intervalId = window.setInterval(() => {
-      setGenerationStep((current) =>
-        current < totalMessages - 1 ? current + 1 : current,
-      );
-    }, 1500);
-
-    const fadeTimeoutId = window.setTimeout(() => {
-      setIsTransitioningOut(true);
-    }, Math.max(generationDuration - fadeDuration, 0));
-
-    const timeoutId = window.setTimeout(() => {
-      router.push("/onboarding/result");
-    }, generationDuration);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.clearTimeout(fadeTimeoutId);
-      window.clearTimeout(timeoutId);
+    const selectedPages = answers.selectedPages as string[];
+    const docLabels: Record<string, string> = {
+      "about-us": "About Us", "contact-us": "Contact Us",
+      "privacy-policy": "Privacy Policy", "cookie-policy": "Cookie Policy",
+      "terms-of-service": "Terms of Service", "legal-disclaimer": "Legal Disclaimer",
+      "refund-policy": "Refund Policy",
     };
+
+    void (async () => {
+      const addMsg = (msg: string) => {
+        setLiveMessages((prev) => [...prev, msg]);
+        setGenerationStep((s) => s + 1);
+      };
+
+      addMsg("Initialising your compliance workspace...");
+
+      for (let i = 0; i < selectedPages.length; i++) {
+        const docType = selectedPages[i];
+        const label = docLabels[docType] ?? docType;
+
+        addMsg(`ðŸ” Searching latest regulations for ${label}...`);
+        let researchSummary = "";
+        let researchModel = "built-in-regulations";
+        try {
+          const rr = await fetch("/api/research-policy", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ documentType: docType, answers }),
+          });
+          if (rr.ok) {
+            const rd = (await rr.json()) as { researchSummary?: string; researchModel?: string; liveSearch?: boolean };
+            researchSummary = rd.researchSummary ?? "";
+            researchModel = rd.researchModel ?? "built-in-regulations";
+            addMsg(rd.liveSearch ? `âœ… Found latest law updates for ${label}` : `ðŸ“‹ Using built-in regulations for ${label}`);
+          }
+        } catch { addMsg(`ðŸ“‹ Using built-in regulations for ${label}`); }
+
+        addMsg(`âœï¸ Drafting ${label} (${i + 1}/${selectedPages.length})...`);
+        try {
+          await fetch("/api/draft-policy", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ documentType: docType, answers, researchSummary, researchModel }),
+          });
+          addMsg(`âœ… ${label} complete`);
+        } catch { addMsg(`âš ï¸ ${label} will be available in your dashboard`); }
+      }
+
+      addMsg("All documents ready â€” opening your workspace...");
+      await new Promise<void>((res) => window.setTimeout(res, shouldReduceMotion ? 0 : 700));
+      setIsTransitioningOut(true);
+      await new Promise<void>((res) => window.setTimeout(res, shouldReduceMotion ? 0 : 420));
+      router.push("/onboarding/result");
+    })();
   }, [answers, isGenerating, router, shouldReduceMotion]);
 
   function updateTextAnswer(id: keyof OnboardingAnswers, value: string) {
@@ -995,7 +1017,7 @@ export function OnboardingWizard({
     return (
       <GeneratingState
         answers={answers}
-        messages={generationMessages}
+        messages={liveMessages.length > 0 ? liveMessages : generationMessages}
         generationStep={generationStep}
         isTransitioningOut={isTransitioningOut}
         shouldReduceMotion={shouldReduceMotion}
