@@ -98,6 +98,9 @@ create table if not exists public.generated_documents (
 create index if not exists generated_documents_user_idx
   on public.generated_documents (user_id);
 
+create index if not exists generated_documents_user_document_key_idx
+  on public.generated_documents (user_id, document_key);
+
 -- Enable Row Level Security (RLS) to prevent unauthorized access via anon_key
 alter table public.user_profiles enable row level security;
 alter table public.generated_documents enable row level security;

@@ -510,9 +510,11 @@ export function ComplianceDashboard({
           setExportNotice(liveSearchUsed
             ? "Live regulation updates found. Drafting your document..."
             : "Drafting your document with regulation knowledge...");
+        } else {
+          setExportNotice("\u270D\uFE0F Drafting your document...");
         }
       } catch {
-        setExportNotice("âœï¸ Drafting your document...");
+        setExportNotice("\u270D\uFE0F Drafting your document...");
       }
 
       // â”€â”€ Step 2: Draft the document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

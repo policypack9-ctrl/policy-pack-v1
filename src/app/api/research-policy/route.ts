@@ -78,6 +78,10 @@ export async function POST(request: Request) {
       model: config.researchModel,
     });
 
+    if (result instanceof Response) {
+      throw new Error("Research stage unexpectedly returned a stream response.");
+    }
+
     return NextResponse.json({
       ok: true,
       researchSummary: result.content,

@@ -102,21 +102,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (userId) {
-        const profile = await getAppUserProfileById(userId);
-        
-        // If profile doesn't exist, it means the user was deleted
-        if (!profile) {
-          // Clear token properties to force invalidation
-          token.userId = "";
-          token.sub = "";
-          return token;
-        }
+        // Optimization: Only fetch from DB if necessary (e.g., initial token creation or specific trigger)
+        // This prevents excessive DB queries on every request that reads the session.
+        if (trigger === "signIn" || trigger === "update") {
+          const profile = await getAppUserProfileById(userId);
+          
+          // If profile doesn't exist, it means the user was deleted
+          if (!profile) {
+            // Clear token properties to force invalidation
+            token.userId = "";
+            token.sub = "";
+            return token;
+          }
 
-        token.userId = userId;
-        token.isPremium = profile.isPremium;
-        token.name = profile.name ?? token.name;
-        token.email = profile.email ?? token.email;
-        token.picture = profile.image ?? token.picture;
+          token.userId = userId;
+          token.isPremium = profile.isPremium;
+          token.name = profile.name ?? token.name;
+          token.email = profile.email ?? token.email;
+          token.picture = profile.image ?? token.picture;
+        } else {
+          // Trust the existing token data if no specific trigger requires a DB update
+          token.userId = userId;
+        }
       }
 
       return token;

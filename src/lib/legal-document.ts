@@ -1,3 +1,6 @@
+import { marked } from "marked";
+import DOMPurify from "isomorphic-dompurify";
+
 type PrintDocumentMeta = {
   title: string;
   productName: string;
@@ -15,101 +18,16 @@ export function escapeHtml(value: string) {
 }
 
 export function legalMarkdownToHtml(markdown: string) {
-  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
-  const html: string[] = [];
-  let paragraph: string[] = [];
-  let orderedListItems: string[] = [];
-  let unorderedListItems: string[] = [];
-  let orderedListStart = 1;
-
-  function renderInline(value: string) {
-    return escapeHtml(value)
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      .replace(/`(.+?)`/g, "<code>$1</code>");
+  // Use marked to parse markdown safely and isomorphic-dompurify to sanitize the resulting HTML
+  // This replaces the fragile regex implementation to prevent ReDoS attacks.
+  try {
+    const rawHtml = marked.parse(markdown, { async: false }) as string;
+    return DOMPurify.sanitize(rawHtml);
+  } catch (error) {
+    console.error("Error parsing markdown", error);
+    // Fallback basic escaping if marked fails
+    return `<p>${escapeHtml(markdown)}</p>`;
   }
-
-  function flushParagraph() {
-    if (paragraph.length === 0) {
-      return;
-    }
-
-    html.push(
-      `<p>${renderInline(paragraph.join(" ").replace(/\s+/g, " ").trim())}</p>`,
-    );
-    paragraph = [];
-  }
-
-  function flushOrderedList() {
-    if (orderedListItems.length === 0) {
-      return;
-    }
-
-    html.push(
-      `<ol start="${orderedListStart}">${orderedListItems.join("")}</ol>`,
-    );
-    orderedListItems = [];
-    orderedListStart = 1;
-  }
-
-  function flushUnorderedList() {
-    if (unorderedListItems.length === 0) {
-      return;
-    }
-
-    html.push(`<ul>${unorderedListItems.join("")}</ul>`);
-    unorderedListItems = [];
-  }
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-
-    if (!line) {
-      flushParagraph();
-      flushOrderedList();
-      flushUnorderedList();
-      continue;
-    }
-
-    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(line);
-    if (headingMatch) {
-      flushParagraph();
-      flushOrderedList();
-      flushUnorderedList();
-      const level = headingMatch[1].length;
-      const text = renderInline(headingMatch[2]);
-      html.push(`<h${level}>${text}</h${level}>`);
-      continue;
-    }
-
-    const orderedMatch = /^(\d+)\.\s+(.+)$/.exec(line);
-    if (orderedMatch) {
-      flushParagraph();
-      flushUnorderedList();
-      if (orderedListItems.length === 0) {
-        orderedListStart = Number(orderedMatch[1]);
-      }
-
-      orderedListItems.push(`<li>${renderInline(orderedMatch[2])}</li>`);
-      continue;
-    }
-
-    const unorderedMatch = /^[-*]\s+(.+)$/.exec(line);
-    if (unorderedMatch) {
-      flushParagraph();
-      flushOrderedList();
-      unorderedListItems.push(`<li>${renderInline(unorderedMatch[1])}</li>`);
-      continue;
-    }
-
-    paragraph.push(line);
-  }
-
-  flushParagraph();
-  flushOrderedList();
-  flushUnorderedList();
-
-  return html.join("");
 }
 
 export function buildLegalPrintHtml(

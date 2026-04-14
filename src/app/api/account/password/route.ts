@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { auth } from "@/auth";
 import { updateUserPassword } from "@/lib/auth-data";
@@ -6,6 +7,15 @@ import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, "Please complete all password fields."),
+  newPassword: z.string().min(8, "Your new password must be at least 8 characters long."),
+  confirmPassword: z.string().min(1, "Please confirm your new password."),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Your new passwords do not match.",
+  path: ["confirmPassword"],
+});
 
 export async function PATCH(request: Request) {
   const rateLimitResponse = rateLimit(request, "account_password", { limit: 5, windowMs: 60000 });
@@ -21,31 +31,17 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as {
-      currentPassword?: unknown;
-      newPassword?: unknown;
-      confirmPassword?: unknown;
-    };
-    const currentPassword =
-      typeof body.currentPassword === "string" ? body.currentPassword : "";
-    const newPassword =
-      typeof body.newPassword === "string" ? body.newPassword : "";
-    const confirmPassword =
-      typeof body.confirmPassword === "string" ? body.confirmPassword : "";
+    const body = await request.json();
+    const parseResult = passwordSchema.safeParse(body);
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Please complete all password fields." },
-        { status: 400 },
+        { error: parseResult.error.issues[0].message },
+        { status: 400 }
       );
     }
 
-    if (newPassword !== confirmPassword) {
-      return NextResponse.json(
-        { error: "Your new passwords do not match." },
-        { status: 400 },
-      );
-    }
+    const { currentPassword, newPassword } = parseResult.data;
 
     await updateUserPassword({
       userId: session.user.id,

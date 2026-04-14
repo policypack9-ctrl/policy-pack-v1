@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const draft = await runDraftingStagePublic({
+    const draftResponse = await runDraftingStagePublic({
       answers,
       documentType: body.documentType,
       researchSummary,
@@ -100,21 +100,64 @@ export async function POST(request: Request) {
       siteName: config.siteName,
       siteUrl: config.siteUrl,
       model: config.draftingModel,
+      stream: true,
     });
 
-    const markdown = normalizeMarkdown(draft.content, title);
-    const generated = {
-      markdown,
-      provider: "openrouter" as const,
-      model: draft.model,
-      generationTier,
-      usedFallback: false,
-      title,
-      generatedAt,
-      research: { model: researchModel, summary: researchSummary },
-    };
-    await saveGeneratedDocumentForUser(session.user.id, body.documentType, generated);
-    return NextResponse.json(generated);
+    // If it's not a standard Response object, handle as error
+    if (!(draftResponse instanceof Response) || !draftResponse.body) {
+      throw new Error("Drafting stage did not return a streamable response.");
+    }
+
+    // Pass through the stream and capture chunks to save the document when finished
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let accumulatedContent = "";
+
+    const transformStream = new TransformStream({
+      transform(chunk, controller) {
+        // chunk is a Uint8Array
+        const text = decoder.decode(chunk, { stream: true });
+        
+        // OpenRouter SSE format parsing
+        const lines = text.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ") && line !== "data: [DONE]") {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const content = data.choices?.[0]?.delta?.content;
+              if (content) {
+                accumulatedContent += content;
+                controller.enqueue(encoder.encode(content));
+              }
+            } catch {
+              // Ignore parse errors on partial chunks
+            }
+          }
+        }
+      },
+      async flush() {
+        // Save the document once streaming is complete
+        const markdown = normalizeMarkdown(accumulatedContent, title);
+        const generated = {
+          markdown,
+          provider: "openrouter" as const,
+          model: config.draftingModel,
+          generationTier,
+          usedFallback: false,
+          title,
+          generatedAt,
+          research: { model: researchModel, summary: researchSummary },
+        };
+        await saveGeneratedDocumentForUser(session.user.id, body.documentType as PolicyDocumentType, generated);
+      }
+    });
+
+    return new Response(draftResponse.body.pipeThrough(transformStream), {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+      }
+    });
   } catch (err) {
     return NextResponse.json(
       { error: "Drafting failed.", details: err instanceof Error ? err.message : "unknown" },

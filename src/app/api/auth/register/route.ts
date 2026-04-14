@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { createCredentialsUser, getSupabaseAuthHealth } from "@/lib/auth-data";
 import { getSupabaseConfigStatus } from "@/lib/auth-env";
@@ -7,7 +8,6 @@ import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function normalizeEmail(value: string) {
   return value
@@ -16,29 +16,11 @@ function normalizeEmail(value: string) {
     .replace(/[\u200e\u200f\u202a-\u202e]/g, "");
 }
 
-function validateRegistrationInput(body: {
-  name?: unknown;
-  email?: unknown;
-  password?: unknown;
-}) {
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
-  const password = typeof body.password === "string" ? body.password : "";
-
-  if (name.length < 2) {
-    return { error: "Name must be at least 2 characters long." };
-  }
-
-  if (!EMAIL_PATTERN.test(email)) {
-    return { error: "Enter a valid email address." };
-  }
-
-  if (password.length < 8) {
-    return { error: "Password must be at least 8 characters long." };
-  }
-
-  return { name, email, password };
-}
+const registerSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters long."),
+  email: z.string().email("Enter a valid email address.").transform(normalizeEmail),
+  password: z.string().min(8, "Password must be at least 8 characters long."),
+});
 
 export async function POST(request: Request) {
   // Apply a basic rate limit for the register endpoint
@@ -70,16 +52,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as {
-      name?: unknown;
-      email?: unknown;
-      password?: unknown;
-    };
-    const validated = validateRegistrationInput(body);
+    const body = await request.json();
+    const parseResult = registerSchema.safeParse(body);
 
-    if ("error" in validated) {
-      return NextResponse.json({ error: validated.error }, { status: 400 });
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: parseResult.error.issues[0].message },
+        { status: 400 }
+      );
     }
+
+    const validated = parseResult.data;
 
     const result = await createCredentialsUser(validated);
 

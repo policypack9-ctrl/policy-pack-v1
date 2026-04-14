@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { auth } from "@/auth";
 import { updateUserDisplayName } from "@/lib/auth-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const profileSchema = z.object({
+  displayName: z.string().trim().min(2, "Display name must be at least 2 characters long."),
+});
 
 export async function PATCH(request: Request) {
   const session = await auth();
@@ -17,18 +22,17 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as {
-      displayName?: unknown;
-    };
-    const displayName =
-      typeof body.displayName === "string" ? body.displayName.trim() : "";
+    const body = await request.json();
+    const parseResult = profileSchema.safeParse(body);
 
-    if (displayName.length < 2) {
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Display name must be at least 2 characters long." },
-        { status: 400 },
+        { error: parseResult.error.issues[0].message },
+        { status: 400 }
       );
     }
+
+    const { displayName } = parseResult.data;
 
     const profile = await updateUserDisplayName(session.user.id, displayName);
 

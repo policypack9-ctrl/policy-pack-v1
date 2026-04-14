@@ -100,6 +100,10 @@ export async function generatePolicyDocument({
       model: config.draftingModel,
     });
 
+    if (draftingStage instanceof Response) {
+      throw new Error("Drafting stage unexpectedly returned a stream response.");
+    }
+
     return {
       markdown: normalizeMarkdown(draftingStage.content, title),
       provider: "openrouter",
@@ -199,6 +203,7 @@ export async function runDraftingStagePublic(input: {
   siteName: string;
   siteUrl: string;
   model: string;
+  stream?: boolean;
 }) {
   return runDraftingStage(input);
 }
@@ -212,6 +217,7 @@ async function runDraftingStage(input: {
   siteName: string;
   siteUrl: string;
   model: string;
+  stream?: boolean;
 }) {
   const systemPrompt = buildPolicySystemPrompt(
     input.documentType,
@@ -233,6 +239,7 @@ async function runDraftingStage(input: {
     userPrompt,
     maxTokens: 4096,
     temperature: 0.2,
+    stream: input.stream,
   });
 }
 
@@ -379,6 +386,7 @@ async function callOpenRouterChat(input: {
   maxTokens: number;
   temperature: number;
   plugins?: Array<Record<string, unknown>>;
+  stream?: boolean;
 }) {
   const modelsToTry = [
     input.model,
@@ -400,6 +408,7 @@ async function callOpenRouterChat(input: {
         temperature: input.temperature,
         max_tokens: input.maxTokens,
         plugins: input.plugins,
+        stream: input.stream ?? false,
         messages: [
           { role: "system", content: input.systemPrompt },
           { role: "user", content: input.userPrompt },
@@ -417,6 +426,10 @@ async function callOpenRouterChat(input: {
       }
 
       continue;
+    }
+
+    if (input.stream) {
+      return response; // Return the raw response for streaming
     }
 
     const json = (await response.json()) as {

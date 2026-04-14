@@ -394,6 +394,23 @@ export function OnboardingWizard({
 
     return loadStoredPolicySession()?.answers ?? emptyOnboardingAnswers;
   });
+
+  function persistDraft(next: OnboardingAnswers) {
+    if (typeof window === "undefined") {
+      return;
+    }
+    // حفظ الإجابات محليًا فقط
+    window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
+  }
+
+  function updateAnswers(updater: (current: OnboardingAnswers) => OnboardingAnswers) {
+    setAnswers((current) => {
+      const next = updater(current);
+      persistDraft(next);
+      return next;
+    });
+  }
+
   const [stepIndex, setStepIndex] = useState(0);
   const [showValidation, setShowValidation] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -422,22 +439,6 @@ export function OnboardingWizard({
     checkoutState === "initializing" ||
     checkoutState === "opening" ||
     checkoutState === "verifying";
-
-  function persistDraft(next: OnboardingAnswers) {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
-  }
-
-  function updateAnswers(updater: (current: OnboardingAnswers) => OnboardingAnswers) {
-    setAnswers((current) => {
-      const next = updater(current);
-      persistDraft(next);
-      return next;
-    });
-  }
 
   const serverTier = getUserTier({
     isPremium,
@@ -555,7 +556,7 @@ export function OnboardingWizard({
         const docType = selectedPages[i];
         const label = docLabels[docType] ?? docType;
 
-        addMsg(`ðŸ” Searching latest regulations for ${label}...`);
+        addMsg(`\uD83D\uDD0D Searching latest regulations for ${label}...`);
         let researchSummary = "";
         let researchModel = "built-in-regulations";
         try {
@@ -567,18 +568,39 @@ export function OnboardingWizard({
             const rd = (await rr.json()) as { researchSummary?: string; researchModel?: string; liveSearch?: boolean };
             researchSummary = rd.researchSummary ?? "";
             researchModel = rd.researchModel ?? "built-in-regulations";
-            addMsg(rd.liveSearch ? `âœ… Found latest law updates for ${label}` : `ðŸ“‹ Using built-in regulations for ${label}`);
+            addMsg(rd.liveSearch ? `\u2705 Found latest law updates for ${label}` : `\uD83D\uDCCB Using built-in regulations for ${label}`);
+          } else {
+            addMsg(`\uD83D\uDCCB Using built-in regulations for ${label}`);
           }
-        } catch { addMsg(`ðŸ“‹ Using built-in regulations for ${label}`); }
+        } catch { addMsg(`\uD83D\uDCCB Using built-in regulations for ${label}`); }
 
-        addMsg(`âœï¸ Drafting ${label} (${i + 1}/${selectedPages.length})...`);
+        addMsg(`\u270D\uFE0F Drafting ${label} (${i + 1}/${selectedPages.length})...`);
         try {
-          await fetch("/api/draft-policy", {
+          const draftResp = await fetch("/api/draft-policy", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ documentType: docType, answers, researchSummary, researchModel }),
           });
-          addMsg(`âœ… ${label} complete`);
-        } catch { addMsg(`âš ï¸ ${label} will be available in your dashboard`); }
+          
+          if (!draftResp.ok) {
+            addMsg(`\u26A0\uFE0F ${label} will be available in your dashboard`);
+            continue;
+          }
+
+          // Handle the text stream
+          const reader = draftResp.body?.getReader();
+          let done = false;
+
+          while (!done && reader) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            if (value) {
+              // For a more advanced UX, we could set the partial text into a state here.
+              // For now, streaming simply prevents the 55s timeout.
+            }
+          }
+
+          addMsg(`\u2705 ${label} complete`);
+        } catch { addMsg(`\u26A0\uFE0F ${label} will be available in your dashboard`); }
       }
 
       addMsg("All documents ready â€” opening your workspace...");

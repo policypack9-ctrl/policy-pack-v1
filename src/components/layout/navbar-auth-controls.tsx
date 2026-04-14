@@ -6,6 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 
 import { PremiumButton } from "@/components/ui/premium-button";
+import { clearPolicyWorkspace } from "@/lib/db";
 import { buildAuthRedirectHref } from "@/lib/auth-routing";
 
 export function NavbarAuthControls() {
@@ -15,6 +16,7 @@ export function NavbarAuthControls() {
   async function handleSignOut() {
     setIsSigningOut(true);
     try {
+      clearPolicyWorkspace();
       await signOut({ redirectTo: "/" });
     } finally {
       setIsSigningOut(false);
