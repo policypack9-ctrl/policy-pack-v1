@@ -399,7 +399,7 @@ export function OnboardingWizard({
     if (typeof window === "undefined") {
       return;
     }
-    // Ã˜Â­Ã™ÂÃ˜Â¸ Ã˜Â§Ã™â€žÃ˜Â¥Ã˜Â¬Ã˜Â§Ã˜Â¨Ã˜Â§Ã˜Âª Ã™â€¦Ã˜Â­Ã™â€žÃ™Å Ã™â€¹Ã˜Â§ Ã™ÂÃ™â€šÃ˜Â·
+    // ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âª ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·
     window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
   }
 
@@ -417,6 +417,8 @@ export function OnboardingWizard({
   const [generationStep, setGenerationStep] = useState(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
   const [liveMessages, setLiveMessages] = useState<string[]>([]);
+  const [isGenerationSuccess, setIsGenerationSuccess] = useState(false);
+  const generationAbortRef = useRef<AbortController | null>(null);
   const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
   const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
   const [checkoutNotice, setCheckoutNotice] = useState("");
@@ -544,8 +546,14 @@ export function OnboardingWizard({
       "refund-policy": "Refund Policy",
     };
 
+    // Create AbortController for cleanup on unmount/navigation
+    const abortController = new AbortController();
+    generationAbortRef.current = abortController;
+    const signal = abortController.signal;
+
     void (async () => {
       const addMsg = (msg: string) => {
+        if (signal.aborted) return;
         setLiveMessages((prev) => [...prev, msg]);
         setGenerationStep((s) => s + 1);
       };
@@ -553,6 +561,7 @@ export function OnboardingWizard({
       addMsg("Initialising your compliance workspace...");
 
       for (let i = 0; i < selectedPages.length; i++) {
+        if (signal.aborted) break;
         const docType = selectedPages[i];
         const label = docLabels[docType] ?? docType;
 
@@ -563,6 +572,7 @@ export function OnboardingWizard({
           const rr = await fetch("/api/research-policy", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ documentType: docType, answers }),
+            signal,
           });
           if (rr.ok) {
             const rd = (await rr.json()) as { researchSummary?: string; researchModel?: string; liveSearch?: boolean };
@@ -573,14 +583,17 @@ export function OnboardingWizard({
             addMsg(`Using built-in regulations for ${label}`);
           }
         } catch {
+          if (signal.aborted) break;
           addMsg(`Using built-in regulations for ${label}`);
         }
 
+        if (signal.aborted) break;
         addMsg(`Drafting ${label} (${i + 1}/${selectedPages.length})...`);
         try {
           const draftResp = await fetch("/api/draft-policy", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ documentType: docType, answers, researchSummary, researchModel }),
+            signal,
           });
           if (draftResp.ok) {
             addMsg(`${label} complete`);
@@ -588,16 +601,28 @@ export function OnboardingWizard({
             addMsg(`${label} will be available in your dashboard`);
           }
         } catch {
+          if (signal.aborted) break;
           addMsg(`${label} will be available in your dashboard`);
         }
       }
 
+      if (signal.aborted) return;
+
+      // Show success state before redirecting
+      setIsGenerationSuccess(true);
       addMsg("All documents ready - opening your workspace...");
-      await new Promise<void>((res) => window.setTimeout(res, shouldReduceMotion ? 0 : 700));
+      await new Promise<void>((res) => window.setTimeout(res, shouldReduceMotion ? 0 : 1200));
+      if (signal.aborted) return;
       setIsTransitioningOut(true);
       await new Promise<void>((res) => window.setTimeout(res, shouldReduceMotion ? 0 : 420));
+      if (signal.aborted) return;
       router.push("/onboarding/result");
     })();
+
+    return () => {
+      abortController.abort();
+      generationAbortRef.current = null;
+    };
   }, [answers, isGenerating, router, shouldReduceMotion]);
 
   function updateTextAnswer(id: keyof OnboardingAnswers, value: string) {
@@ -1032,6 +1057,7 @@ export function OnboardingWizard({
         generationStep={generationStep}
         isTransitioningOut={isTransitioningOut}
         shouldReduceMotion={shouldReduceMotion}
+        isSuccess={isGenerationSuccess}
       />
     );
   }
@@ -1322,6 +1348,7 @@ type GeneratingStateProps = {
   generationStep: number;
   isTransitioningOut: boolean;
   shouldReduceMotion: boolean;
+  isSuccess: boolean;
 };
 
 function GeneratingState({
@@ -1330,6 +1357,7 @@ function GeneratingState({
   generationStep,
   isTransitioningOut,
   shouldReduceMotion,
+  isSuccess,
 }: GeneratingStateProps) {
   const activeMessage = messages[generationStep];
   const normalizedAnswers = normalizeAnswers(answers);
@@ -1405,28 +1433,37 @@ function GeneratingState({
 
               <motion.div
                 animate={
-                  shouldReduceMotion
-                    ? undefined
-                    : {
-                        scale: [1, 1.04, 1],
-                        boxShadow: [
-                          "0 0 0 0 rgba(45,212,191,0.08)",
-                          "0 0 0 18px rgba(45,212,191,0)",
-                          "0 0 0 0 rgba(45,212,191,0.08)",
-                        ],
+                  isSuccess
+                    ? {
+                        scale: [1, 1.15, 1],
+                        backgroundColor: ["#111111", "#0f766e", "#111111"],
                       }
+                    : shouldReduceMotion
+                      ? undefined
+                      : {
+                          scale: [1, 1.04, 1],
+                          boxShadow: [
+                            "0 0 0 0 rgba(45,212,191,0.08)",
+                            "0 0 0 18px rgba(45,212,191,0)",
+                            "0 0 0 0 rgba(45,212,191,0.08)",
+                          ],
+                        }
                 }
                 transition={{
-                  duration: 2.2,
-                  repeat: Number.POSITIVE_INFINITY,
+                  duration: isSuccess ? 0.6 : 2.2,
+                  repeat: isSuccess ? 0 : Number.POSITIVE_INFINITY,
                   ease: "easeInOut",
                 }}
                 className="absolute flex size-24 items-center justify-center rounded-full border border-white/[0.08] bg-[#111111]"
               >
                 <div className="text-center">
-                  <ShieldCheck className="mx-auto size-9 text-teal-200" />
+                  {isSuccess ? (
+                    <Check className="mx-auto size-9 text-teal-200" />
+                  ) : (
+                    <ShieldCheck className="mx-auto size-9 text-teal-200" />
+                  )}
                   <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.26em] text-teal-100/72">
-                    Calculating
+                    {isSuccess ? "Complete" : "Calculating"}
                   </div>
                 </div>
                 <span className="absolute -right-1 -top-1 inline-flex size-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-teal-200">
