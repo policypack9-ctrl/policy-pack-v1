@@ -399,7 +399,7 @@ export function OnboardingWizard({
     if (typeof window === "undefined") {
       return;
     }
-    // حفظ الإجابات محليًا فقط
+    // Ã˜Â­Ã™ÂÃ˜Â¸ Ã˜Â§Ã™â€žÃ˜Â¥Ã˜Â¬Ã˜Â§Ã˜Â¨Ã˜Â§Ã˜Âª Ã™â€¦Ã˜Â­Ã™â€žÃ™Å Ã™â€¹Ã˜Â§ Ã™ÂÃ™â€šÃ˜Â·
     window.localStorage.setItem("policypack:wizard_draft:v1", JSON.stringify(next));
   }
 
@@ -556,7 +556,7 @@ export function OnboardingWizard({
         const docType = selectedPages[i];
         const label = docLabels[docType] ?? docType;
 
-        addMsg(`\uD83D\uDD0D Searching latest regulations for ${label}...`);
+        addMsg(`Searching latest regulations for ${label}...`);
         let researchSummary = "";
         let researchModel = "built-in-regulations";
         try {
@@ -568,42 +568,31 @@ export function OnboardingWizard({
             const rd = (await rr.json()) as { researchSummary?: string; researchModel?: string; liveSearch?: boolean };
             researchSummary = rd.researchSummary ?? "";
             researchModel = rd.researchModel ?? "built-in-regulations";
-            addMsg(rd.liveSearch ? `\u2705 Found latest law updates for ${label}` : `\uD83D\uDCCB Using built-in regulations for ${label}`);
+            addMsg(rd.liveSearch ? `Found latest law updates for ${label}` : `Using built-in regulations for ${label}`);
           } else {
-            addMsg(`\uD83D\uDCCB Using built-in regulations for ${label}`);
+            addMsg(`Using built-in regulations for ${label}`);
           }
-        } catch { addMsg(`\uD83D\uDCCB Using built-in regulations for ${label}`); }
+        } catch {
+          addMsg(`Using built-in regulations for ${label}`);
+        }
 
-        addMsg(`\u270D\uFE0F Drafting ${label} (${i + 1}/${selectedPages.length})...`);
+        addMsg(`Drafting ${label} (${i + 1}/${selectedPages.length})...`);
         try {
           const draftResp = await fetch("/api/draft-policy", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ documentType: docType, answers, researchSummary, researchModel }),
           });
-          
-          if (!draftResp.ok) {
-            addMsg(`\u26A0\uFE0F ${label} will be available in your dashboard`);
-            continue;
+          if (draftResp.ok) {
+            addMsg(`${label} complete`);
+          } else {
+            addMsg(`${label} will be available in your dashboard`);
           }
-
-          // Handle the text stream
-          const reader = draftResp.body?.getReader();
-          let done = false;
-
-          while (!done && reader) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            if (value) {
-              // For a more advanced UX, we could set the partial text into a state here.
-              // For now, streaming simply prevents the 55s timeout.
-            }
-          }
-
-          addMsg(`\u2705 ${label} complete`);
-        } catch { addMsg(`\u26A0\uFE0F ${label} will be available in your dashboard`); }
+        } catch {
+          addMsg(`${label} will be available in your dashboard`);
+        }
       }
 
-      addMsg("All documents ready â€” opening your workspace...");
+      addMsg("All documents ready - opening your workspace...");
       await new Promise<void>((res) => window.setTimeout(res, shouldReduceMotion ? 0 : 700));
       setIsTransitioningOut(true);
       await new Promise<void>((res) => window.setTimeout(res, shouldReduceMotion ? 0 : 420));
