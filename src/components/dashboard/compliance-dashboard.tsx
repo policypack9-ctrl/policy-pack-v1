@@ -490,19 +490,42 @@ export function ComplianceDashboard({
     }
 
     setIsDocumentLoading(true);
-
     try {
-      const response = await fetch("/api/generate-policy", {
+      // â”€â”€ Step 1: Live regulation research â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      setExportNotice("Searching latest laws and regulation updates...");
+      let researchSummary = "";
+      let researchModel = "built-in-regulations";
+      let liveSearchUsed = false;
+      try {
+        const researchResp = await fetch("/api/research-policy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documentType: documentRecord.id, answers: session.answers }),
+        });
+        if (researchResp.ok) {
+          const rd = (await researchResp.json()) as { researchSummary?: string; researchModel?: string; liveSearch?: boolean };
+          researchSummary = rd.researchSummary ?? "";
+          researchModel = rd.researchModel ?? "built-in-regulations";
+          liveSearchUsed = rd.liveSearch ?? false;
+          setExportNotice(liveSearchUsed
+            ? "Live regulation updates found. Drafting your document..."
+            : "Drafting your document with regulation knowledge...");
+        }
+      } catch {
+        setExportNotice("âœï¸ Drafting your document...");
+      }
+
+      // â”€â”€ Step 2: Draft the document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      const response = await fetch("/api/draft-policy", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           documentType: documentRecord.id,
           answers: session.answers,
+          researchSummary,
+          researchModel,
         }),
       });
-
       if (!response.ok) {
         const errorPayload = (await response.json().catch(() => null)) as
           | { error?: string; requiresCheckout?: boolean }

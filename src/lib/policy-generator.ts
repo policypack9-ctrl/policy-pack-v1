@@ -129,6 +129,80 @@ export async function generatePolicyDocument({
     };
   }
 }
+export async function runResearchStage(input: {
+  answers: OnboardingAnswers;
+  documentType: PolicyDocumentType;
+  apiKey: string;
+  baseUrl: string | null;
+  siteName: string;
+  siteUrl: string;
+  model: string;
+}) {
+  const currentYear = new Date().getUTCFullYear();
+  const primaryRegion = resolvePrimaryRegion(input.answers);
+  const productName = getProductName(input.answers);
+  const usesPayments = input.answers.acceptsPayments === "Yes";
+  const usesAI = input.answers.aiTransparencyLevel && input.answers.aiTransparencyLevel !== "None";
+
+  const systemPrompt = [
+    `You are PolicyPack's legal research engine for ${currentYear}.`,
+    "Search the web and return ONLY recent legal changes (last 18 months) relevant to this SaaS product.",
+    "Focus on: new regulations, enforcement actions, updated requirements, and compliance deadlines.",
+    `Region: ${primaryRegion}. Product: ${productName}.`,
+    usesPayments ? "Payment processing is active — include latest PCI/Stripe/FTC payment rules." : "",
+    usesAI ? "AI features are active — include EU AI Act, automated decision-making rules." : "",
+    "Return Markdown with ONLY these headings:",
+    "# Live Regulation Research",
+    "## Applicable Laws & Recent Updates (cite law name, article, effective date)",
+    "## Required Clauses (specific clauses that MUST appear in this document)",
+    "## Compliance Risks (what could cause rejection or fines)",
+    "## Sources (URL + title + date)",
+    "Be specific — name the law, article number, and what changed. No generic advice.",
+  ].filter(Boolean).join(" ");
+
+  const userPrompt = [
+    `Document type: ${input.documentType}`,
+    `Business: ${productName} | Website: ${input.answers.websiteUrl}`,
+    `Region: ${primaryRegion} | Payments: ${input.answers.acceptsPayments}`,
+    `User accounts: ${input.answers.userAccounts}`,
+    `Vendors: ${(input.answers.vendors ?? []).join(", ") || "none"}`,
+    `AI usage: ${input.answers.aiTransparencyLevel ?? "none"}`,
+    `Search for the most recent legal requirements for this exact document type in these jurisdictions.`,
+  ].join("\n");
+
+  return callOpenRouterChat({
+    apiKey: input.apiKey,
+    baseUrl: input.baseUrl,
+    siteName: input.siteName,
+    siteUrl: input.siteUrl,
+    model: input.model,
+    systemPrompt,
+    userPrompt,
+    maxTokens: 2000,
+    temperature: 0.1,
+    plugins: [
+      {
+        id: "web",
+        max_results: 6,
+        search_prompt: `Latest ${input.documentType} legal requirements ${primaryRegion} ${currentYear} SaaS compliance`,
+      },
+    ],
+  });
+}
+
+export async function runDraftingStagePublic(input: {
+  answers: OnboardingAnswers;
+  documentType: PolicyDocumentType;
+  researchSummary: string;
+  apiKey: string;
+  baseUrl: string | null;
+  siteName: string;
+  siteUrl: string;
+  model: string;
+}) {
+  return runDraftingStage(input);
+}
+
 async function runDraftingStage(input: {
   answers: OnboardingAnswers;
   documentType: PolicyDocumentType;
@@ -452,7 +526,7 @@ function buildEnrichedResearchContext(
 
   if (usesPayments) {
     regulations.push(
-      `Stripe/Payment Processor TOS (${currentYear}): Refund and dispute timelines updated — 7-day standard window. Chargeback liability terms require explicit disclosure in Terms of Service.`,
+      `Stripe/Payment Processor TOS (${currentYear}): Refund and dispute timelines updated â€” 7-day standard window. Chargeback liability terms require explicit disclosure in Terms of Service.`,
     );
   }
 
@@ -469,7 +543,7 @@ function buildEnrichedResearchContext(
   }
 
   const docGuidance: Partial<Record<PolicyDocumentType, string>> = {
-    "privacy-policy": `For ${productName}: Include all ${primaryRegion} data rights. List every processor/subprocessor by category. State retention periods per data category. Include international transfer mechanisms (SCCs for EU→US).`,
+    "privacy-policy": `For ${productName}: Include all ${primaryRegion} data rights. List every processor/subprocessor by category. State retention periods per data category. Include international transfer mechanisms (SCCs for EUâ†’US).`,
     "terms-of-service": `For ${productName}: Define service scope clearly. Include AI output disclaimer. Billing terms must state renewal, cancellation, and refund policy explicitly. Limit liability to fees paid in last 12 months.`,
     "cookie-policy": `For ${productName}: Categorize cookies (strictly necessary, functional, analytics, marketing). List third-party cookies by vendor. Provide opt-out instructions for each category.`,
     "refund-policy": `For ${productName}: State refund window clearly (7+ days recommended). Define non-refundable items. Include dispute resolution process. Reference payment processor (Stripe) timelines.`,
@@ -478,7 +552,7 @@ function buildEnrichedResearchContext(
     "contact-us": `For ${productName}: Include GDPR data controller contact. DPO contact if applicable. Response time commitment. Regulatory body contacts for complaints.`,
   };
 
-  return `# Regulation Research — ${documentType} for ${productName}
+  return `# Regulation Research â€” ${documentType} for ${productName}
 
 ## Applicable Regulations (${currentYear})
 ${regulations.map((r) => `- ${r}`).join("\n")}
@@ -794,3 +868,22 @@ function dedupeDocumentLabels(items: string[]) {
 
   return deduped;
 }
+
+
+// ── Public wrappers for split-endpoint generation ─────────────────────────
+export function buildEnrichedResearchContextPublic(
+  documentType: PolicyDocumentType,
+  answers: OnboardingAnswers,
+  tier: OpenRouterGenerationTier,
+) {
+  return buildEnrichedResearchContext(documentType, answers, tier);
+}
+
+export function buildFallbackPolicyMarkdownPublic(
+  documentType: PolicyDocumentType,
+  answers: OnboardingAnswers,
+) {
+  return buildFallbackPolicyMarkdown(documentType, answers);
+}
+
+export { getDocumentTitle, normalizeMarkdown };
