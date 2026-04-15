@@ -5,16 +5,17 @@ export type OpenRouterGenerationTier = "free" | "premium" | "internal";
 
 export const OPENROUTER_MODEL_PROFILES = {
   free: {
-    // google/gemini-flash-1.5 endpoint removed from OpenRouter — use gemini-2.0-flash
+    // google/gemini-flash-1.5 removed from OpenRouter — use gemini-2.0-flash
     research: "google/gemini-2.0-flash-001",
     drafting: "deepseek/deepseek-chat",
   },
   premium: {
-    research: "anthropic/claude-sonnet-4-5",
+    // Gemini Flash for research (fast + cheap), Claude only for drafting (premium quality)
+    research: "google/gemini-2.0-flash-001",
     drafting: "anthropic/claude-sonnet-4-5",
   },
   internal: {
-    research: "anthropic/claude-sonnet-4-5",
+    research: "google/gemini-2.0-flash-001",
     drafting: "anthropic/claude-sonnet-4-5",
   },
 } as const;

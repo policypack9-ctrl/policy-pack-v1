@@ -237,7 +237,7 @@ async function runDraftingStage(input: {
     model: input.model,
     systemPrompt,
     userPrompt,
-    maxTokens: 4096,
+    maxTokens: 3000,
     temperature: 0.2,
     stream: input.stream,
   });
