@@ -42,13 +42,13 @@ export function NavbarAuthControls() {
           Login
         </Link>
         <Link
-          href={buildAuthRedirectHref("register", "/dashboard")}
+          href={buildAuthRedirectHref("register", "/onboarding")}
           className="inline-flex h-11 items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-medium text-white/70 transition-colors hover:bg-white/[0.05] hover:text-white"
         >
           Register
         </Link>
         <PremiumButton
-          render={<Link href={buildAuthRedirectHref("register", "/dashboard")} />}
+          render={<Link href={buildAuthRedirectHref("register", "/onboarding")} />}
           nativeButton={false}
           className="h-11 px-4 text-sm sm:px-5"
         >
