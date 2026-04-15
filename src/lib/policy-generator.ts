@@ -349,7 +349,8 @@ function buildPolicyUserPrompt(
     `- Company jurisdiction: ${policyPackContext ? COMPANY_JURISDICTION : answers.companyLocation || "Not provided"}`,
     `- Official domain: ${policyPackContext ? COMPANY_PRIMARY_DOMAIN : answers.websiteUrl || "Not provided"}`,
     `- Official website: ${policyPackContext ? COMPANY_PRIMARY_URL : answers.websiteUrl || "Public SaaS website"}`,
-    `- Support email: ${policyPackContext ? COMPANY_SUPPORT_EMAIL : "Use the business support contact published by the customer where appropriate; do not invent one."}`,
+    `- Support email: ${policyPackContext ? COMPANY_SUPPORT_EMAIL : answers.contactEmail || "Use the business support contact published by the customer where appropriate; do not invent one."}`,
+    `- Support phone: ${answers.contactPhone || "Not provided"}`,
     `- Website: ${answers.websiteUrl || "Public SaaS website"}`,
     `- Product description: ${answers.productDescription || "Software product"}`,
     `- AI transparency level: ${answers.aiTransparencyLevel || "Named Providers"}`,
@@ -628,7 +629,7 @@ function buildFallbackPolicyMarkdown(
   const operatorLine = buildDocumentOperatorBlock(answers, website);
 
   const operatorIdentity = resolveDocumentOperatorLabel(answers);
-  const supportContact = isPolicyPackDocumentContext(answers) ? COMPANY_SUPPORT_EMAIL : "the official support contact published on the website";
+  const supportContact = isPolicyPackDocumentContext(answers) ? COMPANY_SUPPORT_EMAIL : (answers.contactEmail || answers.contactPhone || "the official support contact published on the website");
   const legalName = isPolicyPackDocumentContext(answers) ? COMPANY_LEGAL_NAME : operatorIdentity;
 
   const fallbackWarning = `> **Note:** This document was generated using a standard local template due to temporary unavailability of the AI drafting engine. Please review and customize it manually.`;
@@ -826,7 +827,7 @@ function buildDocumentOperatorBlock(
   const operatorLabel = resolveDocumentOperatorLabel(answers);
   const contactLine = isPolicyPackDocumentContext(answers)
     ? COMPANY_SUPPORT_EMAIL
-    : "Use the official support contact published by the business";
+    : [answers.contactEmail, answers.contactPhone].filter(Boolean).join(" | ") || "Use the official support contact published by the business";
 
   return `**Operator:** ${operatorLabel}  \n**Website:** ${website}  \n**Support:** ${contactLine}`;
 }

@@ -29,6 +29,8 @@ export type OnboardingAnswers = {
   businessName: string;
   websiteUrl: string;
   productDescription: string;
+  contactEmail: string;
+  contactPhone: string;
   aiTransparencyLevel: string;
   companyLocation: string;
   companyLocationOther: string;
@@ -82,6 +84,8 @@ export const emptyOnboardingAnswers: OnboardingAnswers = {
   businessName: "",
   websiteUrl: "",
   productDescription: "",
+  contactEmail: "",
+  contactPhone: "",
   aiTransparencyLevel: "Named Providers",
   companyLocation: "",
   companyLocationOther: "",
@@ -104,6 +108,8 @@ export const demoOnboardingAnswers: OnboardingAnswers = {
   websiteUrl: "https://example.com",
   productDescription:
     "We help founders manage their online software service efficiently.",
+  contactEmail: "support@example.com",
+  contactPhone: "+1 (555) 123-4567",
   aiTransparencyLevel: "Named Providers",
   companyLocation: "United States",
   companyLocationOther: "",
@@ -606,11 +612,14 @@ export const PAGE_QUESTION_MAP: Record<DashboardDocument["id"], OnboardingQuesti
     "websiteUrl",
     "productDescription",
     "companyLocation",
+    "contactEmail",
   ],
   "contact-us": [
     "businessName",
     "websiteUrl",
     "companyLocation",
+    "contactEmail",
+    "contactPhone",
   ],
   "privacy-policy": [
     "businessName",
@@ -624,6 +633,7 @@ export const PAGE_QUESTION_MAP: Record<DashboardDocument["id"], OnboardingQuesti
     "aiTransparencyLevel",
     "userAccounts",
     "acceptsPayments",
+    "contactEmail",
   ],
   "cookie-policy": [
     "businessName",
@@ -631,6 +641,7 @@ export const PAGE_QUESTION_MAP: Record<DashboardDocument["id"], OnboardingQuesti
     "outreachChannels",
     "vendors",
     "customerRegions",
+    "contactEmail",
   ],
   "terms-of-service": [
     "businessName",
@@ -641,17 +652,20 @@ export const PAGE_QUESTION_MAP: Record<DashboardDocument["id"], OnboardingQuesti
     "userAccounts",
     "acceptsPayments",
     "aiTransparencyLevel",
+    "contactEmail",
   ],
   "legal-disclaimer": [
     "businessName",
     "websiteUrl",
     "productDescription",
     "aiTransparencyLevel",
+    "contactEmail",
   ],
   "refund-policy": [
     "businessName",
     "websiteUrl",
     "acceptsPayments",
+    "contactEmail",
   ],
 };
 
@@ -665,6 +679,8 @@ const CANONICAL_QUESTION_ORDER: OnboardingQuestionId[] = [
   "websiteUrl",
   "productDescription",
   "companyLocation",
+  "contactEmail",
+  "contactPhone",
   "customerRegions",
   "collectedData",
   "vendors",

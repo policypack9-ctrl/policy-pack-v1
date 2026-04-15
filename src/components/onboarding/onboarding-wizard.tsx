@@ -69,7 +69,9 @@ type WizardQuestionId = Exclude<keyof OnboardingAnswers, CustomInputField>;
 type TextQuestionId =
   | "businessName"
   | "websiteUrl"
-  | "productDescription";
+  | "productDescription"
+  | "contactEmail"
+  | "contactPhone";
 type SingleQuestionId =
   | "aiTransparencyLevel"
   | "companyLocation"
@@ -150,6 +152,24 @@ const questions: Question[] = [
     icon: Sparkles,
     placeholder:
       "We help SaaS founders generate and maintain legal documents for their product.",
+  },
+  {
+    id: "contactEmail",
+    kind: "text",
+    inputType: "text",
+    title: "What is your primary support email?",
+    description: "This email will be provided to users for legal and support inquiries.",
+    icon: Mail,
+    placeholder: "support@example.com",
+  },
+  {
+    id: "contactPhone",
+    kind: "text",
+    inputType: "text",
+    title: "What is your support phone number? (Optional)",
+    description: "Include a phone number if you offer phone support or if required by your jurisdiction.",
+    icon: Info,
+    placeholder: "+1 (555) 123-4567",
   },
   {
     id: "aiTransparencyLevel",
