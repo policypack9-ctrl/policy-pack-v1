@@ -252,6 +252,43 @@ export function ComplianceDashboard({
       setSaveLabel("Your workspace has not been saved yet");
     }
     setHasHydratedWorkspace(true);
+
+    // Auto-generate missing selected pages in the background
+    // Handles wizard save failures — user never sees "Generate Now" for already-selected pages
+    if (storedSession) {
+      const selectedPages = (storedSession.answers?.selectedPages ?? []) as string[];
+      const allDocs = { ...buildInitialDocumentCache(initialGeneratedDocuments), ...localDocs };
+      const missingPages = selectedPages.filter((p) => !allDocs[p as keyof typeof allDocs]);
+      if (missingPages.length > 0) {
+        window.setTimeout(() => {
+          void (async () => {
+            for (const pageId of missingPages) {
+              try {
+                const rr = await fetch("/api/research-policy", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ documentType: pageId, answers: storedSession.answers }),
+                });
+                const rd = rr.ok ? (await rr.json()) as { researchSummary?: string; researchModel?: string } : {};
+                const dr = await fetch("/api/draft-policy", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    documentType: pageId, answers: storedSession.answers,
+                    researchSummary: rd.researchSummary ?? "",
+                    researchModel: rd.researchModel ?? "built-in-regulations",
+                  }),
+                });
+                if (dr.ok) {
+                  const doc = (await dr.json()) as { markdown?: string; title?: string; provider?: string; model?: string; generatedAt?: string };
+                  if (doc.markdown && doc.title) {
+                    setDocumentCache((prev) => ({ ...prev, [pageId]: { id: pageId, title: doc.title!, markdown: doc.markdown!, provider: doc.provider ?? "openrouter", model: doc.model ?? "unknown", generatedAt: doc.generatedAt ?? new Date().toISOString() } }));
+                  }
+                }
+              } catch { /* silent background retry */ }
+            }
+          })();
+        }, 2000);
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Redirect deleted or expired sessions as soon as the client detects them.
@@ -595,13 +632,13 @@ export function ComplianceDashboard({
       return;
     }
 
-    // If already cached â†’ open immediately with no loading state
+    // If already cached Ã¢â€ â€™ open immediately with no loading state
     if (documentCache[documentRecord.id]) {
       setActiveDocumentId(documentRecord.id);
       setIsDocumentModalOpen(true);
       return;
     }
-    // Not cached â†’ generate first (shows loading state in modal)
+    // Not cached Ã¢â€ â€™ generate first (shows loading state in modal)
     setActiveDocumentId(documentRecord.id);
     setIsDocumentModalOpen(true);
     const generated = await ensureGeneratedDocument(documentRecord);
