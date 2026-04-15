@@ -1569,7 +1569,9 @@ export function ComplianceDashboard({
                                 onClick={() =>
                                   isPremium
                                     ? void handleExportPdf(document)
-                                    : void handleUpgradeToDownload(undefined, document.id)
+                                    : !hasGeneratedDraft && (isEligiblePromoUser || canGenerateComplimentaryDocument)
+                                      ? void handleViewDocument(document)
+                                      : void handleUpgradeToDownload(undefined, document.id)
                                 }
                                 className={`h-10 rounded-[16px] px-4 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${isPremium ? "border border-white/[0.08] bg-white/[0.02] text-white/72 hover:bg-white/[0.05] hover:text-white" : "border border-teal-400/25 bg-teal-400/[0.08] text-teal-100 shadow-[0_0_16px_-4px_rgba(45,212,191,0.25)] hover:bg-teal-400/[0.14]"}`}
                               >

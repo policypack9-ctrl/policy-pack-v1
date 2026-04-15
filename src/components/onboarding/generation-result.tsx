@@ -52,6 +52,16 @@ export function GenerationResult({
     setIsPremium(Boolean(session?.user?.isPremium));
   }, [session?.user?.isPremium]);
 
+  // Auto-redirect to dashboard for users who have completed generation
+  useEffect(() => {
+    if (status === "loading" || !storedSession) return;
+    const plan = normalizeAnswers(storedSession?.answers).planSelection;
+    const planChosen = plan === "free" || plan === "promo" || plan === "starter" || plan === "premium";
+    if (planChosen || initialLaunchSnapshot.canGenerateComplimentaryDocument) {
+      router.push("/dashboard");
+    }
+  }, [status, storedSession, initialLaunchSnapshot.canGenerateComplimentaryDocument, router]);
+
   const answers = useMemo(
     () => normalizeAnswers(storedSession?.answers),
     [storedSession],
