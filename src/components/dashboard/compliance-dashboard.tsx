@@ -491,7 +491,7 @@ export function ComplianceDashboard({
 
     setIsDocumentLoading(true);
     try {
-      // â”€â”€ Step 1: Live regulation research â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Step 1: Live regulation research
       setExportNotice("Searching latest laws and regulation updates...");
       let researchSummary = "";
       let researchModel = "built-in-regulations";
@@ -511,13 +511,13 @@ export function ComplianceDashboard({
             ? "Live regulation updates found. Drafting your document..."
             : "Drafting your document with regulation knowledge...");
         } else {
-          setExportNotice("\u270D\uFE0F Drafting your document...");
+          setExportNotice(" Drafting your document...");
         }
       } catch {
-        setExportNotice("\u270D\uFE0F Drafting your document...");
+        setExportNotice(" Drafting your document...");
       }
 
-      // â”€â”€ Step 2: Draft the document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Step 2: Draft the document
       const response = await fetch("/api/draft-policy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

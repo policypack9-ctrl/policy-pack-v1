@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserRound,
+  Info,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -1050,11 +1051,16 @@ export function OnboardingWizard({
   }
 
   if (isGenerating) {
+    const activeMessages = liveMessages.length > 0 ? liveMessages : generationMessages;
+    const currentStep = liveMessages.length > 0 ? liveMessages.length - 1 : generationStep;
+    const expectedMessagesCount = 2 + (answers.selectedPages.length * 4);
+    
     return (
       <GeneratingState
         answers={answers}
-        messages={liveMessages.length > 0 ? liveMessages : generationMessages}
-        generationStep={generationStep}
+        messages={activeMessages}
+        generationStep={currentStep}
+        totalSteps={Math.max(activeMessages.length, expectedMessagesCount)}
         isTransitioningOut={isTransitioningOut}
         shouldReduceMotion={shouldReduceMotion}
         isSuccess={isGenerationSuccess}
@@ -1349,6 +1355,7 @@ type GeneratingStateProps = {
   isTransitioningOut: boolean;
   shouldReduceMotion: boolean;
   isSuccess: boolean;
+  totalSteps?: number;
 };
 
 function GeneratingState({
@@ -1358,11 +1365,13 @@ function GeneratingState({
   isTransitioningOut,
   shouldReduceMotion,
   isSuccess,
+  totalSteps,
 }: GeneratingStateProps) {
   const activeMessage = messages[generationStep];
   const normalizedAnswers = normalizeAnswers(answers);
   const productName = getProductName(normalizedAnswers);
-  const progress = ((generationStep + 1) / messages.length) * 100;
+  const total = totalSteps ?? messages.length;
+  const progress = Math.min(((generationStep + 1) / total) * 100, 100);
   const radius = 56;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress / 100);
@@ -1462,55 +1471,77 @@ function GeneratingState({
                   ) : (
                     <ShieldCheck className="mx-auto size-9 text-teal-200" />
                   )}
-                  <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.26em] text-teal-100/72">
-                    {isSuccess ? "Complete" : "Calculating"}
-                  </div>
                 </div>
                 <span className="absolute -right-1 -top-1 inline-flex size-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-teal-200">
                   <Sparkles className="size-4" />
                 </span>
               </motion.div>
             </div>
-
-            <div className="mt-8">
-              <AnimatePresence mode="wait">
-                <motion.p
-                  key={activeMessage}
-                  initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -10 }}
-                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                  className="text-lg font-medium tracking-[-0.03em] text-white"
-                >
-                  <StreamingStatusMessage
-                    key={activeMessage}
-                    message={activeMessage}
-                    shouldReduceMotion={shouldReduceMotion}
-                  />
-                </motion.p>
-              </AnimatePresence>
-              <p className="mt-3 text-sm text-white/48">
-                Region focus: {resolvePrimaryRegion(normalizedAnswers)}.
-              </p>
-            </div>
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              {[
-                normalizedAnswers.companyLocation || "Jurisdiction pending",
-                normalizedAnswers.vendors.length > 0
-                  ? `${normalizedAnswers.vendors.length} vendors mapped`
-                  : "Vendors pending",
-                normalizedAnswers.collectedData.length > 0
-                  ? `${normalizedAnswers.collectedData.length} data categories detected`
-                  : "Data map pending",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="rounded-[20px] border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-white/66"
-                >
-                  {item}
+            
+            <div className="mt-12 flex justify-center">
+              <motion.div 
+                className="group relative flex w-full max-w-2xl items-center justify-between rounded-full border border-white/[0.08] bg-gradient-to-r from-white/[0.04] to-white/[0.01] p-2 pr-4 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:border-white/[0.15] hover:bg-white/[0.06]"
+              >
+                <div className="flex items-center gap-4 overflow-hidden">
+                  <div className={`flex size-10 shrink-0 items-center justify-center rounded-full transition-colors duration-500 ${isSuccess ? 'bg-emerald-500/20 text-emerald-300' : 'bg-teal-500/20 text-teal-300'}`}>
+                    {isSuccess ? <Check className="size-5" /> : <LoaderCircle className="size-5 animate-spin" />}
+                  </div>
+                  <div className="truncate text-[15px] font-medium tracking-wide text-white/90">
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={activeMessage}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.2 }}
+                        className="inline-block truncate"
+                      >
+                        {isSuccess ? "Generation complete!" : (
+                          <StreamingStatusMessage
+                            key={activeMessage}
+                            message={activeMessage}
+                            shouldReduceMotion={shouldReduceMotion}
+                          />
+                        )}
+                      </motion.span>
+                    </AnimatePresence>
+                  </div>
                 </div>
-              ))}
+
+                <div className="flex shrink-0 items-center gap-3 pl-4 border-l border-white/[0.08]">
+                  <span className="hidden text-xs font-medium uppercase tracking-wider text-teal-100/50 sm:block">
+                    {resolvePrimaryRegion(normalizedAnswers)}
+                  </span>
+                  <div className="flex size-8 cursor-help items-center justify-center rounded-full bg-white/[0.06] text-white/60 transition-colors group-hover:bg-white/[0.12] group-hover:text-white">
+                    <Info className="size-4" />
+                  </div>
+                </div>
+
+                <div className="pointer-events-none absolute bottom-full right-0 mb-4 w-[280px] translate-y-2 rounded-[24px] border border-white/[0.08] bg-[#111]/95 p-5 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-300 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 z-10">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-teal-200/60">
+                        <MapPinned className="size-3" /> Jurisdiction
+                      </p>
+                      <p className="mt-1.5 text-sm font-medium text-white/90">{normalizedAnswers.companyLocation || "Pending"}</p>
+                    </div>
+                    <div className="h-px w-full bg-white/[0.06]" />
+                    <div>
+                      <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-teal-200/60">
+                        <PlugZap className="size-3" /> Vendors
+                      </p>
+                      <p className="mt-1.5 text-sm font-medium text-white/90">{normalizedAnswers.vendors.length} mapped services</p>
+                    </div>
+                    <div className="h-px w-full bg-white/[0.06]" />
+                    <div>
+                      <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-teal-200/60">
+                        <ShieldCheck className="size-3" /> Data Categories
+                      </p>
+                      <p className="mt-1.5 text-sm font-medium text-white/90">{normalizedAnswers.collectedData.length} types detected</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
         </motion.section>
