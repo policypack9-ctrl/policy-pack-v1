@@ -13,6 +13,7 @@ type LegalDocumentModalProps = {
   metaLabel: string;
   generatedAt: string;
   isLoading: boolean;
+  loadingMessage?: string;
   canExport: boolean;
   onClose: () => void;
   onExport: () => void;
@@ -25,6 +26,7 @@ export function LegalDocumentModal({
   metaLabel,
   generatedAt,
   isLoading,
+  loadingMessage,
   canExport,
   onClose,
   onExport,
@@ -74,10 +76,14 @@ export function LegalDocumentModal({
                   <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.02] px-6 py-5 text-center">
                     <LoaderCircle className="mx-auto size-6 animate-spin text-teal-200" />
                     <p className="mt-4 text-sm font-medium text-white">
-                      Preparing your document...
+                      {loadingMessage && loadingMessage.length > 0 ? loadingMessage : "Preparing your document..."}
                     </p>
                     <p className="mt-2 text-sm text-white/54">
-                      PolicyPack is formatting the latest version for review.
+                      {loadingMessage?.startsWith("Searching") || loadingMessage?.startsWith("Found")
+                        ? "Scanning the latest regulations for your region..."
+                        : loadingMessage?.startsWith("Drafting")
+                          ? "Writing your document with live regulation data..."
+                          : "PolicyPack is generating your document, this takes 20-40 seconds."}
                     </p>
                   </div>
                 </div>

@@ -595,6 +595,13 @@ export function ComplianceDashboard({
       return;
     }
 
+    // If already cached â†’ open immediately with no loading state
+    if (documentCache[documentRecord.id]) {
+      setActiveDocumentId(documentRecord.id);
+      setIsDocumentModalOpen(true);
+      return;
+    }
+    // Not cached â†’ generate first (shows loading state in modal)
     setActiveDocumentId(documentRecord.id);
     setIsDocumentModalOpen(true);
     const generated = await ensureGeneratedDocument(documentRecord);
@@ -1614,6 +1621,7 @@ export function ComplianceDashboard({
             : displayGeneratedAt
         }
         isLoading={isDocumentLoading}
+        loadingMessage={exportNotice}
         canExport={isPremium}
         onClose={() => setIsDocumentModalOpen(false)}
         onExport={() => void handleExportPdf(activeDocument)}
