@@ -587,6 +587,8 @@ function buildFallbackResearchSummary(answers: OnboardingAnswers) {
 
   return `# Research Summary
 
+> **Notice:** This is a fallback research summary generated locally because the live AI service was temporarily unavailable or timed out.
+
 ## Key Updates
 - Regional privacy notice obligations should be reviewed for ${primaryRegion}.
 - Payment, cookie, and processor disclosures should be updated where applicable.
@@ -597,7 +599,7 @@ function buildFallbackResearchSummary(answers: OnboardingAnswers) {
 - Processor, security, transfer, and retention clauses.
 
 ## Sources
-- Template fallback used because no live provider response was available.`;
+- Local Template Engine: No live provider response was available.`;
 }
 
 function buildFallbackPolicyMarkdown(
@@ -629,8 +631,12 @@ function buildFallbackPolicyMarkdown(
   const supportContact = isPolicyPackDocumentContext(answers) ? COMPANY_SUPPORT_EMAIL : "the official support contact published on the website";
   const legalName = isPolicyPackDocumentContext(answers) ? COMPANY_LEGAL_NAME : operatorIdentity;
 
+  const fallbackWarning = `> **Note:** This document was generated using a standard local template due to temporary unavailability of the AI drafting engine. Please review and customize it manually.`;
+
   if (documentType === "privacy-policy") {
     return `# ${documentMeta.title}
+
+${fallbackWarning}
 
 ${operatorLine}
 
