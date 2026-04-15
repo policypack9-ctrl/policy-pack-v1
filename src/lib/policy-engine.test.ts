@@ -6,7 +6,8 @@ import {
   resolvePrimaryRegion,
   getGenerationMessages,
   buildComplianceSnapshot,
-  demoOnboardingAnswers
+  demoOnboardingAnswers,
+  type OnboardingAnswers
 } from './policy-engine';
 
 describe('policy-engine', () => {
@@ -69,19 +70,19 @@ describe('policy-engine', () => {
 
   describe('resolvePrimaryRegion', () => {
     it('should return "your market" if no regions exist', () => {
-      expect(resolvePrimaryRegion({ customerRegions: [], companyLocation: "" } as any)).toBe("your market");
+      expect(resolvePrimaryRegion({ customerRegions: [], companyLocation: "" } as unknown as OnboardingAnswers)).toBe("your market");
     });
 
     it('should return "global audiences" if candidate is Global', () => {
-      expect(resolvePrimaryRegion({ customerRegions: ["Global"], companyLocation: "" } as any)).toBe("global audiences");
+      expect(resolvePrimaryRegion({ customerRegions: ["Global"], companyLocation: "" } as unknown as OnboardingAnswers)).toBe("global audiences");
     });
 
     it('should prioritize customerRegion over companyLocation', () => {
-      expect(resolvePrimaryRegion({ customerRegions: ["Egypt"], companyLocation: "US" } as any)).toBe("Egypt");
+      expect(resolvePrimaryRegion({ customerRegions: ["Egypt"], companyLocation: "US" } as unknown as OnboardingAnswers)).toBe("Egypt");
     });
 
     it('should fallback to companyLocation if no customerRegion', () => {
-      expect(resolvePrimaryRegion({ customerRegions: [], companyLocation: "US" } as any)).toBe("US");
+      expect(resolvePrimaryRegion({ customerRegions: [], companyLocation: "US" } as unknown as OnboardingAnswers)).toBe("US");
     });
   });
 
