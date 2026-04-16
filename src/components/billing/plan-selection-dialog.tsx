@@ -284,7 +284,7 @@ function PlanSelectionDialogContent({
             </p>
           ) : (
             <p className="mt-2 text-xs text-white/42">
-              If valid, the code is applied automatically when checkout opens.
+              Have a discount code? Enter it here before checkout.
             </p>
           )}
         </div>
