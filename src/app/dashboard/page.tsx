@@ -10,6 +10,8 @@ import {
 } from "@/lib/auth-data";
 import { buildDefaultLaunchCampaignSnapshot } from "@/lib/launch-campaign";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage({
   searchParams,
 }: {

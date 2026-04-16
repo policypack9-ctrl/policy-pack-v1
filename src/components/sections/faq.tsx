@@ -16,9 +16,9 @@ const faqItems = [
       "You get expert-guided legal pages tailored to how your SaaS collects data, uses vendors, and serves customers, starting with the pages most likely to matter first.",
   },
   {
-    question: "How do automatic updates work?",
+    question: "How do refreshes work?",
     answer:
-      "PolicyPack monitors relevant privacy and disclosure changes, then prepares document refreshes so your legal pages do not drift out of date.",
+      "PolicyPack saves your setup so you can regenerate drafts quickly when your product, billing flow, or target markets change.",
   },
   {
     question: "Do I still need a lawyer review?",
@@ -33,7 +33,7 @@ const faqItems = [
   {
     question: "Can I start with a one-time pack and upgrade later?",
     answer:
-      "Yes. You can begin with the smaller three-page pack, then move to the full workspace later if you need more pages, ongoing monitoring, or compliance alerts.",
+      "Yes. You can begin with the smaller three-page pack, then move to the full workspace later if you need more pages, exports, or broader document coverage.",
   },
   {
     question: "Which three pages matter most for an early launch?",
@@ -58,7 +58,7 @@ const faqItems = [
   {
     question: "Can I start simple and upgrade later?",
     answer:
-      "Yes. You can begin with a smaller one-time pack, then move to the full workspace whenever you need more pages, recurring alerts, or broader compliance coverage.",
+      "Yes. You can begin with a smaller one-time pack, then move to the full workspace whenever you need more pages, exports, or broader compliance coverage.",
   },
 ];
 

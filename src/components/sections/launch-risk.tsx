@@ -69,11 +69,11 @@ const proofMetrics = [
   },
   {
     label: "UK GDPR",
-    value: "Up to £17.5M / 4%",
+    value: "Serious enforcement risk",
   },
   {
     label: "CCPA",
-    value: "Up to $7,988 intentional violation",
+    value: "Penalties can escalate quickly",
   },
 ] as const;
 
@@ -391,26 +391,25 @@ export function LaunchRiskSection({
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.24em] text-teal-200/72">
-                    Never Outdated
+                    Faster Reviews
                   </p>
                   <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
-                    Automatic Updates & Alerts
+                    Guided Refresh Workflow
                   </h3>
                   <p className="mt-3 text-sm leading-6 text-white/62">
-                    PolicyPack tracks relevant privacy and platform changes,
-                    then alerts you when your pages may need attention. That
-                    turns the product from a one-time generator into a
-                    compliance partner.
+                    PolicyPack helps your team rerun drafts, review high-risk
+                    areas, and refresh legal pages faster when your product,
+                    billing flow, or target market changes.
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 space-y-3">
                 {[
-                  "Rule change detected",
+                  "Product inputs updated",
                   "Affected pages highlighted",
-                  "Updated draft prepared",
-                  "Publish in minutes",
+                  "Fresh draft prepared",
+                  "Review before publishing",
                 ].map((item, index) => (
                   <div
                     key={item}
@@ -428,9 +427,8 @@ export function LaunchRiskSection({
               </div>
 
               <p className="mt-5 text-sm leading-6 text-white/54">
-                When rules shift, like the 2025 CCPA penalty update, you get a
-                clear alert, a suggested revision, and a faster path to staying
-                current.
+                When your setup changes, you get a clearer path to regenerate,
+                review, and republish the pages most likely to matter first.
               </p>
             </div>
           </div>
@@ -594,7 +592,7 @@ function BlockedDashboardMock() {
               {[
                 "Approval-ready legal pages",
                 "Launch checklist mapped",
-                "Update alerts enabled",
+                "Draft refresh workflow ready",
               ].map((item) => (
                 <div
                   key={item}

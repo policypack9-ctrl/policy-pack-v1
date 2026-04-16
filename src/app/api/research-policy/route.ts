@@ -8,6 +8,7 @@ import {
   buildEnrichedResearchContextPublic,
   type PolicyDocumentType,
 } from "@/lib/policy-generator";
+import { rateLimit } from "@/lib/rate-limit";
 import { getUserTier, isPageAvailableForTier } from "@/lib/tier-pages";
 
 export const maxDuration = 55;
@@ -18,6 +19,14 @@ const VALID_TYPES: PolicyDocumentType[] = [
 ];
 
 export async function POST(request: Request) {
+  const rateLimitResponse = rateLimit(request, "research-policy", {
+    limit: 12,
+    windowMs: 60 * 1000,
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
@@ -57,7 +66,6 @@ export async function POST(request: Request) {
   const config = getOpenRouterConfig(generationTier);
   const answers = normalizeAnswers(body.answers as object | undefined);
 
-  // No API key — return enriched static context so draft stage still works
   if (!config.apiKey) {
     return NextResponse.json({
       ok: true,
@@ -89,7 +97,6 @@ export async function POST(request: Request) {
       liveSearch: true,
     });
   } catch (err) {
-    // Fallback to enriched static context if live search fails
     return NextResponse.json({
       ok: true,
       researchSummary: buildEnrichedResearchContextPublic(body.documentType, answers, generationTier),

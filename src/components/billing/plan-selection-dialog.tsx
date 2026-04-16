@@ -44,7 +44,7 @@ const PLAN_CARDS: PlanCard[] = [
     name: "Free Promo",
     price: "Free",
     cadence: "limited time",
-    description: "Claim your complimentary slot before the promotional period ends.",
+    description: "Use complimentary launch access while the promotional period remains active.",
     features: [
       "Choose up to 4 pages from all 7",
       "Full AI-generated legal documents",
@@ -87,11 +87,11 @@ const PLAN_CARDS: PlanCard[] = [
     name: "Premium Workspace",
     price: "$29",
     cadence: "/mo",
-    description: "Full document coverage, ongoing alerts, and a workspace built for SaaS.",
+    description: "Full document coverage and a workspace built for SaaS teams.",
     features: [
       "All 7 legal and compliance pages",
-      "Ongoing monitoring and update alerts",
-      "Version history and policy refreshes",
+      "Saved workspace and repeat generation",
+      "PDF exports and broader document coverage",
       "Built for SaaS products with billing",
     ],
     badge: "Best for SaaS",

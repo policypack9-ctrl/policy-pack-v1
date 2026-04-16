@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LegalPageShell } from "@/components/legal/legal-page-shell";
+import { COMPANY_PUBLIC_NAME } from "@/lib/company";
 import {
   getAboutUsMarkdown,
   SITE_LEGAL_LAST_UPDATED,
@@ -8,7 +9,7 @@ import {
 
 export const metadata: Metadata = {
   title: "About Us",
-  description: "Learn about Superlinear Technology Pte. Ltd. and the vision behind PolicyPack.",
+  description: `Learn about ${COMPANY_PUBLIC_NAME} and the vision behind PolicyPack.`,
   alternates: {
     canonical: "/about-us",
   },
@@ -23,7 +24,7 @@ export default function AboutUsPage() {
     <LegalPageShell
       eyebrow="PolicyPack Company"
       title="About Us"
-      description="The company story behind PolicyPack and our focus on expert-guided legal automation."
+      description="The company story behind PolicyPack and our focus on expert-guided legal document generation."
       markdown={getAboutUsMarkdown()}
       lastUpdated={SITE_LEGAL_LAST_UPDATED}
     />

@@ -16,6 +16,7 @@ import {
   buildFallbackPolicyMarkdownPublic,
   type PolicyDocumentType,
 } from "@/lib/policy-generator";
+import { rateLimit } from "@/lib/rate-limit";
 import { getUserTier, isPageAvailableForTier } from "@/lib/tier-pages";
 
 export const maxDuration = 55;
@@ -27,6 +28,14 @@ const VALID_TYPES: PolicyDocumentType[] = [
 ];
 
 export async function POST(request: Request) {
+  const rateLimitResponse = rateLimit(request, "draft-policy", {
+    limit: 8,
+    windowMs: 60 * 1000,
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
@@ -85,7 +94,16 @@ export async function POST(request: Request) {
 
   if (!config.apiKey) {
     const markdown = buildFallbackPolicyMarkdownPublic(body.documentType, answers);
-    const doc = { markdown, provider: "mock" as const, model: "template-fallback", generationTier, usedFallback: true, title, generatedAt, research: { model: researchModel, summary: researchSummary } };
+    const doc = {
+      markdown,
+      provider: "mock" as const,
+      model: "template-fallback",
+      generationTier,
+      usedFallback: true,
+      title,
+      generatedAt,
+      research: { model: researchModel, summary: researchSummary },
+    };
     await saveGeneratedDocumentForUser(session.user.id, body.documentType, doc);
     return NextResponse.json(doc);
   }
@@ -103,40 +121,66 @@ export async function POST(request: Request) {
       stream: true,
     });
 
-    // If it's not a standard Response object, handle as error
     if (!(draftResponse instanceof Response) || !draftResponse.body) {
       throw new Error("Drafting stage did not return a streamable response.");
     }
 
-    // Pass through the stream and capture chunks to save the document when finished
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     let accumulatedContent = "";
+    let pendingSseBuffer = "";
+
+    const processSseLine = (
+      line: string,
+      controller: TransformStreamDefaultController<Uint8Array>,
+    ) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine.startsWith("data:")) {
+        return;
+      }
+
+      const payload = trimmedLine.slice(5).trim();
+      if (!payload || payload === "[DONE]") {
+        return;
+      }
+
+      try {
+        const data = JSON.parse(payload);
+        const content = data.choices?.[0]?.delta?.content;
+        if (content) {
+          accumulatedContent += content;
+          controller.enqueue(encoder.encode(content));
+        }
+      } catch {
+        // Ignore malformed provider frames and keep streaming.
+      }
+    };
+
+    const processSseChunk = (
+      text: string,
+      controller: TransformStreamDefaultController<Uint8Array>,
+    ) => {
+      const normalizedChunk = `${pendingSseBuffer}${text}`.replace(/\r\n/g, "\n");
+      const lines = normalizedChunk.split("\n");
+      pendingSseBuffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        processSseLine(line, controller);
+      }
+    };
 
     const transformStream = new TransformStream({
       transform(chunk, controller) {
-        // chunk is a Uint8Array
         const text = decoder.decode(chunk, { stream: true });
-        
-        // OpenRouter SSE format parsing
-        const lines = text.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("data: ") && line !== "data: [DONE]") {
-            try {
-              const data = JSON.parse(line.slice(6));
-              const content = data.choices?.[0]?.delta?.content;
-              if (content) {
-                accumulatedContent += content;
-                controller.enqueue(encoder.encode(content));
-              }
-            } catch {
-              // Ignore parse errors on partial chunks
-            }
-          }
-        }
+        processSseChunk(text, controller);
       },
-      async flush() {
-        // Save the document once streaming is complete
+      async flush(controller) {
+        processSseChunk(decoder.decode(), controller);
+
+        if (pendingSseBuffer.trim()) {
+          processSseLine(pendingSseBuffer, controller);
+        }
+
         const markdown = normalizeMarkdown(accumulatedContent, title);
         const generated = {
           markdown,
@@ -148,15 +192,19 @@ export async function POST(request: Request) {
           generatedAt,
           research: { model: researchModel, summary: researchSummary },
         };
-        await saveGeneratedDocumentForUser(session.user.id, body.documentType as PolicyDocumentType, generated);
-      }
+        await saveGeneratedDocumentForUser(
+          session.user.id,
+          body.documentType as PolicyDocumentType,
+          generated,
+        );
+      },
     });
 
     return new Response(draftResponse.body.pipeThrough(transformStream), {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-cache",
-      }
+      },
     });
   } catch (err) {
     return NextResponse.json(

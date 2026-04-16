@@ -32,13 +32,13 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlan> = {
     name: "Premium Workspace",
     shortLabel: "Premium",
     description:
-      "Full document coverage, ongoing alerts, and a workspace built for SaaS growth.",
+      "Full document coverage and a workspace built for SaaS growth.",
     priceLabel: "$29",
     cadenceLabel: "/mo",
     ctaLabel: "Choose Premium",
     features: [
       "All core legal and compliance pages",
-      "Ongoing monitoring and update alerts",
+      "Saved workspace and repeat generation",
       "Best for products with billing, accounts, and scaling needs",
     ],
   },

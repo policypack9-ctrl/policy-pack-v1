@@ -15,8 +15,8 @@ const starterPlanFeatures = [
 
 const premiumPlanFeatures = [
   "All core legal and compliance pages",
-  "Automatic legal update monitoring",
-  "Version history and policy refreshes",
+  "Saved workspace and repeat generation",
+  "PDF exports and broader document coverage",
   "Built for SaaS products, billing, and growth",
 ];
 
@@ -28,7 +28,7 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
   const shouldReduceMotion = useReducedMotion();
   const pricingSupportCopy = launchSnapshot.freeGenerationClosed
     ? "Research benchmark: low-end policy tools cluster around $8-$15/mo, while one-time policy pricing often stacks quickly per document. We position PolicyPack with a simpler one-time starter and a higher-trust premium plan."
-    : `${launchSnapshot.freeSpotsRemaining} complimentary launch spot${launchSnapshot.freeSpotsRemaining === 1 ? "" : "s"} remain for first-time accounts. After that, pick a one-time starter pack or the full premium workspace.`;
+    : "The complimentary launch offer is active for eligible first-time accounts. After that, pick a one-time starter pack or the full premium workspace.";
 
   return (
     <section
@@ -50,7 +50,7 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
           </h2>
           <p className="mt-4 text-base leading-7 text-white/62">
             Founders who only need the basics should not be forced into ongoing
-            monitoring, while serious SaaS teams still need the full approval-ready stack.
+            legal retainers, while serious SaaS teams still need the full approval-ready stack.
           </p>
           <p className="mt-3 text-sm leading-7 text-white/48">
             {pricingSupportCopy}
@@ -83,7 +83,7 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
               </div>
               <p className="mt-3 text-sm leading-6 text-white/58">
                 For founders who just need a clean launch with the three most
-                important pages and do not need ongoing monitoring.
+                important pages and do not need a larger workspace.
               </p>
             </div>
 
@@ -139,7 +139,7 @@ export function PricingSection({ launchSnapshot }: PricingSectionProps) {
               </div>
               <p className="mt-3 text-sm leading-6 text-white/58">
                 For teams that need all pages, better launch readiness, and
-                ongoing alerts when platform rules or privacy requirements shift.
+                a reusable workspace for broader compliance coverage.
               </p>
             </div>
 

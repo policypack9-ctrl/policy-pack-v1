@@ -155,12 +155,12 @@ function buildAuditViewState(
 
     return {
       healthScore: 99,
-      healthSummary: `Your launch-ready pages are aligned for ${snapshot.primaryRegion}, with light monitoring active.`,
-      auditSummary: `Watching policy changes relevant to ${snapshot.primaryRegion} and your current product setup.`,
-      alertTitle: "Monitoring active",
+      healthSummary: `Your launch-ready pages are aligned for ${snapshot.primaryRegion}, with a fresh review available any time.`,
+      auditSummary: `Reviewing policy language relevant to ${snapshot.primaryRegion} and your current product setup.`,
+      alertTitle: "Review available",
       alertMessage:
         "Your workspace is healthy. Run a fresh audit any time you want the latest review across your current setup.",
-      alertBadge: "Monitoring live",
+      alertBadge: "Ready for review",
         documentUpdates: [],
     };
   }
@@ -168,7 +168,7 @@ function buildAuditViewState(
   if (usesCookies) {
     return {
       healthScore: 100,
-      healthSummary: `All core documents are synced and refreshed for ${snapshot.monitoredRegions.join(", ")} coverage.`,
+      healthSummary: `All core documents were reviewed for ${snapshot.monitoredRegions.join(", ")} coverage.`,
       auditSummary: `Cookie, privacy-rights, and support wording were rechecked for ${snapshot.monitoredRegions.join(", ")} visitors.`,
       alertTitle: "Audit complete",
       alertMessage:
@@ -1304,7 +1304,7 @@ export function ComplianceDashboard({
               <div className="flex flex-col gap-3 sm:items-end">
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3.5 py-2 text-sm font-medium text-emerald-100">
                   <BadgeCheck className="size-4" />
-                  100% Compliant
+                  Audit snapshot
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -1397,7 +1397,7 @@ export function ComplianceDashboard({
                   </div>
                   <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/14 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100">
                     <BadgeCheck className="size-4" />
-                    100% Compliant
+                    Review complete
                   </span>
                 </div>
 

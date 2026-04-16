@@ -1,3 +1,4 @@
+import DOMPurify from "isomorphic-dompurify";
 import { marked } from "marked";
 
 type PrintDocumentMeta = {
@@ -17,22 +18,18 @@ export function escapeHtml(value: string) {
 }
 
 function sanitizeGeneratedHtml(html: string) {
-  return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/\son\w+="[^"]*"/gi, "")
-    .replace(/\son\w+='[^']*'/gi, "")
-    .replace(/javascript:/gi, "");
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form"],
+  });
 }
 
 export function legalMarkdownToHtml(markdown: string) {
-  // Keep rendering synchronous for both server and client usage.
-  // A lightweight sanitizer avoids runtime issues from server-side DOM libraries in production.
   try {
     const rawHtml = marked.parse(markdown, { async: false }) as string;
     return sanitizeGeneratedHtml(rawHtml);
   } catch (error) {
     console.error("Error parsing markdown", error);
-    // Fallback basic escaping if marked fails
     return `<p>${escapeHtml(markdown)}</p>`;
   }
 }

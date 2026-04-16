@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 
 const proofPoints = [
   "Privacy Policy + Terms",
-  "Auto-updates when laws change",
+  "Review-ready drafts",
   "Founder-friendly setup",
 ];
 
@@ -84,13 +84,14 @@ export function HeroSection({ launchSnapshot }: HeroSectionProps) {
 
             <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-[0.98] tracking-[-0.06em] text-white sm:text-5xl lg:text-6xl">
               <span className="bg-[linear-gradient(135deg,#ffffff_0%,#e8fef9_58%,#89ecd8_100%)] bg-clip-text text-transparent">
-                Your Legal Documents. Done in 10 Minutes. Always Up to Date.
+                Your Legal Documents. Ready in Minutes.
               </span>
             </h1>
 
             <p className="text-balance mt-5 max-w-2xl text-base leading-7 text-white/68 sm:text-lg">
               Skip the $3,000 lawyer bill. Expert-guided Privacy Policy and Terms
-              of Service drafts that stay aligned when rules change.
+              of Service drafts tailored to your product, billing flow, and target
+              markets.
             </p>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/54">
               {launchSnapshot.bannerDescription}
@@ -223,20 +224,20 @@ function DocumentPreview() {
               <div className="rounded-[18px] border border-white/10 bg-white/[0.03] p-3">
                 <div className="flex items-center gap-2 text-sm font-medium text-white">
                   <ShieldCheck className="size-4 text-teal-200" />
-                  Auto-monitoring
+                  Guided review
                 </div>
                 <p className="mt-2 text-sm leading-6 text-white/58">
-                  Watches policy-related law changes for you.
+                  Highlights the areas your team should review before publishing.
                 </p>
               </div>
 
               <div className="rounded-[18px] border border-white/10 bg-white/[0.03] p-3">
                 <div className="flex items-center gap-2 text-sm font-medium text-white">
                   <Clock3 className="size-4 text-teal-200" />
-                  Last refresh
+                  Latest draft
                 </div>
                 <p className="mt-2 text-sm leading-6 text-white/58">
-                  Updated automatically 4 minutes ago.
+                  Generated from your saved workspace inputs.
                 </p>
               </div>
             </div>

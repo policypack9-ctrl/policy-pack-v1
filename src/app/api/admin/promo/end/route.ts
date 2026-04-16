@@ -15,6 +15,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+const EMAIL_BATCH_SIZE = 10;
 
 function getSmtpTransporter() {
   const host = process.env.SMTP_HOST?.trim() ?? "";
@@ -31,6 +32,61 @@ function getSmtpTransporter() {
     secure: process.env.SMTP_SECURE !== "false",
     auth: { user, pass },
   });
+}
+
+async function notifyPromoUsersInBatches(
+  transporter: NonNullable<ReturnType<typeof getSmtpTransporter>>,
+  promoUsers: Awaited<ReturnType<typeof getPromoUsers>>,
+) {
+  let notifiedCount = 0;
+  const notificationErrors: string[] = [];
+
+  for (let index = 0; index < promoUsers.length; index += EMAIL_BATCH_SIZE) {
+    const batch = promoUsers
+      .slice(index, index + EMAIL_BATCH_SIZE)
+      .filter((user) => Boolean(user.email));
+    const results = await Promise.allSettled(
+      batch.map(async (user) => {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+          replyTo: COMPANY_SUPPORT_EMAIL,
+          to: user.email,
+          subject: "PolicyPack - Launch Offer Update",
+          text: `Hi ${user.name ?? "there"},\n\nThe PolicyPack complimentary launch offer has now ended.\n\nChoose a plan to continue: https://policypack.org/#pricing\n\nThank you,\nThe PolicyPack Team`,
+          html: `<div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+            <h2 style="color:#111827;">Launch Offer Update</h2>
+            <p>Hi ${user.name ?? "there"},</p>
+            <p>The PolicyPack complimentary launch offer has now ended.</p>
+            <p>To continue generating legal pages, choose a plan:</p>
+            <p style="margin:24px 0;"><a href="https://policypack.org/#pricing"
+              style="background:#0d9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
+              View Plans
+            </a></p>
+            <p>Thank you for being an early user!</p>
+            <p>The PolicyPack Team<br/>
+            <a href="mailto:${COMPANY_SUPPORT_EMAIL}">${COMPANY_SUPPORT_EMAIL}</a></p>
+          </div>`,
+        });
+
+        return user.email ?? "unknown";
+      }),
+    );
+
+    results.forEach((result, batchIndex) => {
+      const batchUser = batch[batchIndex];
+
+      if (result.status === "fulfilled") {
+        notifiedCount++;
+        return;
+      }
+
+      notificationErrors.push(
+        `${batchUser?.email ?? "unknown"}: ${result.reason instanceof Error ? result.reason.message : "unknown"}`,
+      );
+    });
+  }
+
+  return { notifiedCount, notificationErrors };
 }
 
 export async function POST() {
@@ -66,37 +122,12 @@ export async function POST() {
     const notificationErrors: string[] = [];
 
     if (transporter) {
-      for (const user of promoUsers) {
-        if (!user.email) continue;
-
-        try {
-          await transporter.sendMail({
-            from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
-            replyTo: COMPANY_SUPPORT_EMAIL,
-            to: user.email,
-            subject: "PolicyPack - Launch Offer Update",
-            text: `Hi ${user.name ?? "there"},\n\nThe PolicyPack complimentary launch offer has now ended.\n\nChoose a plan to continue: https://policypack.org/#pricing\n\nThank you,\nThe PolicyPack Team`,
-            html: `<div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-              <h2 style="color:#111827;">Launch Offer Update</h2>
-              <p>Hi ${user.name ?? "there"},</p>
-              <p>The PolicyPack complimentary launch offer has now ended.</p>
-              <p>To continue generating legal pages, choose a plan:</p>
-              <p style="margin:24px 0;"><a href="https://policypack.org/#pricing"
-                style="background:#0d9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
-                View Plans
-              </a></p>
-              <p>Thank you for being an early user!</p>
-              <p>The PolicyPack Team<br/>
-              <a href="mailto:${COMPANY_SUPPORT_EMAIL}">${COMPANY_SUPPORT_EMAIL}</a></p>
-            </div>`,
-          });
-          notifiedCount++;
-        } catch (error) {
-          notificationErrors.push(
-            `${user.email}: ${error instanceof Error ? error.message : "unknown"}`,
-          );
-        }
-      }
+      const notificationResult = await notifyPromoUsersInBatches(
+        transporter,
+        promoUsers,
+      );
+      notifiedCount = notificationResult.notifiedCount;
+      notificationErrors.push(...notificationResult.notificationErrors);
     }
 
     // 4. Build report

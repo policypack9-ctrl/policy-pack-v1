@@ -21,10 +21,10 @@ const features = [
     className: "xl:col-span-2",
   },
   {
-    eyebrow: "Auto-Monitoring",
-    title: "Stay aligned when privacy rules shift.",
+    eyebrow: "Structured Review",
+    title: "See the policy areas most likely to need follow-up.",
     description:
-      "PolicyPack watches for relevant legal changes and prepares the next update before you fall behind.",
+      "PolicyPack surfaces document gaps and gives your team a faster starting point for the next revision.",
     icon: Radar,
   },
   {
@@ -43,9 +43,9 @@ const features = [
   },
   {
     eyebrow: "Enterprise Trust",
-    title: "Version history and approvals built in.",
+    title: "Workspace outputs built for team review.",
     description:
-      "See what changed, when it changed, and who approved it without legal process overhead.",
+      "Export-ready drafts, saved inputs, and repeatable generation make internal review easier without legal process overhead.",
     icon: Building2,
   },
 ];
@@ -72,7 +72,7 @@ export function FeaturesSection() {
             Everything needed to ship trustworthy legal docs fast.
           </h2>
           <p className="mt-4 text-base leading-7 text-white/62">
-            Clear outputs, automated updates, and a workflow that feels more
+            Clear outputs, repeatable workflows, and a setup that feels more
             like shipping product than managing paperwork.
           </p>
         </motion.div>

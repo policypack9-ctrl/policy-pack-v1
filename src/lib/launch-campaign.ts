@@ -2,8 +2,8 @@
  * Launch campaign logic.
  *
  * PROMO_ACTIVE (env flag):
- *   - "true" or unset  â†’ promotional period is ON  â†’ all registered users are eligible
- *   - "false"          â†’ promotional period is OFF â†’ no new users are eligible
+ *   - "true" or unset  -> promotional period is ON  -> registered users can receive complimentary drafts
+ *   - "false"          -> promotional period is OFF -> no new users are eligible
  *
  * Change PROMO_ACTIVE=false in your .env / Vercel environment to end the promo instantly.
  */
@@ -58,8 +58,6 @@ export function buildLaunchCampaignSnapshot({
 }: BuildLaunchCampaignSnapshotInput): LaunchCampaignSnapshot {
   const safeRegisteredUsers = Math.max(0, Math.floor(registeredUsers));
 
-  // During active promo, every registered user is eligible.
-  // After promo ends (PROMO_ACTIVE=false), no new user is eligible.
   const isEligibleLaunchUser = promoActive && Boolean(userId);
 
   const freeUserLimit = 0;
@@ -72,7 +70,6 @@ export function buildLaunchCampaignSnapshot({
     generatedDocumentCount >= COMPLIMENTARY_DOCUMENT_LIMIT;
   const canGenerateComplimentaryDocument =
     isEligibleLaunchUser && !hasUsedComplimentaryDocument;
-  // Keep showing remaining even after promo closes so existing users know their balance
   const complimentaryDocumentsRemaining = isEligibleLaunchUser
     ? Math.max(0, COMPLIMENTARY_DOCUMENT_LIMIT - generatedDocumentCount)
     : 0;

@@ -225,7 +225,7 @@ export function buildPolicyPackCheckoutItems(
             name: "PolicyPack Premium Workspace",
             taxCategory: "saas" as const,
             description:
-              "Full workspace access with exports, monitoring, and premium legal coverage.",
+              "Full workspace access with exports and premium legal coverage.",
           },
         };
 

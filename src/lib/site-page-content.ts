@@ -132,7 +132,7 @@ const termsAndGdprMarkdown = enforcePolicyPackTermsRefundLanguage(
     ],
     [
       "Premium features include export formats, version tracking, and update notifications when regulations or platform policies change.",
-      "Premium features may include export formats, version tracking, update notifications, and related workspace capabilities as described on the site at the time of purchase.",
+      "Premium features may include export formats and related workspace capabilities as described on the site at the time of purchase.",
     ],
   ]),
 );
@@ -155,6 +155,10 @@ const refundPolicyMarkdown = enforceStrictPolicyPackRefundPolicy(
       "All sales are final once the digital product has been delivered or the subscription term has commenced, except where applicable law provides a mandatory right of withdrawal or refund.",
       "Refunds are not provided once the AI generation process has been initiated or once any generated document pack has been accessed, generated, exported, delivered, or downloaded.",
     ],
+    [
+      "d) Compliance monitoring and updates",
+      "d) Workspace access and related compliance support tools",
+    ],
   ]),
 );
 
@@ -166,8 +170,24 @@ const aboutUsMarkdown = normalizeGeneratedMarkdown(
   generatedSiteContent.pages.aboutUs,
   [
     [
+      "PolicyPack helps SaaS founders and digital businesses generate, publish, and maintain essential legal documents that meet the requirements of multiple jurisdictions simultaneously.",
+      "PolicyPack helps SaaS founders and digital businesses generate and publish essential legal documents that address common multi-jurisdiction launch requirements.",
+    ],
+    [
+      "What sets PolicyPack apart is our focus on dynamic policy management. We recognize that static, one-time legal documents quickly become outdated as your business evolves, new integrations are added, or regulations change. Our platform helps you maintain compliance through these changes with intelligent updates and notifications.",
+      "What sets PolicyPack apart is our focus on structured, repeatable legal drafting. As your business evolves, your team can return to the workspace, update inputs, and generate a stronger next draft without starting from scratch.",
+    ],
+    [
       "The system works by collecting structured information about your service - what data you collect, how you process payments, which platforms you operate on, where your users are located - and producing publication-ready legal documents that reflect current requirements under GDPR, UK GDPR, CCPA, CPRA, ePrivacy Directive, and platform-specific policies enforced by Apple App Store, Google Play, Stripe, Paddle, and PayPal.",
       "The system works by collecting structured information about your service, such as what data you collect, how you process payments, which platforms you operate on, and where your users are located, then producing publication-ready legal documents that reflect current requirements under major privacy and platform frameworks.",
+    ],
+    [
+      "3. **Current** - updated as regulations evolve",
+      "3. **Current** - easier to revisit as your product and disclosures evolve",
+    ],
+    [
+      "We utilize secure automated data processors to enhance the quality, consistency, and adaptability of our compliance solutions. Our AI systems are designed to augment human expertise, not replace it. All outputs undergo rigorous validation against current legal standards before being made available to our customers.",
+      "We utilize secure automated data processors to enhance the quality, consistency, and adaptability of our compliance solutions. Our AI systems are designed to augment human expertise, not replace it. Outputs should still be reviewed by your team and, when needed, by qualified counsel before publication.",
     ],
     [
       "We do not train AI models on customer data. We do not share your service details with third parties for marketing or analytics purposes. The information you provide to PolicyPack is used solely to generate your compliance documents.",
