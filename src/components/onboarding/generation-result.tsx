@@ -140,6 +140,7 @@ export function GenerationResult({
 
       const payload = (await response.json()) as {
         checkoutUrl?: string | null;
+        transactionId?: string;
         message?: string;
         premiumUnlocked?: boolean;
       };
@@ -148,6 +149,13 @@ export function GenerationResult({
       setIsPlanDialogOpen(false);
       if (payload.checkoutUrl) {
         window.location.assign(payload.checkoutUrl);
+        return;
+      }
+
+      // When the API returns a transaction id, hand off to the dashboard flow
+      // that already knows how to open/verify the Paddle checkout overlay.
+      if (payload.transactionId) {
+        router.push(`/dashboard?_ptxn=${encodeURIComponent(payload.transactionId)}`);
         return;
       }
 

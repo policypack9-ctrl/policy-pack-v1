@@ -21,11 +21,34 @@ Copy the example environment file and configure your keys:
 cp .env.example .env.local
 ```
 
+PowerShell on Windows:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
 You will need to set up:
 - **Supabase**: Create a new project, copy URL & Keys. Apply the schema from `supabase/schema.sql`.
 - **Google Cloud**: Set up an OAuth app for `AUTH_GOOGLE_ID`.
 - **OpenRouter**: Get an API key for the document generation engine.
 - **Paddle**: Configure sandbox environment, products, and webhook secret.
+- **SMTP**: Configure mail delivery if you want welcome emails, payment emails, and admin notifications.
+
+The app reads the following environment groups:
+
+| Group | Required Keys | Notes |
+| --- | --- | --- |
+| App URL | `NEXT_PUBLIC_APP_URL`, `AUTH_URL` | `AUTH_URL` should match your canonical domain in production. `NEXTAUTH_URL` is also supported as a legacy alias. |
+| Auth | `AUTH_SECRET` | `NEXTAUTH_SECRET` is also supported. Generate with `npx auth secret`. |
+| Supabase | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_KEY` remain supported aliases. |
+| Google OAuth | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are also supported aliases. |
+| OpenRouter | `OPENROUTER_API_KEY` | `OPENROUTER_BASE_URL` defaults to the public API. Optional model override keys are documented in `.env.example`. |
+| Paddle | `PADDLE_ENVIRONMENT`, `NEXT_PUBLIC_PADDLE_ENV`, `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET` | Configure `PADDLE_STARTER_PRICE_ID` and `PADDLE_PREMIUM_PRICE_ID`. Client tokens may be set explicitly or generated server-side. |
+| SMTP | `SMTP_USER`, `SMTP_PASS` | For reliable email delivery also set `SMTP_PROVIDER`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`, and `SMTP_REPLY_TO`. |
+| Admin / Ops | `ADMIN_EMAIL_ALLOWLIST`, `ADMIN_NOTIFICATION_EMAILS`, `HEALTHCHECK_SECRET` | Used for admin access control and the notifications healthcheck endpoint. |
+| Promo | `PROMO_ACTIVE` | Controls whether the launch promo remains active. |
+
+Do not commit `.env.local` or any real secrets.
 
 *(For local DB, you can use the included `docker-compose.yml` to spin up PostgreSQL)*
 
