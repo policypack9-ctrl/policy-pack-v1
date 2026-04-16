@@ -1,6 +1,6 @@
 type PdfTextBlock = {
   text: string;
-  kind: "title" | "meta" | "h1" | "h2" | "h3" | "p" | "li" | "table";
+  kind: "title" | "meta" | "h1" | "h2" | "h3" | "p" | "li" | "table" | "rule";
 };
 
 function normalizeWhitespace(value: string) {
@@ -36,7 +36,7 @@ function extractNodeText(node: Node): string {
 
   if (node.tagName === "A") {
     const label = normalizeWhitespace(node.textContent ?? "");
-    const href = node.getAttribute("href")?.trim() ?? "";
+    const href = (node.getAttribute("href")?.trim() ?? "").replace(/[`"' ]+/g, "");
     if (href && label && href !== label) {
       return `${label} (${href})`;
     }
@@ -109,7 +109,7 @@ function collectBlocksFromElement(element: Element): PdfTextBlock[] {
     }
 
     if (tag === "hr") {
-      blocks.push({ text: "________________________________________", kind: "meta" });
+      blocks.push({ text: "", kind: "rule" });
       continue;
     }
 
@@ -145,6 +145,10 @@ function splitTextIntoWrappedLines(
   return lines;
 }
 
+function isLabelValueLine(line: string) {
+  return /^[A-Za-z][A-Za-z\s/()&-]{1,40}:\s+.+$/.test(line.trim());
+}
+
 export async function generatePdfFromHtml(htmlText: string, filename: string) {
   try {
     const [{ jsPDF }] = await Promise.all([import("jspdf")]);
@@ -174,6 +178,50 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
       cursorY = topMargin;
     };
 
+    const drawDivider = (gapBefore: number, gapAfter: number) => {
+      ensurePageSpace(gapBefore + gapAfter + 2);
+      cursorY += gapBefore;
+      doc.setDrawColor(209, 213, 219);
+      doc.setLineWidth(0.35);
+      doc.line(marginX, cursorY, marginX + contentWidth, cursorY);
+      cursorY += gapAfter;
+    };
+
+    const writeLabelValueLine = (
+      line: string,
+      options: {
+        fontSize: number;
+        lineHeight: number;
+        gapAfter: number;
+      },
+    ) => {
+      const matched = line.match(/^([^:]+:\s*)([\s\S]+)$/);
+      if (!matched) {
+        const fallbackLines = splitTextIntoWrappedLines(doc, line, contentWidth);
+        const blockHeight = Math.max(fallbackLines.length, 1) * options.lineHeight;
+        ensurePageSpace(blockHeight + options.gapAfter);
+        doc.setFont("times", "normal");
+        doc.setFontSize(options.fontSize);
+        doc.text(fallbackLines, marginX, cursorY);
+        cursorY += blockHeight + options.gapAfter;
+        return;
+      }
+
+      const label = matched[1].trimEnd();
+      const value = matched[2].trim();
+      const labelWidth = Math.min(doc.getTextWidth(label), contentWidth * 0.38);
+      const valueWidth = Math.max(contentWidth - labelWidth - 1.5, contentWidth * 0.55);
+      const valueLines = splitTextIntoWrappedLines(doc, value, valueWidth);
+      const blockHeight = Math.max(valueLines.length, 1) * options.lineHeight;
+      ensurePageSpace(blockHeight + options.gapAfter);
+      doc.setFontSize(options.fontSize);
+      doc.setFont("times", "bold");
+      doc.text(label, marginX, cursorY);
+      doc.setFont("times", "normal");
+      doc.text(valueLines, marginX + labelWidth + 1.5, cursorY);
+      cursorY += blockHeight + options.gapAfter;
+    };
+
     const writeBlock = (
       text: string,
       options: {
@@ -183,6 +231,22 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
         gapAfter: number;
       },
     ) => {
+      const labelLines = text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (labelLines.length > 1 && labelLines.every(isLabelValueLine)) {
+        labelLines.forEach((line, index) => {
+          writeLabelValueLine(line, {
+            fontSize: options.fontSize,
+            lineHeight: options.lineHeight,
+            gapAfter: index === labelLines.length - 1 ? options.gapAfter : 1.1,
+          });
+        });
+        return;
+      }
+
       const lines = splitTextIntoWrappedLines(doc, text, contentWidth);
       const blockHeight = Math.max(lines.length, 1) * options.lineHeight;
       ensurePageSpace(blockHeight + options.gapAfter);
@@ -224,6 +288,8 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
         gapAfter: 6,
       });
     }
+
+    drawDivider(0.5, 6);
 
     const article = parsed.querySelector("article.doc");
     const blocks = article ? collectBlocksFromElement(article) : [];
@@ -268,6 +334,11 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
           fontStyle: "normal",
           gapAfter: 2,
         });
+        continue;
+      }
+
+      if (block.kind === "rule") {
+        drawDivider(1.5, 4.5);
         continue;
       }
 
