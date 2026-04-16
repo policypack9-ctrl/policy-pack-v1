@@ -700,7 +700,14 @@ export function ComplianceDashboard({
           return;
         }
 
-        throw new Error("Unable to render PDF export HTML.");
+        const errorPayload = (await renderResponse.json().catch(() => null)) as
+          | { error?: string; details?: string }
+          | null;
+        const errorMessage =
+          errorPayload?.details ??
+          errorPayload?.error ??
+          "Unable to render PDF export HTML.";
+        throw new Error(errorMessage);
       }
 
       const htmlText = await renderResponse.text();
@@ -1080,7 +1087,11 @@ export function ComplianceDashboard({
       }, 1500);
     } catch (err) {
       console.error("PDF Export failed:", err);
-      setExportNotice("Failed to export PDF. Please try again.");
+      setExportNotice(
+        err instanceof Error
+          ? `Failed to export PDF: ${err.message}`
+          : "Failed to export PDF. Please try again.",
+      );
       setTimeout(() => {
         setIsDocumentLoading(false);
       }, 3000);

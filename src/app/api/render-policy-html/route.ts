@@ -8,6 +8,15 @@ import { PRODUCTION_APP_URL } from "@/lib/site-config";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function sanitizeExportFilename(title: string) {
+  return (
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "policy-document"
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -45,27 +54,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const safeTitle = String(body.title);
     const html = buildLegalPrintHtml(body.markdown, {
-      title: body.title,
+      title: safeTitle,
       productName: body.productName ?? "PolicyPack",
       websiteUrl: body.websiteUrl ?? PRODUCTION_APP_URL,
       generatedAt: body.generatedAt ?? new Date().toISOString(),
     });
-    const htmlBuffer = Buffer.from(html, "utf-8");
 
-    return new NextResponse(htmlBuffer, {
+    return new NextResponse(html, {
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Length": String(htmlBuffer.byteLength),
         "Cache-Control": "no-store, max-age=0",
-        "Content-Disposition": `inline; filename="${body.title
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "") || "policy-document"}.html"`,
+        "Content-Disposition": `inline; filename="${sanitizeExportFilename(safeTitle)}.html"`,
       },
     });
   } catch (error) {
+    console.error("render-policy-html failed", error);
     return NextResponse.json(
       {
         error: "Unable to render policy HTML.",

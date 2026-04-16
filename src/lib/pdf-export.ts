@@ -1,4 +1,6 @@
 export async function generatePdfFromHtml(htmlText: string, filename: string) {
+  let container: HTMLDivElement | null = null;
+
   try {
     const opt = {
       margin: 10,
@@ -26,7 +28,7 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
     }
 
     // Create a temporary container in the current document to ensure styles are applied
-    const container = document.createElement("div");
+    container = document.createElement("div");
     container.style.position = "absolute";
     container.style.left = "-9999px";
     container.style.top = "-9999px";
@@ -44,10 +46,12 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
     // Generate and download the PDF, then cleanup
     await html2pdf().set(opt).from(element).save();
     
-    // Cleanup
-    document.body.removeChild(container);
   } catch (error) {
     console.error("PDF Export Error:", error);
     throw error;
+  } finally {
+    if (container?.parentNode) {
+      container.parentNode.removeChild(container);
+    }
   }
 }
