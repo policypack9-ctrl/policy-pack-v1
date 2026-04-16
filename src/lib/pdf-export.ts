@@ -7,6 +7,20 @@ function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function normalizeMultilineText(value: string) {
+  return value
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => normalizeWhitespace(line))
+    .filter((line, index, lines) => line.length > 0 || (index > 0 && lines[index - 1] !== ""))
+    .join("\n")
+    .trim();
+}
+
+type JsPdfLineWrapper = {
+  splitTextToSize: (text: string, width: number) => string[];
+};
+
 function extractNodeText(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) {
     return node.textContent ?? "";
@@ -72,7 +86,7 @@ function collectBlocksFromElement(element: Element): PdfTextBlock[] {
     }
 
     if (tag === "p") {
-      const text = normalizeWhitespace(extractNodeText(child));
+      const text = normalizeMultilineText(extractNodeText(child));
       if (text) blocks.push({ text, kind: "p" });
       continue;
     }
@@ -80,10 +94,10 @@ function collectBlocksFromElement(element: Element): PdfTextBlock[] {
     if (tag === "ul" || tag === "ol") {
       const items = Array.from(child.querySelectorAll(":scope > li"));
       items.forEach((item, index) => {
-        const text = normalizeWhitespace(extractNodeText(item));
-        if (!text) return;
+        const normalizedItem = normalizeMultilineText(extractNodeText(item));
+        if (!normalizedItem) return;
         const prefix = tag === "ol" ? `${index + 1}. ` : "- ";
-        blocks.push({ text: `${prefix}${text}`, kind: "li" });
+        blocks.push({ text: `${prefix}${normalizedItem}`, kind: "li" });
       });
       continue;
     }
@@ -103,6 +117,32 @@ function collectBlocksFromElement(element: Element): PdfTextBlock[] {
   }
 
   return blocks;
+}
+
+function splitTextIntoWrappedLines(
+  doc: JsPdfLineWrapper,
+  text: string,
+  width: number,
+) {
+  const normalized = text.replace(/\r\n/g, "\n");
+  const paragraphs = normalized.split("\n");
+  const lines: string[] = [];
+
+  paragraphs.forEach((paragraph, index) => {
+    const cleanParagraph = paragraph.trim();
+
+    if (!cleanParagraph) {
+      if (index !== paragraphs.length - 1) {
+        lines.push("");
+      }
+      return;
+    }
+
+    const wrapped = doc.splitTextToSize(cleanParagraph, width) as string[];
+    lines.push(...wrapped);
+  });
+
+  return lines;
 }
 
 export async function generatePdfFromHtml(htmlText: string, filename: string) {
@@ -143,7 +183,7 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
         gapAfter: number;
       },
     ) => {
-      const lines = doc.splitTextToSize(text, contentWidth) as string[];
+      const lines = splitTextIntoWrappedLines(doc, text, contentWidth);
       const blockHeight = Math.max(lines.length, 1) * options.lineHeight;
       ensurePageSpace(blockHeight + options.gapAfter);
       doc.setFont("times", options.fontStyle ?? "normal");
@@ -159,7 +199,7 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
           "Policy Document",
       ) || "Policy Document";
 
-    const metaText = normalizeWhitespace(
+    const metaText = normalizeMultilineText(
       extractNodeText(parsed.querySelector(".meta") ?? parsed.body),
     );
 

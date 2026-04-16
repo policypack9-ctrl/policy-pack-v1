@@ -229,9 +229,13 @@ export function ComplianceDashboard({
   const verifyTransactionAccessRef = useRef<(transactionId: string) => Promise<void>>(
     async () => {},
   );
+  const initialSessionCompletedAt =
+    initialGeneratedDocuments[0]?.generatedAt ??
+    initialPremiumUnlockedAt ??
+    "2026-01-01T00:00:00.000Z";
   const [session, setSession] = useState<StoredPolicySession>({
     answers: emptyOnboardingAnswers,
-    completedAt: new Date().toISOString(),
+    completedAt: initialSessionCompletedAt,
   });
   const [hasHydratedWorkspace, setHasHydratedWorkspace] = useState(false);
   const [hasWorkspaceSession, setHasWorkspaceSession] = useState(false);
