@@ -1,5 +1,4 @@
 import { marked } from "marked";
-import DOMPurify from "isomorphic-dompurify";
 
 type PrintDocumentMeta = {
   title: string;
@@ -17,12 +16,20 @@ export function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
+function sanitizeGeneratedHtml(html: string) {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/\son\w+="[^"]*"/gi, "")
+    .replace(/\son\w+='[^']*'/gi, "")
+    .replace(/javascript:/gi, "");
+}
+
 export function legalMarkdownToHtml(markdown: string) {
-  // Use marked to parse markdown safely and isomorphic-dompurify to sanitize the resulting HTML
-  // This replaces the fragile regex implementation to prevent ReDoS attacks.
+  // Keep rendering synchronous for both server and client usage.
+  // A lightweight sanitizer avoids runtime issues from server-side DOM libraries in production.
   try {
     const rawHtml = marked.parse(markdown, { async: false }) as string;
-    return DOMPurify.sanitize(rawHtml);
+    return sanitizeGeneratedHtml(rawHtml);
   } catch (error) {
     console.error("Error parsing markdown", error);
     // Fallback basic escaping if marked fails
