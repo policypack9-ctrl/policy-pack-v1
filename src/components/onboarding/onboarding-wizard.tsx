@@ -84,6 +84,7 @@ type BaseQuestion<TId extends WizardQuestionId> = {
   title: string;
   description: string;
   icon: LucideIcon;
+  optional?: boolean;
 };
 
 type TextQuestion = BaseQuestion<TextQuestionId> & {
@@ -171,6 +172,7 @@ const questions: Question[] = [
     description: "Include a phone number if you offer phone support or if required by your jurisdiction.",
     icon: Info,
     placeholder: "+1 (555) 123-4567",
+    optional: true,
   },
   {
     id: "aiTransparencyLevel",
@@ -2003,6 +2005,20 @@ function questionHasAnswer(question: Question, answers: OnboardingAnswers) {
 
   const value = answers[question.id as keyof OnboardingAnswers];
 
+  if (question.optional) {
+    if (question.kind === "multi") {
+      if (isCustomMultiQuestionId(question.id as WizardQuestionId)) {
+        return true;
+      }
+
+      return true;
+    }
+
+    if (typeof value !== "string" || value.trim().length === 0) {
+      return true;
+    }
+  }
+
   if (question.kind === "multi") {
     if (isCustomMultiQuestionId(question.id as WizardQuestionId)) {
       return getResolvedMultiAnswerValues(answers, question.id as CustomMultiQuestionId).length > 0;
@@ -2060,4 +2076,3 @@ function formatValue(value: string | string[]) {
 
   return value.length > 88 ? `${value.slice(0, 85)}...` : value;
 }
-
