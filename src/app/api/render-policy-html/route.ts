@@ -28,11 +28,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const profile = session.user.id
-      ? await getAppUserProfileById(session.user.id)
-      : null;
+    let hasPremiumAccess = Boolean(session.user.isPremium);
 
-    if (!profile?.isPremium) {
+    // Prefer the session claim to avoid hard-failing PDF export on transient DB issues.
+    // Fall back to the DB only when the session does not yet reflect a fresh upgrade.
+    if (!hasPremiumAccess && session.user.id) {
+      try {
+        const profile = await getAppUserProfileById(session.user.id);
+        hasPremiumAccess = Boolean(profile?.isPremium);
+      } catch (error) {
+        console.error("render-policy-html premium lookup failed", error);
+      }
+    }
+
+    if (!hasPremiumAccess) {
       return NextResponse.json(
         { error: "Premium access is required for PDF export." },
         { status: 402 },
