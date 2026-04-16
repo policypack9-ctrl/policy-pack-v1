@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
 export default function TermsAlias() {
-  redirect("/terms-of-service");
+  permanentRedirect("/terms-of-service");
 }
