@@ -5,6 +5,7 @@ import type { CreateTransactionRequestBody } from "@paddle/paddle-node-sdk";
 
 import { PRODUCTION_APP_URL } from "@/lib/site-config";
 import { type BillingPlanId } from "@/lib/billing-plans";
+import { normalizeDiscountCode } from "@/lib/billing-discounts";
 
 export type PaddleApiKeyMode = "sandbox" | "live" | "unknown";
 type PaddleClientTokenSource = "env" | "api";
@@ -122,6 +123,33 @@ export function isVerifiedPaddleTransactionStatus(status: string | null | undefi
 
 export function getConfiguredPaddleClientToken() {
   return getPaddleConfig().clientToken;
+}
+
+export async function resolvePaddleDiscountIdFromCode(discountCode?: string | null) {
+  const normalizedCode = normalizeDiscountCode(discountCode);
+
+  if (!normalizedCode) {
+    return null;
+  }
+
+  const paddle = getPaddleClient();
+
+  if (!paddle) {
+    return null;
+  }
+
+  const discounts = paddle.discounts.list({
+    code: [normalizedCode],
+    status: ["active"],
+  });
+  const results = await discounts.next();
+  const matchingDiscount = results.find((discount) => discount.code?.toUpperCase() === normalizedCode);
+
+  if (!matchingDiscount || !matchingDiscount.enabledForCheckout) {
+    return null;
+  }
+
+  return matchingDiscount.id;
 }
 
 export async function getOrCreatePaddleClientToken() {

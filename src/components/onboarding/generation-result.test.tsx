@@ -151,4 +151,44 @@ describe("GenerationResult", () => {
       expect(pushMock).toHaveBeenCalledWith("/dashboard?_ptxn=txn_123");
     });
   });
+
+  it("redirects to login when billing starts after the session has expired", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        error: "Authentication required.",
+      }),
+    } as Response);
+
+    render(
+      <GenerationResult
+        initialLaunchSnapshot={{
+          registeredUsers: 0,
+          freeUserLimit: 0,
+          freeSpotsRemaining: 0,
+          freeGenerationClosed: true,
+          showUrgencyBanner: false,
+          bannerTone: "closed",
+          bannerText: "",
+          bannerDescription: "",
+          calloutLabel: "",
+          userRank: null,
+          isEligibleLaunchUser: false,
+          hasUsedComplimentaryDocument: true,
+          complimentaryDocumentsRemaining: 0,
+          canGenerateComplimentaryDocument: false,
+          requiresPaymentWall: true,
+          promoActive: false,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose a Package" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose Starter" }));
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/login?callbackUrl=%2Fonboarding%2Fresult");
+    });
+  });
 });

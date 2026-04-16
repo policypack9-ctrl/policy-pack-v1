@@ -28,6 +28,7 @@ import { PlanSelectionDialog } from "@/components/billing/plan-selection-dialog"
 import { Button } from "@/components/ui/button";
 import { PremiumButton } from "@/components/ui/premium-button";
 import { type BillingPlanId } from "@/lib/billing-plans";
+import { buildAuthRedirectHref } from "@/lib/auth-routing";
 import {
   buildSavedPolicyAccount,
   clearPolicyWorkspace,
@@ -445,6 +446,7 @@ export function OnboardingWizard({
   const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
   const [checkoutNotice, setCheckoutNotice] = useState("");
   const [billingPlanOverride, setBillingPlanOverride] = useState<BillingPlanId | null>(null);
+  const [billingDiscountCode, setBillingDiscountCode] = useState("");
 
   const persistedPaidPlanId =
     isPremium && (planId === "starter" || planId === "premium")
@@ -763,6 +765,13 @@ export function OnboardingWizard({
     setIsPlanDialogOpen(false);
   }
 
+  function redirectToBillingSignIn() {
+    setIsPlanDialogOpen(false);
+    setCheckoutState("idle");
+    setCheckoutNotice("Your session expired. Please sign in again to continue.");
+    router.push(buildAuthRedirectHref("login", "/onboarding"));
+  }
+
   async function initializePaddleOverlay() {
     if (paddleRef.current) {
       return paddleRef.current;
@@ -787,6 +796,11 @@ export function OnboardingWizard({
             environment?: Environments;
           }
         | null;
+
+      if (response.status === 401) {
+        redirectToBillingSignIn();
+        return null;
+      }
 
       if (!response.ok || !payload?.token || !payload.environment) {
         setCheckoutState("error");
@@ -859,6 +873,11 @@ export function OnboardingWizard({
             }
           | null;
 
+        if (response.status === 401) {
+          redirectToBillingSignIn();
+          return;
+        }
+
         if (!response.ok) {
           setCheckoutState("error");
           setCheckoutNotice(
@@ -900,7 +919,10 @@ export function OnboardingWizard({
     }
   }
 
-  async function openPaddleOverlay(transactionId: string) {
+  async function openPaddleOverlay(
+    transactionId: string,
+    discountCode?: string | null,
+  ) {
     const paddle = await initializePaddleOverlay();
 
     if (!paddle) {
@@ -913,6 +935,7 @@ export function OnboardingWizard({
 
     paddle.Checkout.open({
       transactionId,
+      ...(discountCode ? { discountCode } : {}),
       settings: {
         displayMode: "overlay",
         theme: "dark",
@@ -963,7 +986,10 @@ export function OnboardingWizard({
   };
   verifyTransactionAccessRef.current = verifyTransactionAccess;
 
-  async function handlePaidPlanSelection(nextPlanId: BillingPlanId) {
+  async function handlePaidPlanSelection(
+    nextPlanId: BillingPlanId,
+    discountCode?: string,
+  ) {
     if (isCheckoutBusy) {
       return;
     }
@@ -974,6 +1000,7 @@ export function OnboardingWizard({
     }
 
     pendingPlanRef.current = nextPlanId;
+    setBillingDiscountCode(discountCode ?? "");
     setCheckoutState("initializing");
     setCheckoutNotice("");
 
@@ -987,6 +1014,7 @@ export function OnboardingWizard({
           email: authenticatedEmail,
           productName: getProductName(answers),
           planId: nextPlanId,
+          discountCode,
         }),
       });
 
@@ -996,11 +1024,17 @@ export function OnboardingWizard({
             details?: string;
             checkoutUrl?: string | null;
             transactionId?: string;
+            discountCode?: string | null;
             premiumUnlocked?: boolean;
             verifiedPlanId?: BillingPlanId;
             message?: string;
           }
         | null;
+
+      if (response.status === 401) {
+        redirectToBillingSignIn();
+        return;
+      }
 
       if (!response.ok) {
         setCheckoutState("error");
@@ -1023,7 +1057,10 @@ export function OnboardingWizard({
       }
 
       if (payload?.transactionId) {
-        const opened = await openPaddleOverlay(payload.transactionId);
+        const opened = await openPaddleOverlay(
+          payload.transactionId,
+          discountCode ?? payload.discountCode ?? null,
+        );
 
         if (opened) {
           return;
@@ -1197,13 +1234,16 @@ export function OnboardingWizard({
         <PlanSelectionDialog
           isOpen={isPlanDialogOpen}
           onClose={() => setIsPlanDialogOpen(false)}
-          onSelectPlan={(planId) => void handlePaidPlanSelection(planId)}
+          onSelectPlan={(planId, discountCode) =>
+            void handlePaidPlanSelection(planId, discountCode)
+          }
           isSubmitting={isCheckoutBusy}
           title="Choose the package for this workspace"
           description="Pick the package first, then we will open only the relevant onboarding questions."
           promoActive={launchSnapshot?.promoActive ?? false}
           onSelectFree={() => applyPlanSelection("free")}
           onSelectPromo={() => applyPlanSelection("promo")}
+          initialDiscountCode={billingDiscountCode}
         />
       </>
     );
@@ -1376,13 +1416,16 @@ export function OnboardingWizard({
       <PlanSelectionDialog
         isOpen={isPlanDialogOpen}
         onClose={() => setIsPlanDialogOpen(false)}
-        onSelectPlan={(planId) => void handlePaidPlanSelection(planId)}
+        onSelectPlan={(planId, discountCode) =>
+          void handlePaidPlanSelection(planId, discountCode)
+        }
         isSubmitting={isCheckoutBusy}
         title="Switch package"
         description="Choose a different package before you finish this setup."
         promoActive={launchSnapshot?.promoActive ?? false}
         onSelectFree={() => applyPlanSelection("free")}
         onSelectPromo={() => applyPlanSelection("promo")}
+        initialDiscountCode={billingDiscountCode}
       />
     </main>
   );
@@ -1992,8 +2035,5 @@ function formatValue(value: string | string[]) {
 
   return value.length > 88 ? `${value.slice(0, 85)}...` : value;
 }
-
-
-
 
 

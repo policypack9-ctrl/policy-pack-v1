@@ -41,7 +41,26 @@ describe("PlanSelectionDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose Starter" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose Premium" }));
 
-    expect(onSelectPlan).toHaveBeenNthCalledWith(1, "starter");
-    expect(onSelectPlan).toHaveBeenNthCalledWith(2, "premium");
+    expect(onSelectPlan).toHaveBeenNthCalledWith(1, "starter", undefined);
+    expect(onSelectPlan).toHaveBeenNthCalledWith(2, "premium", undefined);
+  });
+
+  it("passes a normalized discount code when selecting a paid plan", () => {
+    const onSelectPlan = vi.fn();
+
+    render(
+      <PlanSelectionDialog
+        isOpen
+        onClose={() => {}}
+        onSelectPlan={onSelectPlan}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Optional coupon, e.g. Z93W4KXOXO"), {
+      target: { value: "z93w4kxoxo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Choose Starter" }));
+
+    expect(onSelectPlan).toHaveBeenCalledWith("starter", "Z93W4KXOXO");
   });
 });

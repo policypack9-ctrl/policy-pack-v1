@@ -12,6 +12,7 @@ const {
   getPaddleLegalUrlsMock,
   getPaddleMismatchMessageMock,
   hasPaddleEnvironmentMismatchMock,
+  resolvePaddleDiscountIdFromCodeMock,
   getAuthBaseUrlMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
@@ -24,6 +25,7 @@ const {
   getPaddleLegalUrlsMock: vi.fn(),
   getPaddleMismatchMessageMock: vi.fn(),
   hasPaddleEnvironmentMismatchMock: vi.fn(),
+  resolvePaddleDiscountIdFromCodeMock: vi.fn(),
   getAuthBaseUrlMock: vi.fn(),
 }));
 
@@ -54,6 +56,7 @@ vi.mock("@/lib/paddle", async () => {
     getPaddleLegalUrls: getPaddleLegalUrlsMock,
     getPaddleMismatchMessage: getPaddleMismatchMessageMock,
     hasPaddleEnvironmentMismatch: hasPaddleEnvironmentMismatchMock,
+    resolvePaddleDiscountIdFromCode: resolvePaddleDiscountIdFromCodeMock,
     isVerifiedPaddleTransactionStatus: vi.fn((status: string | null | undefined) =>
       ["paid", "completed"].includes(status ?? ""),
     ),
@@ -105,6 +108,7 @@ describe("POST /api/checkout/paddle", () => {
     });
     getPaddleMismatchMessageMock.mockReturnValue("mismatch");
     hasPaddleEnvironmentMismatchMock.mockReturnValue(false);
+    resolvePaddleDiscountIdFromCodeMock.mockResolvedValue(null);
     getAuthBaseUrlMock.mockReturnValue("https://policypack.org");
   });
 
@@ -176,6 +180,79 @@ describe("POST /api/checkout/paddle", () => {
         billingStatus: "one_time",
         isPremium: true,
         paddleTransactionId: "txn_owned",
+      }),
+    );
+  });
+
+  it("returns a configuration status when Paddle is missing a default payment link", async () => {
+    getPaddleClientMock.mockReturnValue({
+      transactions: {
+        preview: vi.fn().mockResolvedValue({
+          details: {
+            totals: {
+              grandTotal: "3900",
+            },
+          },
+        }),
+        create: vi
+          .fn()
+          .mockRejectedValue(new Error("Default payment link must be configured before checkout can open.")),
+      },
+    });
+
+    const response = await POST(
+      new Request("https://policypack.org/api/checkout/paddle", {
+        method: "POST",
+        body: JSON.stringify({ planId: "starter" }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error:
+        "Billing is connected, but this account still needs a default return link before the payment window can open.",
+    });
+  });
+
+  it("applies a resolved discount id when a valid coupon code is supplied", async () => {
+    const previewMock = vi.fn().mockResolvedValue({
+      details: {
+        totals: {
+          grandTotal: "0",
+        },
+      },
+    });
+    const createMock = vi.fn().mockResolvedValue({
+      id: "txn_discounted",
+      checkout: { url: "https://checkout.paddle.test/txn_discounted" },
+    });
+    resolvePaddleDiscountIdFromCodeMock.mockResolvedValue("dsc_100_off");
+    getPaddleClientMock.mockReturnValue({
+      transactions: {
+        preview: previewMock,
+        create: createMock,
+      },
+    });
+
+    const response = await POST(
+      new Request("https://policypack.org/api/checkout/paddle", {
+        method: "POST",
+        body: JSON.stringify({ planId: "starter", discountCode: "z93w4kxoxo" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(previewMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        discountId: "dsc_100_off",
+      }),
+    );
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        discountId: "dsc_100_off",
+        customData: expect.objectContaining({
+          discountCode: "Z93W4KXOXO",
+        }),
       }),
     );
   });

@@ -19,6 +19,7 @@ import { PremiumButton } from "@/components/ui/premium-button";
 import { PlanSelectionDialog } from "@/components/billing/plan-selection-dialog";
 import { loadStoredPolicySession } from "@/lib/db";
 import { type BillingPlanId } from "@/lib/billing-plans";
+import { buildAuthRedirectHref } from "@/lib/auth-routing";
 import type { LaunchCampaignSnapshot } from "@/lib/launch-campaign";
 import {
   normalizeAnswers,
@@ -43,6 +44,7 @@ export function GenerationResult({
   );
   const [isPremium, setIsPremium] = useState(false);
   const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
+  const [billingDiscountCode, setBillingDiscountCode] = useState("");
 
   useEffect(() => {
     setStoredSession(loadStoredPolicySession());
@@ -91,13 +93,13 @@ export function GenerationResult({
       ? "The complimentary promotional period has ended. New workspaces now choose a package before generation starts."
       : "Your account already used its complimentary launch document. Choose a package to unlock the rest of the legal stack.";
 
-  async function handleUnlock(planId?: BillingPlanId) {
+  async function handleUnlock(planId?: BillingPlanId, discountCode?: string) {
     if (status === "loading") {
       return;
     }
 
     if (!session?.user) {
-      router.push("/register?callbackUrl=/dashboard");
+      router.push(buildAuthRedirectHref("register", "/onboarding/result"));
       return;
     }
 
@@ -112,6 +114,7 @@ export function GenerationResult({
     }
 
     setIsUnlocking(true);
+    setBillingDiscountCode(discountCode ?? "");
 
     try {
       const response = await fetch("/api/checkout/paddle", {
@@ -123,8 +126,16 @@ export function GenerationResult({
           email: session.user.email ?? null,
           productName,
           planId,
+          discountCode,
         }),
       });
+
+      if (response.status === 401) {
+        setIsPlanDialogOpen(false);
+        setUnlockLabel("Your session expired. Please sign in again to continue.");
+        router.push(buildAuthRedirectHref("login", "/onboarding/result"));
+        return;
+      }
 
       if (!response.ok) {
         const errorPayload = (await response.json().catch(() => null)) as
@@ -141,6 +152,7 @@ export function GenerationResult({
       const payload = (await response.json()) as {
         checkoutUrl?: string | null;
         transactionId?: string;
+        discountCode?: string | null;
         message?: string;
         premiumUnlocked?: boolean;
       };
@@ -322,10 +334,13 @@ export function GenerationResult({
         <PlanSelectionDialog
           isOpen={isPlanDialogOpen}
           onClose={() => setIsPlanDialogOpen(false)}
-          onSelectPlan={(planId) => void handleUnlock(planId)}
+          onSelectPlan={(planId, discountCode) =>
+            void handleUnlock(planId, discountCode)
+          }
           isSubmitting={isUnlocking}
           title="Choose the package you want to unlock"
           description="Pick the simpler one-time pack or the full workspace before continuing to billing."
+          initialDiscountCode={billingDiscountCode}
         />
       )}
     </main>

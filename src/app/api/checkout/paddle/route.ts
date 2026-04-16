@@ -3,6 +3,7 @@ import { Environment } from "@paddle/paddle-node-sdk";
 
 import { auth } from "@/auth";
 import { getAppUserProfileById, setUserBillingState } from "@/lib/auth-data";
+import { normalizeDiscountCode } from "@/lib/billing-discounts";
 import {
   buildBillingUpdateFromTransaction,
   isTransactionOwnedByUser,
@@ -18,6 +19,7 @@ import {
   getPaddleMismatchMessage,
   hasPaddleEnvironmentMismatch,
   isVerifiedPaddleTransactionStatus,
+  resolvePaddleDiscountIdFromCode,
 } from "@/lib/paddle";
 import { getAuthBaseUrl } from "@/lib/auth-env";
 
@@ -29,6 +31,7 @@ function formatCheckoutInitializationError(error: unknown) {
 
   if (/default payment link/i.test(message)) {
     return {
+      status: 503,
       error:
         "Billing is connected, but this account still needs a default return link before the payment window can open.",
       details: message,
@@ -36,6 +39,7 @@ function formatCheckoutInitializationError(error: unknown) {
   }
 
   return {
+    status: 500,
     error: message || "Unable to initialize billing.",
     details: message,
   };
@@ -57,6 +61,7 @@ export async function POST(request: Request) {
       productName?: string;
       transactionId?: string;
       planId?: BillingPlanId;
+      discountCode?: string;
     };
     const config = getPaddleConfig();
     const paddle = getPaddleClient();
@@ -66,6 +71,8 @@ export async function POST(request: Request) {
       body.planId === "starter" || body.planId === "premium"
         ? body.planId
         : "premium";
+    const discountCode = normalizeDiscountCode(body.discountCode);
+    const discountId = await resolvePaddleDiscountIdFromCode(discountCode);
     const selectedPlan = getBillingPlan(planId);
     const selectedPriceId =
       planId === "starter" ? config.starterPriceId : config.premiumPriceId;
@@ -89,6 +96,16 @@ export async function POST(request: Request) {
           legalUrls,
         },
         { status: 409 },
+      );
+    }
+
+    if (discountCode && config.apiKey && !discountId) {
+      return NextResponse.json(
+        {
+          error: "The supplied discount code is invalid, inactive, or unavailable for checkout.",
+          legalUrls,
+        },
+        { status: 400 },
       );
     }
 
@@ -199,6 +216,7 @@ export async function POST(request: Request) {
       try {
         const preview = await paddle.transactions.preview({
           items: checkoutItems,
+          ...(discountId ? { discountId } : {}),
         });
         previewTotal = preview.details?.totals?.grandTotal ?? null;
         providerMode = "paddle-preview";
@@ -211,12 +229,14 @@ export async function POST(request: Request) {
       const transaction = await paddle.transactions.create({
         items: checkoutItems,
         collectionMode: "automatic",
+        ...(discountId ? { discountId } : {}),
         customData: {
           userId: session.user.id,
           email: body.email ?? session.user.email ?? "",
           productName: body.productName || "PolicyPack",
           planId,
           planName: selectedPlan.name,
+          ...(discountCode ? { discountCode } : {}),
         },
       });
       providerMode = "paddle-checkout";
@@ -230,6 +250,7 @@ export async function POST(request: Request) {
         planName: selectedPlan.name,
         transactionId: transaction.id,
         checkoutUrl: transaction.checkout?.url ?? null,
+        discountCode,
         environment: config.environment,
         sandbox: config.environment === Environment.sandbox,
         previewTotal,
@@ -256,6 +277,7 @@ export async function POST(request: Request) {
       previewTotal,
       checkoutLabel: `Unlock ${selectedPlan.name}`,
       legalUrls,
+      discountCode,
       verificationMode: paddle ? "transaction-verified" : "simulated",
       premiumUnlocked: false,
       message:
@@ -266,7 +288,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       formatted,
-      { status: 500 },
+      { status: formatted.status },
     );
   }
 }
