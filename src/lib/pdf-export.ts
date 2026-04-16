@@ -1,15 +1,16 @@
 export async function generatePdfFromHtml(htmlText: string, filename: string) {
-  let container: HTMLDivElement | null = null;
+  let iframe: HTMLIFrameElement | null = null;
 
   try {
     const opt = {
       margin: 10,
       filename,
       image: { type: "jpeg" as const, quality: 0.98 },
-      html2canvas: { 
+      html2canvas: {
         scale: 2,
         useCORS: true,
         letterRendering: true,
+        backgroundColor: "#ffffff",
       },
       jsPDF: {
         unit: "mm" as const,
@@ -27,21 +28,48 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
       throw new Error("html2pdf library failed to load correctly.");
     }
 
-    // Create a temporary container in the current document to ensure styles are applied
-    container = document.createElement("div");
-    container.style.position = "absolute";
-    container.style.left = "-9999px";
-    container.style.top = "-9999px";
-    container.style.width = "800px"; // Give it a fixed width for consistent rendering
-    container.innerHTML = htmlText;
-    document.body.appendChild(container);
+    // Render inside an isolated iframe so html2canvas does not parse the app's
+    // Tailwind v4 color functions (like lab/oklch) from the dashboard styles.
+    iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "900px";
+    iframe.style.height = "1200px";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
 
-    // Find the actual content element within the container
-    const element = (container.querySelector(".page") || container) as HTMLElement;
+    const iframeDoc = iframe.contentDocument;
+    if (!iframeDoc) {
+      throw new Error("Unable to create an isolated PDF rendering document.");
+    }
 
-    // Remove any script tags that might interfere
-    const scripts = container.querySelectorAll("script");
-    scripts.forEach(s => s.remove());
+    const sanitizedHtml = htmlText.replace(
+      /<script\b[^>]*>[\s\S]*?<\/script>/gi,
+      "",
+    );
+
+    iframeDoc.open();
+    iframeDoc.write(sanitizedHtml);
+    iframeDoc.close();
+
+    await new Promise<void>((resolve) => {
+      if (iframe?.contentWindow?.document.readyState === "complete") {
+        resolve();
+        return;
+      }
+
+      iframe?.addEventListener("load", () => resolve(), { once: true });
+      window.setTimeout(() => resolve(), 250);
+    });
+
+    const element = (iframeDoc.querySelector(".page") || iframeDoc.body) as HTMLElement;
+    if (!element) {
+      throw new Error("Unable to find the PDF content element.");
+    }
 
     // Generate and download the PDF, then cleanup
     await html2pdf().set(opt).from(element).save();
@@ -50,8 +78,8 @@ export async function generatePdfFromHtml(htmlText: string, filename: string) {
     console.error("PDF Export Error:", error);
     throw error;
   } finally {
-    if (container?.parentNode) {
-      container.parentNode.removeChild(container);
+    if (iframe?.parentNode) {
+      iframe.parentNode.removeChild(iframe);
     }
   }
 }
