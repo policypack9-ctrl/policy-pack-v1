@@ -13,6 +13,7 @@ type PlanSelectionDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   onSelectPlan: (planId: BillingPlanId, discountCode?: string) => void;
+  onDiscountCodeChange?: (discountCode: string) => void;
   isSubmitting?: boolean;
   title?: string;
   description?: string;
@@ -20,6 +21,7 @@ type PlanSelectionDialogProps = {
   onSelectFree?: () => void;
   onSelectPromo?: () => void;
   initialDiscountCode?: string;
+  discountError?: string;
 };
 
 type PlanCard = {
@@ -101,6 +103,7 @@ export function PlanSelectionDialog({
   isOpen,
   onClose,
   onSelectPlan,
+  onDiscountCodeChange,
   isSubmitting = false,
   title = "Choose the package for this workspace",
   description = "Select the one-time starter pack or the full workspace before continuing.",
@@ -108,6 +111,7 @@ export function PlanSelectionDialog({
   onSelectFree,
   onSelectPromo,
   initialDiscountCode = "",
+  discountError = "",
 }: PlanSelectionDialogProps) {
   const shouldReduceMotion = Boolean(useReducedMotion());
   const visiblePlans = PLAN_CARDS.filter((p) =>
@@ -123,12 +127,14 @@ export function PlanSelectionDialog({
           visiblePlans={visiblePlans}
           onClose={onClose}
           onSelectPlan={onSelectPlan}
+          onDiscountCodeChange={onDiscountCodeChange}
           isSubmitting={isSubmitting}
           title={title}
           description={description}
           onSelectFree={onSelectFree}
           onSelectPromo={onSelectPromo}
           initialDiscountCode={initialDiscountCode}
+          discountError={discountError}
         />
       ) : null}
     </AnimatePresence>
@@ -140,12 +146,14 @@ type PlanSelectionDialogContentProps = {
   visiblePlans: PlanCard[];
   onClose: () => void;
   onSelectPlan: (planId: BillingPlanId, discountCode?: string) => void;
+  onDiscountCodeChange?: (discountCode: string) => void;
   isSubmitting: boolean;
   title: string;
   description: string;
   onSelectFree?: () => void;
   onSelectPromo?: () => void;
   initialDiscountCode: string;
+  discountError: string;
 };
 
 function PlanSelectionDialogContent({
@@ -153,21 +161,30 @@ function PlanSelectionDialogContent({
   visiblePlans,
   onClose,
   onSelectPlan,
+  onDiscountCodeChange,
   isSubmitting,
   title,
   description,
   onSelectFree,
   onSelectPromo,
   initialDiscountCode,
+  discountError,
 }: PlanSelectionDialogContentProps) {
   const [discountCode, setDiscountCode] = useState(initialDiscountCode);
+  const normalizedDiscountCode = normalizeDiscountCode(discountCode);
+
+  function handleDiscountCodeChange(value: string) {
+    const normalizedInput = value.toUpperCase();
+    setDiscountCode(normalizedInput);
+    onDiscountCodeChange?.(normalizedInput);
+  }
 
   function handleSelect(planId: string) {
     if (planId === "free") { onSelectFree?.(); onClose(); return; }
     if (planId === "promo") { onSelectPromo?.(); onClose(); return; }
     onSelectPlan(
       planId as BillingPlanId,
-      normalizeDiscountCode(discountCode) ?? undefined,
+      normalizedDiscountCode ?? undefined,
     );
   }
 
@@ -253,13 +270,23 @@ function PlanSelectionDialogContent({
           <input
             type="text"
             value={discountCode}
-            onChange={(event) => setDiscountCode(event.target.value.toUpperCase())}
+            onChange={(event) => handleDiscountCodeChange(event.target.value)}
             placeholder="Optional coupon, e.g. Z93W4KXOXO"
             className="soft-input h-11 w-full rounded-[16px] px-4 text-sm"
           />
-          <p className="mt-2 text-xs text-white/42">
-            If valid, the code is applied automatically when checkout opens.
-          </p>
+          {discountError ? (
+            <p className="mt-2 text-xs text-amber-200/90">
+              {discountError}
+            </p>
+          ) : isSubmitting && normalizedDiscountCode ? (
+            <p className="mt-2 text-xs text-teal-100/80">
+              Checking your code and preparing checkout...
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-white/42">
+              If valid, the code is applied automatically when checkout opens.
+            </p>
+          )}
         </div>
 
         <div className="mt-5 flex justify-end">

@@ -63,4 +63,26 @@ describe("PlanSelectionDialog", () => {
 
     expect(onSelectPlan).toHaveBeenCalledWith("starter", "Z93W4KXOXO");
   });
+
+  it("shows inline discount feedback and clears it when the code changes", () => {
+    const onDiscountCodeChange = vi.fn();
+
+    render(
+      <PlanSelectionDialog
+        isOpen
+        onClose={() => {}}
+        onSelectPlan={() => {}}
+        onDiscountCodeChange={onDiscountCodeChange}
+        discountError="Invalid discount code."
+      />,
+    );
+
+    expect(screen.queryByText("Invalid discount code.")).not.toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText("Optional coupon, e.g. Z93W4KXOXO"), {
+      target: { value: "newcode" },
+    });
+
+    expect(onDiscountCodeChange).toHaveBeenCalledWith("NEWCODE");
+  });
 });

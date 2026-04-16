@@ -322,6 +322,7 @@ export function ComplianceDashboard({
     useState<PaddleCheckoutState>("idle");
   const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
   const [billingDiscountCode, setBillingDiscountCode] = useState("");
+  const [planDialogError, setPlanDialogError] = useState("");
   const [auditRefreshCount, setAuditRefreshCount] = useState(0);
   const [lastAuditAt, setLastAuditAt] = useState<string | null>(null);
   const [documentUpdates, setDocumentUpdates] = useState<DocumentUpdate[]>([]);
@@ -467,6 +468,7 @@ export function ComplianceDashboard({
     setIsCheckoutPending(false);
     setCheckoutState("idle");
     setExportNotice("Your session expired. Please sign in again to continue.");
+    setPlanDialogError("");
     router.push(buildAuthRedirectHref("login", "/dashboard"));
   }
 
@@ -958,6 +960,7 @@ export function ComplianceDashboard({
     }
 
     if (!planId) {
+      setPlanDialogError("");
       setIsPlanDialogOpen(true);
       return;
     }
@@ -966,6 +969,7 @@ export function ComplianceDashboard({
     setIsCheckoutPending(true);
     setCheckoutState("initializing");
     setExportNotice("");
+    setPlanDialogError("");
 
     try {
       const response = await fetch("/api/checkout/paddle", {
@@ -995,12 +999,13 @@ export function ComplianceDashboard({
           return;
         }
 
-        setCheckoutState("error");
-        setExportNotice(
+        const message =
           errorPayload?.error ??
             errorPayload?.details ??
-            "Unable to start billing.",
-        );
+            "Unable to start billing.";
+        setCheckoutState("error");
+        setExportNotice(message);
+        setPlanDialogError(message);
         return;
       }
 
@@ -1013,6 +1018,7 @@ export function ComplianceDashboard({
       };
 
       setExportNotice(payload.message ?? "Billing is ready.");
+      setPlanDialogError("");
       setIsPlanDialogOpen(false);
 
       if (payload.premiumUnlocked) {
@@ -1686,7 +1692,10 @@ export function ComplianceDashboard({
 
       <PlanSelectionDialog
         isOpen={isPlanDialogOpen}
-        onClose={() => setIsPlanDialogOpen(false)}
+        onClose={() => {
+          setIsPlanDialogOpen(false);
+          setPlanDialogError("");
+        }}
         onSelectPlan={(planId, discountCode) =>
           void handleUpgradeToDownload(
             planId,
@@ -1694,6 +1703,12 @@ export function ComplianceDashboard({
             discountCode,
           )
         }
+        onDiscountCodeChange={(value) => {
+          setBillingDiscountCode(value);
+          if (planDialogError) {
+            setPlanDialogError("");
+          }
+        }}
         isSubmitting={isCheckoutBusy}
         title="Choose the package for this workspace"
         description="Select your plan to unlock document generation and downloads."
@@ -1701,6 +1716,7 @@ export function ComplianceDashboard({
         onSelectFree={() => { setIsPlanDialogOpen(false); router.push("/onboarding"); }}
         onSelectPromo={() => { setIsPlanDialogOpen(false); router.push("/onboarding"); }}
         initialDiscountCode={billingDiscountCode}
+        discountError={planDialogError}
       />
     </>
   );

@@ -447,6 +447,7 @@ export function OnboardingWizard({
   const [checkoutNotice, setCheckoutNotice] = useState("");
   const [billingPlanOverride, setBillingPlanOverride] = useState<BillingPlanId | null>(null);
   const [billingDiscountCode, setBillingDiscountCode] = useState("");
+  const [planDialogError, setPlanDialogError] = useState("");
 
   const persistedPaidPlanId =
     isPremium && (planId === "starter" || planId === "premium")
@@ -769,6 +770,7 @@ export function OnboardingWizard({
     setIsPlanDialogOpen(false);
     setCheckoutState("idle");
     setCheckoutNotice("Your session expired. Please sign in again to continue.");
+    setPlanDialogError("");
     router.push(buildAuthRedirectHref("login", "/onboarding"));
   }
 
@@ -1003,6 +1005,7 @@ export function OnboardingWizard({
     setBillingDiscountCode(discountCode ?? "");
     setCheckoutState("initializing");
     setCheckoutNotice("");
+    setPlanDialogError("");
 
     try {
       const response = await fetch("/api/checkout/paddle", {
@@ -1037,16 +1040,18 @@ export function OnboardingWizard({
       }
 
       if (!response.ok) {
-        setCheckoutState("error");
-        setCheckoutNotice(
+        const message =
           payload?.error ??
             payload?.details ??
-            "Unable to start billing.",
-        );
+            "Unable to start billing.";
+        setCheckoutState("error");
+        setCheckoutNotice(message);
+        setPlanDialogError(message);
         return;
       }
 
       setCheckoutNotice(payload?.message ?? "Billing is ready.");
+      setPlanDialogError("");
 
       if (payload?.premiumUnlocked) {
         const verifiedPlanId = payload.verifiedPlanId ?? nextPlanId;
@@ -1233,10 +1238,19 @@ export function OnboardingWizard({
 
         <PlanSelectionDialog
           isOpen={isPlanDialogOpen}
-          onClose={() => setIsPlanDialogOpen(false)}
+          onClose={() => {
+            setIsPlanDialogOpen(false);
+            setPlanDialogError("");
+          }}
           onSelectPlan={(planId, discountCode) =>
             void handlePaidPlanSelection(planId, discountCode)
           }
+          onDiscountCodeChange={(value) => {
+            setBillingDiscountCode(value);
+            if (planDialogError) {
+              setPlanDialogError("");
+            }
+          }}
           isSubmitting={isCheckoutBusy}
           title="Choose the package for this workspace"
           description="Pick the package first, then we will open only the relevant onboarding questions."
@@ -1244,6 +1258,7 @@ export function OnboardingWizard({
           onSelectFree={() => applyPlanSelection("free")}
           onSelectPromo={() => applyPlanSelection("promo")}
           initialDiscountCode={billingDiscountCode}
+          discountError={planDialogError}
         />
       </>
     );
@@ -1415,10 +1430,19 @@ export function OnboardingWizard({
 
       <PlanSelectionDialog
         isOpen={isPlanDialogOpen}
-        onClose={() => setIsPlanDialogOpen(false)}
+        onClose={() => {
+          setIsPlanDialogOpen(false);
+          setPlanDialogError("");
+        }}
         onSelectPlan={(planId, discountCode) =>
           void handlePaidPlanSelection(planId, discountCode)
         }
+        onDiscountCodeChange={(value) => {
+          setBillingDiscountCode(value);
+          if (planDialogError) {
+            setPlanDialogError("");
+          }
+        }}
         isSubmitting={isCheckoutBusy}
         title="Switch package"
         description="Choose a different package before you finish this setup."
@@ -1426,6 +1450,7 @@ export function OnboardingWizard({
         onSelectFree={() => applyPlanSelection("free")}
         onSelectPromo={() => applyPlanSelection("promo")}
         initialDiscountCode={billingDiscountCode}
+        discountError={planDialogError}
       />
     </main>
   );
@@ -2035,5 +2060,4 @@ function formatValue(value: string | string[]) {
 
   return value.length > 88 ? `${value.slice(0, 85)}...` : value;
 }
-
 

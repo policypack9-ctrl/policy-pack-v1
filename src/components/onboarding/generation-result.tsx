@@ -45,6 +45,7 @@ export function GenerationResult({
   const [isPremium, setIsPremium] = useState(false);
   const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
   const [billingDiscountCode, setBillingDiscountCode] = useState("");
+  const [planDialogError, setPlanDialogError] = useState("");
 
   useEffect(() => {
     setStoredSession(loadStoredPolicySession());
@@ -109,12 +110,14 @@ export function GenerationResult({
     }
 
     if (!planId) {
+      setPlanDialogError("");
       setIsPlanDialogOpen(true);
       return;
     }
 
     setIsUnlocking(true);
     setBillingDiscountCode(discountCode ?? "");
+    setPlanDialogError("");
 
     try {
       const response = await fetch("/api/checkout/paddle", {
@@ -141,11 +144,12 @@ export function GenerationResult({
         const errorPayload = (await response.json().catch(() => null)) as
           | { error?: string; details?: string }
           | null;
-        setUnlockLabel(
+        const message =
           errorPayload?.error ??
             errorPayload?.details ??
-            "Unable to initialize billing.",
-        );
+            "Unable to initialize billing.";
+        setUnlockLabel(message);
+        setPlanDialogError(message);
         return;
       }
 
@@ -158,6 +162,7 @@ export function GenerationResult({
       };
 
       setUnlockLabel(payload.message ?? "Policy unlocked");
+      setPlanDialogError("");
       setIsPlanDialogOpen(false);
       if (payload.checkoutUrl) {
         window.location.assign(payload.checkoutUrl);
@@ -333,14 +338,24 @@ export function GenerationResult({
       {hasChosenPlan ? null : (
         <PlanSelectionDialog
           isOpen={isPlanDialogOpen}
-          onClose={() => setIsPlanDialogOpen(false)}
+          onClose={() => {
+            setIsPlanDialogOpen(false);
+            setPlanDialogError("");
+          }}
           onSelectPlan={(planId, discountCode) =>
             void handleUnlock(planId, discountCode)
           }
+          onDiscountCodeChange={(value) => {
+            setBillingDiscountCode(value);
+            if (planDialogError) {
+              setPlanDialogError("");
+            }
+          }}
           isSubmitting={isUnlocking}
           title="Choose the package you want to unlock"
           description="Pick the simpler one-time pack or the full workspace before continuing to billing."
           initialDiscountCode={billingDiscountCode}
+          discountError={planDialogError}
         />
       )}
     </main>
