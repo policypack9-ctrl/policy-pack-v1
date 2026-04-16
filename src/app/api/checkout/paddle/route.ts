@@ -25,7 +25,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function formatCheckoutInitializationError(error: unknown) {
-  const message = error instanceof Error ? error.message : "Unknown error";
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : JSON.stringify(error);
 
   if (/default payment link/i.test(message)) {
     return {
@@ -36,7 +36,7 @@ function formatCheckoutInitializationError(error: unknown) {
   }
 
   return {
-    error: "Unable to initialize billing.",
+    error: message || "Unable to initialize billing.",
     details: message,
   };
 }
