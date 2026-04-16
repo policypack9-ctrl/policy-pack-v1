@@ -630,7 +630,7 @@ export function ComplianceDashboard({
 
       return savedDocument;
     } finally {
-      setIsDocumentLoading(false);
+      // Caller handles loading state to support multi-stage processes (like PDF export)
     }
   }
 
@@ -654,54 +654,62 @@ export function ComplianceDashboard({
     // Not cached Ã¢â€ â€™ generate first (shows loading state in modal)
     setActiveDocumentId(documentRecord.id);
     setIsDocumentModalOpen(true);
-    const generated = await ensureGeneratedDocument(documentRecord);
+    try {
+      const generated = await ensureGeneratedDocument(documentRecord);
 
-    if (!generated && !isPremium && !documentCache[documentRecord.id]) {
-      setIsDocumentModalOpen(false);
+      if (!generated && !isPremium && !documentCache[documentRecord.id]) {
+        setIsDocumentModalOpen(false);
+      }
+    } finally {
+      setIsDocumentLoading(false);
     }
   }
 
   async function exportPdfForDocument(documentRecord: DashboardDocument) {
-    const generated = await ensureGeneratedDocument(documentRecord);
+    try {
+      const generated = await ensureGeneratedDocument(documentRecord);
 
-    if (!generated) {
-      return;
-    }
-
-    const renderResponse = await fetch("/api/render-policy-html", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        markdown: generated.markdown,
-        title: generated.title,
-        productName,
-        websiteUrl: snapshot.websiteUrl,
-        generatedAt: formatDisplayDateTime(generated.generatedAt),
-      }),
-    });
-
-    if (!renderResponse.ok) {
-      if (renderResponse.status === 401) {
-        router.push("/login?callbackUrl=/dashboard");
+      if (!generated) {
         return;
       }
 
-      if (renderResponse.status === 402) {
-        setExportNotice(
-          "Downloads are locked on the free plan. Upgrade first to export PDFs.",
-        );
-        return;
+      const renderResponse = await fetch("/api/render-policy-html", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          markdown: generated.markdown,
+          title: generated.title,
+          productName,
+          websiteUrl: snapshot.websiteUrl,
+          generatedAt: formatDisplayDateTime(generated.generatedAt),
+        }),
+      });
+
+      if (!renderResponse.ok) {
+        if (renderResponse.status === 401) {
+          router.push("/login?callbackUrl=/dashboard");
+          return;
+        }
+
+        if (renderResponse.status === 402) {
+          setExportNotice(
+            "Downloads are locked on the free plan. Upgrade first to export PDFs.",
+          );
+          return;
+        }
+
+        throw new Error("Unable to render PDF export HTML.");
       }
 
-      throw new Error("Unable to render PDF export HTML.");
+      const htmlText = await renderResponse.text();
+      const filename = `${generated.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`;
+      
+      await generatePdfFromHtml(htmlText, filename);
+    } finally {
+      setIsDocumentLoading(false);
     }
-
-    const htmlText = await renderResponse.text();
-    const filename = `${generated.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`;
-    
-    await generatePdfFromHtml(htmlText, filename);
   }
 
   async function finalizeUnlockedWorkspace() {
@@ -1060,7 +1068,23 @@ export function ComplianceDashboard({
       return;
     }
 
-    await exportPdfForDocument(documentRecord);
+    try {
+      setExportNotice("Preparing your PDF document...");
+      setIsDocumentLoading(true);
+      await exportPdfForDocument(documentRecord);
+      setExportNotice("PDF exported successfully!");
+      // Reset after a short delay
+      setTimeout(() => {
+        setIsDocumentLoading(false);
+        setExportNotice("");
+      }, 1500);
+    } catch (err) {
+      console.error("PDF Export failed:", err);
+      setExportNotice("Failed to export PDF. Please try again.");
+      setTimeout(() => {
+        setIsDocumentLoading(false);
+      }, 3000);
+    }
   }
 
   function startNewWorkspace() {
