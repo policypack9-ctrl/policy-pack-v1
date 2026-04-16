@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import type { Session } from "next-auth";
 
 import { auth } from "@/auth";
 import { getAppUserProfileById } from "@/lib/auth-data";
-import { buildLegalPrintHtml } from "@/lib/legal-document";
+import { buildLegalPrintHtml, escapeHtml } from "@/lib/legal-document";
 import { PRODUCTION_APP_URL } from "@/lib/site-config";
 
 export const runtime = "nodejs";
@@ -17,9 +18,37 @@ function sanitizeExportFilename(title: string) {
   );
 }
 
+function buildPlainHtmlFallback(markdown: string, title: string) {
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 40px;
+        background: #ffffff;
+        color: #111827;
+        font-family: Georgia, "Times New Roman", serif;
+        white-space: pre-wrap;
+        line-height: 1.8;
+      }
+    </style>
+  </head>
+  <body>${escapeHtml(markdown)}</body>
+</html>`;
+}
+
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    let session: Session | null = null;
+
+    try {
+      session = await auth();
+    } catch (error) {
+      console.error("render-policy-html auth failed", error);
+    }
 
     if (!session?.user) {
       return NextResponse.json(
@@ -64,12 +93,19 @@ export async function POST(request: Request) {
     }
 
     const safeTitle = String(body.title);
-    const html = buildLegalPrintHtml(body.markdown, {
-      title: safeTitle,
-      productName: body.productName ?? "PolicyPack",
-      websiteUrl: body.websiteUrl ?? PRODUCTION_APP_URL,
-      generatedAt: body.generatedAt ?? new Date().toISOString(),
-    });
+    let html = "";
+
+    try {
+      html = buildLegalPrintHtml(body.markdown, {
+        title: safeTitle,
+        productName: body.productName ?? "PolicyPack",
+        websiteUrl: body.websiteUrl ?? PRODUCTION_APP_URL,
+        generatedAt: body.generatedAt ?? new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("render-policy-html buildLegalPrintHtml failed", error);
+      html = buildPlainHtmlFallback(body.markdown, safeTitle);
+    }
 
     return new NextResponse(html, {
       status: 200,

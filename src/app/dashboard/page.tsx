@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Session } from "next-auth";
 
 import { auth } from "@/auth";
 import { ComplianceDashboard } from "@/components/dashboard/compliance-dashboard";
@@ -7,24 +8,63 @@ import {
   getLaunchCampaignSnapshot,
   listGeneratedDocumentsForUser,
 } from "@/lib/auth-data";
+import { buildDefaultLaunchCampaignSnapshot } from "@/lib/launch-campaign";
 
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams?: Promise<{ _ptxn?: string }>;
 }) {
-  const session = await auth();
+  let session: Session | null = null;
+
+  try {
+    session = await auth();
+  } catch (error) {
+    console.error("dashboard auth failed", error);
+    redirect("/login?callbackUrl=/dashboard");
+  }
+
   const resolvedSearchParams = (await searchParams) ?? {};
 
   if (!session?.user) {
     redirect("/login?callbackUrl=/dashboard");
   }
 
-  const [profile, generatedDocuments, launchSnapshot] = await Promise.all([
-    getAppUserProfileById(session.user.id),
-    listGeneratedDocumentsForUser(session.user.id),
-    getLaunchCampaignSnapshot(session.user.id),
-  ]);
+  const [profileResult, generatedDocumentsResult, launchSnapshotResult] =
+    await Promise.allSettled([
+      getAppUserProfileById(session.user.id),
+      listGeneratedDocumentsForUser(session.user.id),
+      getLaunchCampaignSnapshot(session.user.id),
+    ]);
+
+  const profile =
+    profileResult.status === "fulfilled" ? profileResult.value : null;
+  const generatedDocuments =
+    generatedDocumentsResult.status === "fulfilled"
+      ? generatedDocumentsResult.value
+      : [];
+  const launchSnapshot =
+    launchSnapshotResult.status === "fulfilled"
+      ? launchSnapshotResult.value
+      : buildDefaultLaunchCampaignSnapshot(session.user.id);
+
+  if (profileResult.status === "rejected") {
+    console.error("dashboard profile load failed", profileResult.reason);
+  }
+
+  if (generatedDocumentsResult.status === "rejected") {
+    console.error(
+      "dashboard generated documents load failed",
+      generatedDocumentsResult.reason,
+    );
+  }
+
+  if (launchSnapshotResult.status === "rejected") {
+    console.error(
+      "dashboard launch snapshot load failed",
+      launchSnapshotResult.reason,
+    );
+  }
 
   return (
     <ComplianceDashboard
