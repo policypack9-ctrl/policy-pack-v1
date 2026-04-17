@@ -37,6 +37,8 @@ export async function GET(request: Request) {
   const responseBody = {
     success: result.status === "ok",
     status: result.status,
+    message: result.message,
+    config: result.config,
   };
 
   if (result.status === "ok") {

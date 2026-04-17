@@ -18,6 +18,34 @@ type SendAdminNotificationInput = {
   details: Array<{ label: string; value: string }>;
 };
 
+type NotificationConfig = {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+  replyTo: string;
+  senderEmail: string;
+  approvedSupportSender: string;
+  isApprovedUserFacingSender: boolean;
+  isProfessionalProvider: boolean;
+  provider: string;
+  recipients: string[];
+};
+
+const SMTP_PROVIDER_DEFAULTS: Record<
+  string,
+  { host: string; port: number; secure: boolean }
+> = {
+  resend: { host: "smtp.resend.com", port: 465, secure: true },
+  postmark: { host: "smtp.postmarkapp.com", port: 587, secure: false },
+  sendgrid: { host: "smtp.sendgrid.net", port: 587, secure: false },
+  mailgun: { host: "smtp.mailgun.org", port: 587, secure: false },
+  office365: { host: "smtp.office365.com", port: 587, secure: false },
+  zoho: { host: "smtp.zoho.com", port: 465, secure: true },
+};
+
 function parseEmailList(value: string) {
   return value
     .split(",")
@@ -27,6 +55,13 @@ function parseEmailList(value: string) {
 
 function uniqueEmails(items: string[]) {
   return [...new Set(items)];
+}
+
+function extractEmailAddress(value: string) {
+  const trimmed = value.trim();
+  const bracketMatch = trimmed.match(/<([^>]+)>/);
+  const candidate = bracketMatch?.[1] ?? trimmed;
+  return candidate.trim().toLowerCase();
 }
 
 function readBooleanEnv(key: string) {
@@ -47,20 +82,32 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
-function getNotificationConfig() {
+export function getNotificationConfig(): NotificationConfig {
   const configuredHost = process.env.SMTP_HOST?.trim() ?? "";
   const user = process.env.SMTP_USER?.trim() ?? "";
   const provider = process.env.SMTP_PROVIDER?.trim().toLowerCase() ?? "";
   const adminNotificationEmails = process.env.ADMIN_NOTIFICATION_EMAILS?.trim() ?? "";
+  const providerDefaults = SMTP_PROVIDER_DEFAULTS[provider];
   const isGmail = provider === "gmail" || /@gmail\.com$/i.test(user);
-  const host = configuredHost || (isGmail ? "smtp.gmail.com" : "");
-  const port = Number(process.env.SMTP_PORT?.trim() ?? (isGmail ? "465" : "465"));
-  const secure = readBooleanEnv("SMTP_SECURE") ?? port === 465;
+  const host =
+    configuredHost || providerDefaults?.host || (isGmail ? "smtp.gmail.com" : "");
+  const port = Number(
+    process.env.SMTP_PORT?.trim() ??
+      String(providerDefaults?.port ?? (isGmail ? 465 : 465)),
+  );
+  const secure =
+    readBooleanEnv("SMTP_SECURE") ?? providerDefaults?.secure ?? port === 465;
   const recipients = uniqueEmails(
     adminNotificationEmails
       ? parseEmailList(adminNotificationEmails)
       : [COMPANY_SUPPORT_EMAIL.toLowerCase()],
   );
+  const from = process.env.SMTP_FROM?.trim() ?? `PolicyPack <${COMPANY_SUPPORT_EMAIL}>`;
+  const replyTo = process.env.SMTP_REPLY_TO?.trim() ?? COMPANY_SUPPORT_EMAIL;
+  const senderEmail = extractEmailAddress(from || user);
+  const approvedSupportSender = COMPANY_SUPPORT_EMAIL.toLowerCase();
+  const isProfessionalProvider =
+    !isGmail && Boolean(host) && !/@gmail\.com$/i.test(senderEmail);
 
   return {
     host,
@@ -68,10 +115,49 @@ function getNotificationConfig() {
     secure,
     user,
     pass: process.env.SMTP_PASS?.trim() ?? "",
-    from: process.env.SMTP_FROM?.trim() ?? `PolicyPack <${COMPANY_SUPPORT_EMAIL}>`,
-    replyTo: process.env.SMTP_REPLY_TO?.trim() ?? COMPANY_SUPPORT_EMAIL,
+    from,
+    replyTo,
+    senderEmail,
+    approvedSupportSender,
+    isApprovedUserFacingSender: senderEmail === approvedSupportSender,
+    isProfessionalProvider,
+    provider: provider || "smtp",
     recipients,
   };
+}
+
+export function createNotificationTransporter(config: NotificationConfig) {
+  if (!config.host || !config.user || !config.pass) {
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+}
+
+export function canSendUserFacingEmail(config: NotificationConfig) {
+  if (!config.isProfessionalProvider) {
+    console.error(
+      `User-facing email skipped because SMTP provider is not configured as a professional domain sender. Current provider: ${config.provider}, sender: ${config.senderEmail || "unknown"}.`,
+    );
+    return false;
+  }
+
+  if (!config.isApprovedUserFacingSender) {
+    console.error(
+      `User-facing email skipped because SMTP_FROM resolves to ${config.senderEmail || "unknown"}, not ${config.approvedSupportSender}.`,
+    );
+    return false;
+  }
+
+  return true;
 }
 
 function buildHtmlBody(input: SendAdminNotificationInput) {
@@ -263,6 +349,20 @@ function buildPaymentReceiptText(planName: string) {
   ].join("\n");
 }
 
+function buildPromoEndedText(userName: string) {
+  return [
+    `Hi ${userName},`,
+    "",
+    "The PolicyPack complimentary launch offer has now ended.",
+    "",
+    `Choose a plan to continue: ${PRICING_URL}`,
+    `Need help? Reply to ${COMPANY_SUPPORT_EMAIL}.`,
+    "",
+    "Thank you,",
+    `The ${COMPANY_BRAND_NAME} Team`,
+  ].join("\n");
+}
+
 export async function sendAdminNotification(input: SendAdminNotificationInput) {
   const config = getNotificationConfig();
 
@@ -275,15 +375,11 @@ export async function sendAdminNotification(input: SendAdminNotificationInput) {
     return { ok: false as const, skipped: true as const };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: {
-      user: config.user,
-      pass: config.pass,
-    },
-  });
+  const transporter = createNotificationTransporter(config);
+
+  if (!transporter) {
+    return { ok: false as const, skipped: true as const };
+  }
 
   const textBody = [
     input.summary,
@@ -314,15 +410,15 @@ export async function sendWelcomeEmail(userEmail: string, userName: string) {
     return { ok: false as const, skipped: true as const };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: {
-      user: config.user,
-      pass: config.pass,
-    },
-  });
+  if (!canSendUserFacingEmail(config)) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const transporter = createNotificationTransporter(config);
+
+  if (!transporter) {
+    return { ok: false as const, skipped: true as const };
+  }
 
   const safeUserName = userName.trim() || "there";
   const subject = `Welcome to ${COMPANY_BRAND_NAME}`;
@@ -373,15 +469,15 @@ export async function sendPaymentReceiptEmail(userEmail: string, planName: strin
     return { ok: false as const, skipped: true as const };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: {
-      user: config.user,
-      pass: config.pass,
-    },
-  });
+  if (!canSendUserFacingEmail(config)) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const transporter = createNotificationTransporter(config);
+
+  if (!transporter) {
+    return { ok: false as const, skipped: true as const };
+  }
 
   const safePlanName = planName.trim() || "PolicyPack";
   const subject = `${COMPANY_BRAND_NAME} payment confirmed`;
@@ -425,6 +521,60 @@ export async function sendPaymentReceiptEmail(userEmail: string, planName: strin
   }
 }
 
+export async function sendPromoEndedEmail(userEmail: string, userName?: string) {
+  const config = getNotificationConfig();
+
+  if (!config.host || !config.user || !config.pass) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  if (!canSendUserFacingEmail(config)) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const transporter = createNotificationTransporter(config);
+
+  if (!transporter) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const safeUserName = userName?.trim() || "there";
+  const subject = "PolicyPack - Launch Offer Update";
+  const text = buildPromoEndedText(safeUserName);
+  const html = buildMarketingEmailHtml({
+    eyebrow: "Launch Offer Update",
+    title: "Your complimentary launch offer has ended",
+    intro: `Hi ${safeUserName}, the complimentary PolicyPack launch period has now ended.`,
+    body: [
+      "Your account can continue using PolicyPack by choosing a paid plan from the pricing page.",
+      "If you need help choosing the right package for your workflow, reply to this email and our support inbox will pick it up.",
+    ],
+    actions: [
+      { href: PRICING_URL, label: "View Plans" },
+      { href: DASHBOARD_URL, label: "Open Dashboard", variant: "secondary" },
+    ],
+    closing:
+      "Thank you for being an early user. If you have any billing or account questions, reply to this email and we will help.",
+  });
+  const attachments = await getEmailLogoAttachments();
+
+  try {
+    await transporter.sendMail({
+      attachments,
+      from: config.from,
+      replyTo: config.replyTo,
+      to: userEmail,
+      subject,
+      text,
+      html,
+    });
+    return { ok: true as const, skipped: false as const };
+  } catch (error) {
+    console.error("Error sending promo-ended email:", error);
+    return { ok: false as const, skipped: false as const };
+  }
+}
+
 export async function checkSmtpConnection() {
   const config = getNotificationConfig();
 
@@ -436,24 +586,65 @@ export async function checkSmtpConnection() {
         host: config.host || "missing",
         port: config.port,
         secure: config.secure,
+        provider: config.provider,
+        user: config.user ? "configured" : "missing",
+        pass: config.pass ? "configured" : "missing",
+        senderEmail: config.senderEmail || "missing",
+      },
+    };
+  }
+
+  if (!config.isProfessionalProvider) {
+    return {
+      status: "error",
+      message:
+        "SMTP is configured, but it is not using a professional domain sender. Configure a provider for support@policypack.org instead of Gmail or a personal mailbox.",
+      config: {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        provider: config.provider,
+        senderEmail: config.senderEmail || "missing",
+      },
+    };
+  }
+
+  if (!config.isApprovedUserFacingSender) {
+    return {
+      status: "error",
+      message:
+        "SMTP is connected, but SMTP_FROM does not match support@policypack.org. User-facing email remains blocked until sender alignment is fixed.",
+      config: {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        provider: config.provider,
+        senderEmail: config.senderEmail || "missing",
+        approvedSupportSender: config.approvedSupportSender,
+      },
+    };
+  }
+
+  const transporter = createNotificationTransporter(config);
+
+  if (!transporter) {
+    return {
+      status: "unconfigured",
+      message: "SMTP transporter could not be created.",
+      config: {
+        host: config.host || "missing",
+        port: config.port,
+        secure: config.secure,
+        provider: config.provider,
         user: config.user ? "configured" : "missing",
         pass: config.pass ? "configured" : "missing",
       },
     };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: {
-      user: config.user,
-      pass: config.pass,
-    },
-    connectionTimeout: 5000,
-    greetingTimeout: 5000,
-    socketTimeout: 5000,
-  });
+  transporter.options.connectionTimeout = 5000;
+  transporter.options.greetingTimeout = 5000;
+  transporter.options.socketTimeout = 5000;
 
   try {
     const isVerified = await transporter.verify();
@@ -464,6 +655,8 @@ export async function checkSmtpConnection() {
         host: config.host,
         port: config.port,
         secure: config.secure,
+        provider: config.provider,
+        senderEmail: config.senderEmail,
         user: "configured",
       },
     };
@@ -475,6 +668,8 @@ export async function checkSmtpConnection() {
         host: config.host,
         port: config.port,
         secure: config.secure,
+        provider: config.provider,
+        senderEmail: config.senderEmail,
         user: "configured",
       },
     };

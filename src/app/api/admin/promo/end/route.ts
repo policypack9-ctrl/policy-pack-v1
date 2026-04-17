@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
 
 import { auth } from "@/auth";
 import { isAdminEmailAllowed } from "@/lib/auth-env";
-import { COMPANY_SUPPORT_EMAIL } from "@/lib/company";
-import { sendAdminNotification } from "@/lib/notifications";
+import {
+  createNotificationTransporter,
+  getNotificationConfig,
+  sendAdminNotification,
+  sendPromoEndedEmail,
+} from "@/lib/notifications";
 import {
   getPromoUsers,
   isPromoActiveFromDB,
@@ -17,25 +20,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 const EMAIL_BATCH_SIZE = 10;
 
-function getSmtpTransporter() {
-  const host = process.env.SMTP_HOST?.trim() ?? "";
-  const user = process.env.SMTP_USER?.trim() ?? "";
-  const pass = process.env.SMTP_PASS?.trim() ?? "";
-
-  if (!host || !user || !pass) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT ?? "465"),
-    secure: process.env.SMTP_SECURE !== "false",
-    auth: { user, pass },
-  });
-}
-
 async function notifyPromoUsersInBatches(
-  transporter: NonNullable<ReturnType<typeof getSmtpTransporter>>,
   promoUsers: Awaited<ReturnType<typeof getPromoUsers>>,
 ) {
   let notifiedCount = 0;
@@ -47,27 +32,14 @@ async function notifyPromoUsersInBatches(
       .filter((user) => Boolean(user.email));
     const results = await Promise.allSettled(
       batch.map(async (user) => {
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
-          replyTo: COMPANY_SUPPORT_EMAIL,
-          to: user.email,
-          subject: "PolicyPack - Launch Offer Update",
-          text: `Hi ${user.name ?? "there"},\n\nThe PolicyPack complimentary launch offer has now ended.\n\nChoose a plan to continue: https://policypack.org/#pricing\n\nThank you,\nThe PolicyPack Team`,
-          html: `<div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-            <h2 style="color:#111827;">Launch Offer Update</h2>
-            <p>Hi ${user.name ?? "there"},</p>
-            <p>The PolicyPack complimentary launch offer has now ended.</p>
-            <p>To continue generating legal pages, choose a plan:</p>
-            <p style="margin:24px 0;"><a href="https://policypack.org/#pricing"
-              style="background:#0d9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
-              View Plans
-            </a></p>
-            <p>Thank you for being an early user!</p>
-            <p>The PolicyPack Team<br/>
-            <a href="mailto:${COMPANY_SUPPORT_EMAIL}">${COMPANY_SUPPORT_EMAIL}</a></p>
-          </div>`,
-        });
-
+        const result = await sendPromoEndedEmail(user.email!, user.name ?? "there");
+        if (!result.ok) {
+          throw new Error(
+            result.skipped
+              ? "Promo email skipped because professional support sender is not configured."
+              : "Promo email delivery failed.",
+          );
+        }
         return user.email ?? "unknown";
       }),
     );
@@ -117,15 +89,12 @@ export async function POST() {
     promoEndedInDb = true;
 
     // 3. Notify all promo users via email
-    const transporter = getSmtpTransporter();
     let notifiedCount = 0;
     const notificationErrors: string[] = [];
+    const notificationConfig = getNotificationConfig();
 
-    if (transporter) {
-      const notificationResult = await notifyPromoUsersInBatches(
-        transporter,
-        promoUsers,
-      );
+    if (createNotificationTransporter(notificationConfig)) {
+      const notificationResult = await notifyPromoUsersInBatches(promoUsers);
       notifiedCount = notificationResult.notifiedCount;
       notificationErrors.push(...notificationResult.notificationErrors);
     }

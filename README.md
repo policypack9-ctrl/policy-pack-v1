@@ -32,7 +32,7 @@ You will need to set up:
 - **Google Cloud**: Set up an OAuth app for `AUTH_GOOGLE_ID`.
 - **OpenRouter**: Get an API key for the document generation engine.
 - **Paddle**: Configure sandbox environment, products, and webhook secret.
-- **SMTP**: Configure mail delivery if you want welcome emails, payment emails, and admin notifications.
+- **SMTP**: Configure a professional mailbox for `support@policypack.org` if you want welcome emails, payment emails, and admin notifications.
 
 The app reads the following environment groups:
 
@@ -49,6 +49,23 @@ The app reads the following environment groups:
 | Promo | `PROMO_ACTIVE` | Controls whether the launch promo remains active. |
 
 Do not commit `.env.local` or any real secrets.
+
+### Professional Email Setup
+
+PolicyPack blocks user-facing emails unless `SMTP_FROM` resolves to `support@policypack.org` and SMTP is backed by a professional provider.
+
+Recommended setup:
+- Point `support@policypack.org` to a transactional provider or hosted mailbox with SMTP access.
+- Set `SMTP_USER="support@policypack.org"`.
+- Set `SMTP_FROM="PolicyPack Support <support@policypack.org>"`.
+- Set `SMTP_REPLY_TO="support@policypack.org"`.
+- Publish SPF, DKIM, and DMARC records for `policypack.org` before sending production traffic.
+
+You can verify the app-side configuration with the notifications healthcheck:
+
+```bash
+curl -H "x-healthcheck-secret: YOUR_SECRET" http://localhost:3000/api/health/notifications
+```
 
 *(For local DB, you can use the included `docker-compose.yml` to spin up PostgreSQL)*
 

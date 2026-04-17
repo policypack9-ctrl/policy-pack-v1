@@ -74,6 +74,10 @@ describe("GET /api/health/notifications", () => {
     await expect(response.json()).resolves.toEqual({
       success: true,
       status: "ok",
+      message: "SMTP connection is working",
+      config: {
+        host: "smtp.example.com",
+      },
     });
     expect(authMock).not.toHaveBeenCalled();
   });
