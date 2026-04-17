@@ -271,3 +271,81 @@ Which is easier for you?
 `الخطوة 1: تحديد الشريحة الأولى + الرسالة الأساسية + العرض الأول`
 
 ولا ننتقل للخطوة التالية إلا بعد تثبيت هذه النقاط الثلاث.
+
+## 17. سجل التنفيذ الفعلي - اليوم الأول
+
+تم تنفيذ اليوم الأول فعليًا على مراحل، وكانت النتيجة كالتالي:
+
+- تم تثبيت الشريحة الأولى:
+  - `AI SaaS founders launching subscription products`
+- تم تثبيت الرسالة الأساسية:
+  - `PolicyPack helps SaaS founders get launch-ready legal pages before billing, verification, and public launch.`
+- تم تثبيت العرض الأول:
+  - `Free Launch Legal Audit`
+
+- تم إنشاء جدول العملاء المحتملين `PolicyPack Prospects`.
+- تم تجهيز أول Batch من العملاء المحتملين داخل:
+  - `Docs/Prospects_Batch_01_2026-04-17_Codex.md`
+  - `Docs/Prospects_Batch_01_2026-04-17_Codex.tsv`
+
+- تم تحديد أولويات الـleads كالتالي:
+  - `P1`: ParityDeals
+  - `P1`: TraceRoot.AI
+  - `P1`: CreatorKit
+  - `P1`: ClarifyPDF / Bunni
+  - `P1`: Rick AI
+
+- تم إنشاء وتجهيز حساب LinkedIn الشخصي ليكون صالحًا للاستخدام في outreach.
+- تم ضبط:
+  - الـheadline
+  - الـabout
+  - صورة الغلاف
+  - الرابط العام
+  - الـindustry
+  - الـcontact info
+  - الـskills
+
+- تم إرسال `Connect + Note` لأول 5 leads من فئة `P1`.
+- تم نشر أول post على LinkedIn.
+
+## 18. حالة الشيت بعد اليوم الأول
+
+الحالة الصحيحة الحالية داخل الشيت:
+
+- `Date contacted` مكتوب فقط للخمسة `P1` الذين تم التواصل معهم.
+- `LinkedIn status` للخمسة `P1` = `invite_sent`
+- `Next action` للخمسة `P1` = `check_replies_2026-04-18`
+- الأعمدة التالية يجب أن تظل فارغة حتى يظهر حدث جديد:
+  - `Replied?`
+  - `Call booked?`
+  - `Audit sent?`
+  - `Paid?`
+
+## 19. ما سنفعله في بداية اليوم الثاني
+
+عند فتح الشغل في اليوم التالي:
+
+1. نراجع إشعارات LinkedIn والرسائل فقط.
+2. نتحقق هل يوجد:
+   - `accept`
+   - أو `reply`
+3. نحدث الشيت بناءً على الحدث الفعلي فقط.
+4. لا نرسل follow-up قبل مراجعة النتائج أولًا.
+
+## 20. ملفات المرجع الحالية
+
+الملفات الأساسية التي سنرجع لها في هذا المسار:
+
+- `Docs/Marketing_GTM_30_Day_Plan_2026-04-17_Codex.md`
+- `Docs/Prospects_Batch_01_2026-04-17_Codex.md`
+- `Docs/Prospects_Batch_01_2026-04-17_Codex.tsv`
+
+## 21. ملاحظة تنظيمية
+
+إذا تم تعديل الشيت يدويًا لاحقًا، يجب الحفاظ على القواعد التالية:
+
+- لا نكتب `Replied?` إلا عند وجود رد فعلي.
+- لا نكتب `Call booked?` إلا عند وجود مكالمة فعلية.
+- لا نكتب `Audit sent?` إلا بعد إرسال audit فعلًا.
+- لا نكتب `Paid?` إلا بعد تحصيل حقيقي.
+- لا نغير `P1 / P2` إلا بقرار واضح، وليس بشكل عشوائي.
