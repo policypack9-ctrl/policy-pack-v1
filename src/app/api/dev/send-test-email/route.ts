@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 
-import {
-  sendOutreachTestEmail,
-  sendPaymentReceiptEmail,
-  sendWelcomeEmail,
-} from "@/lib/notifications";
+import { sendPaymentReceiptEmail, sendWelcomeEmail } from "@/lib/notifications";
+import { sendOutreachTestEmail } from "@/lib/outreach";
 
 export const dynamic = "force-dynamic";
 

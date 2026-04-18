@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { isAdminEmailAllowed } from "@/lib/auth-env";
-import { checkOutreachSmtpConnection } from "@/lib/notifications";
+import { checkOutreachSmtpConnection } from "@/lib/outreach";
 
 export const dynamic = "force-dynamic";
 
