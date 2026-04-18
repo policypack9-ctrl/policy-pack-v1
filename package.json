@@ -17,7 +17,10 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "regen:site-legal": "node scripts/regenerate-site-legal.mjs",
-    "regenerate-site-legal": "node scripts/regenerate-site-legal.mjs"
+    "regenerate-site-legal": "node scripts/regenerate-site-legal.mjs",
+    "sheets:list": "node scripts/google-sheets.mjs list",
+    "sheets:get": "node scripts/google-sheets.mjs get-row",
+    "sheets:set": "node scripts/google-sheets.mjs set-cell"
   },
   "dependencies": {
     "@auth/supabase-adapter": "^1.11.1",
@@ -30,6 +33,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
+    "googleapis": "^171.4.0",
     "isomorphic-dompurify": "^3.9.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.8.0",
