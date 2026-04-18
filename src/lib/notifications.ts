@@ -34,6 +34,18 @@ type NotificationConfig = {
   recipients: string[];
 };
 
+type OutreachConfig = {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+  replyTo: string;
+  senderEmail: string;
+  provider: string;
+};
+
 const SMTP_PROVIDER_DEFAULTS: Record<
   string,
   { host: string; port: number; secure: boolean }
@@ -127,6 +139,53 @@ export function getNotificationConfig(): NotificationConfig {
 }
 
 export function createNotificationTransporter(config: NotificationConfig) {
+  if (!config.host || !config.user || !config.pass) {
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+}
+
+export function getOutreachConfig(): OutreachConfig {
+  const configuredHost = process.env.OUTREACH_SMTP_HOST?.trim() ?? "";
+  const user = process.env.OUTREACH_SMTP_USER?.trim() ?? "";
+  const provider = process.env.OUTREACH_SMTP_PROVIDER?.trim().toLowerCase() ?? "";
+  const providerDefaults = SMTP_PROVIDER_DEFAULTS[provider];
+  const host = configuredHost || providerDefaults?.host || "";
+  const port = Number(
+    process.env.OUTREACH_SMTP_PORT?.trim() ??
+      String(providerDefaults?.port ?? 465),
+  );
+  const secure =
+    readBooleanEnv("OUTREACH_SMTP_SECURE") ?? providerDefaults?.secure ?? port === 465;
+  const from =
+    process.env.OUTREACH_SMTP_FROM?.trim() ??
+    "PolicyPack Founder <founder@policypack.org>";
+  const replyTo =
+    process.env.OUTREACH_SMTP_REPLY_TO?.trim() ?? "founder@policypack.org";
+
+  return {
+    host,
+    port,
+    secure,
+    user,
+    pass: process.env.OUTREACH_SMTP_PASS?.trim() ?? "",
+    from,
+    replyTo,
+    senderEmail: extractEmailAddress(from || user),
+    provider: provider || "smtp",
+  };
+}
+
+export function createOutreachTransporter(config: OutreachConfig) {
   if (!config.host || !config.user || !config.pass) {
     return null;
   }
@@ -673,5 +732,131 @@ export async function checkSmtpConnection() {
         user: "configured",
       },
     };
+  }
+}
+
+export async function checkOutreachSmtpConnection() {
+  const config = getOutreachConfig();
+
+  if (!config.host || !config.user || !config.pass) {
+    return {
+      status: "unconfigured",
+      message: "Outreach SMTP settings are missing (host, user, or pass)",
+      config: {
+        host: config.host || "missing",
+        port: config.port,
+        secure: config.secure,
+        provider: config.provider,
+        user: config.user ? "configured" : "missing",
+        pass: config.pass ? "configured" : "missing",
+        senderEmail: config.senderEmail || "missing",
+      },
+    };
+  }
+
+  const transporter = createOutreachTransporter(config);
+
+  if (!transporter) {
+    return {
+      status: "unconfigured",
+      message: "Outreach SMTP transporter could not be created.",
+      config: {
+        host: config.host || "missing",
+        port: config.port,
+        secure: config.secure,
+        provider: config.provider,
+        user: config.user ? "configured" : "missing",
+        pass: config.pass ? "configured" : "missing",
+      },
+    };
+  }
+
+  transporter.options.connectionTimeout = 5000;
+  transporter.options.greetingTimeout = 5000;
+  transporter.options.socketTimeout = 5000;
+
+  try {
+    const isVerified = await transporter.verify();
+    return {
+      status: isVerified ? "ok" : "error",
+      message: isVerified
+        ? "Outreach SMTP connection is working"
+        : "Verification failed without throwing",
+      config: {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        provider: config.provider,
+        senderEmail: config.senderEmail,
+        user: "configured",
+      },
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown outreach SMTP error",
+      config: {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        provider: config.provider,
+        senderEmail: config.senderEmail,
+        user: "configured",
+      },
+    };
+  }
+}
+
+export async function sendOutreachTestEmail(to: string) {
+  const config = getOutreachConfig();
+
+  if (!config.host || !config.user || !config.pass) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const transporter = createOutreachTransporter(config);
+
+  if (!transporter) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const subject = "PolicyPack outreach SMTP test";
+  const text = [
+    "This is a test email from the PolicyPack outreach sender.",
+    "",
+    "If you received this, founder outreach SMTP is configured correctly.",
+    "",
+    `From: ${config.from}`,
+    `Reply-To: ${config.replyTo}`,
+  ].join("\n");
+
+  const html = buildMarketingEmailHtml({
+    eyebrow: "Outreach SMTP Test",
+    title: "Founder outreach sender is working",
+    intro: "This is a test email from the dedicated PolicyPack founder mailbox.",
+    body: [
+      "If this email reached your inbox, the outreach sender is configured separately from support and user-facing transactional emails.",
+      "This setup is what we will use later for founder-led outreach and audit follow-ups.",
+    ],
+    actions: [{ href: COMPANY_PRIMARY_URL, label: "Open PolicyPack" }],
+    closing:
+      "No action is needed. This message was sent only to verify the outreach email channel.",
+  });
+  const attachments = await getEmailLogoAttachments();
+
+  try {
+    await transporter.sendMail({
+      attachments,
+      from: config.from,
+      replyTo: config.replyTo,
+      to,
+      subject,
+      text,
+      html,
+    });
+    return { ok: true as const, skipped: false as const };
+  } catch (error) {
+    console.error("Error sending outreach test email:", error);
+    return { ok: false as const, skipped: false as const };
   }
 }

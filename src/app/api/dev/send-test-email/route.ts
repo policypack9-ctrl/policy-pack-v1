@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  sendOutreachTestEmail,
   sendPaymentReceiptEmail,
   sendWelcomeEmail,
 } from "@/lib/notifications";
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
 
   let body: {
     email?: string;
-    type?: "welcome" | "payment";
+    type?: "welcome" | "payment" | "outreach";
     name?: string;
     plan?: string;
   };
@@ -37,6 +38,17 @@ export async function POST(request: Request) {
       email,
       body.plan?.trim() || "Starter",
     );
+
+    return NextResponse.json({
+      ok: result.ok,
+      skipped: result.skipped,
+      type,
+      email,
+    });
+  }
+
+  if (type === "outreach") {
+    const result = await sendOutreachTestEmail(email);
 
     return NextResponse.json({
       ok: result.ok,

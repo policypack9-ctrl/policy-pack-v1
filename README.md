@@ -45,6 +45,7 @@ The app reads the following environment groups:
 | OpenRouter | `OPENROUTER_API_KEY` | `OPENROUTER_BASE_URL` defaults to the public API. Optional model override keys are documented in `.env.example`. |
 | Paddle | `PADDLE_ENVIRONMENT`, `NEXT_PUBLIC_PADDLE_ENV`, `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET` | Configure `PADDLE_STARTER_PRICE_ID` and `PADDLE_PREMIUM_PRICE_ID`. Client tokens may be set explicitly or generated server-side. |
 | SMTP | `SMTP_USER`, `SMTP_PASS` | For reliable email delivery also set `SMTP_PROVIDER`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`, and `SMTP_REPLY_TO`. |
+| Outreach SMTP | `OUTREACH_SMTP_USER`, `OUTREACH_SMTP_PASS` | Optional dedicated founder sender for cold outreach or audit follow-ups. Keep this separate from `support@policypack.org`. |
 | Admin / Ops | `ADMIN_EMAIL_ALLOWLIST`, `ADMIN_NOTIFICATION_EMAILS`, `HEALTHCHECK_SECRET` | Used for admin access control and the notifications healthcheck endpoint. |
 | Promo | `PROMO_ACTIVE` | Controls whether the launch promo remains active. |
 
@@ -65,6 +66,12 @@ You can verify the app-side configuration with the notifications healthcheck:
 
 ```bash
 curl -H "x-healthcheck-secret: YOUR_SECRET" http://localhost:3000/api/health/notifications
+```
+
+For the dedicated founder outreach sender:
+
+```bash
+curl -H "x-healthcheck-secret: YOUR_SECRET" http://localhost:3000/api/health/outreach-notifications
 ```
 
 *(For local DB, you can use the included `docker-compose.yml` to spin up PostgreSQL)*
