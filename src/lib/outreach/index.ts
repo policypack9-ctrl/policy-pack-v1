@@ -127,6 +127,42 @@ function buildOutreachTestHtml(config: OutreachConfig) {
   `;
 }
 
+function buildOutreachPreviewHtml() {
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;line-height:1.7;">
+      <p>Hi Ahmed,</p>
+      <p>This is the approved preview for the first 3 outreach emails.</p>
+      <hr />
+      <h3>1) Munch Studio</h3>
+      <p><strong>Subject:</strong> Quick note on Munch Studio</p>
+      <p>Hi there —</p>
+      <p>I took a quick look at Munch Studio.</p>
+      <p>You have a clear product, but your privacy, support, and contact surface feels more visible than your legal and billing clarity.</p>
+      <p>I help founders clean up privacy, terms, and billing language before it slows down trust, launch readiness, or conversions.</p>
+      <p>If useful, I can send you a short free 3-point legal-page audit for Munch Studio.</p>
+      <p>Best,<br />Ahmed<br />PolicyPack Founder<br /><a href="${escapeHtml(COMPANY_PRIMARY_URL)}">${escapeHtml(COMPANY_PRIMARY_URL)}</a></p>
+      <hr />
+      <h3>2) PostNitro</h3>
+      <p><strong>Subject:</strong> Quick note on PostNitro</p>
+      <p>Hi there —</p>
+      <p>I took a quick look at PostNitro.</p>
+      <p>The product is clear, but the billing and cancellation expectations are not very obvious from the main site flow.</p>
+      <p>I help founders clean up privacy, terms, and billing language before it slows down trust, launch readiness, or conversions.</p>
+      <p>If useful, I can send you a short free 3-point legal-page audit for PostNitro.</p>
+      <p>Best,<br />Ahmed<br />PolicyPack Founder<br /><a href="${escapeHtml(COMPANY_PRIMARY_URL)}">${escapeHtml(COMPANY_PRIMARY_URL)}</a></p>
+      <hr />
+      <h3>3) Tugan.ai</h3>
+      <p><strong>Subject:</strong> Quick note on Tugan.ai</p>
+      <p>Hi there —</p>
+      <p>I took a quick look at Tugan.ai.</p>
+      <p>You have a strong offer, but the public legal and billing surface looks lighter than the rest of the product experience.</p>
+      <p>I help founders clean up privacy, terms, and billing language before it slows down trust, launch readiness, or conversions.</p>
+      <p>If useful, I can send you a short free 3-point legal-page audit for Tugan.ai.</p>
+      <p>Best,<br />Ahmed<br />PolicyPack Founder<br /><a href="${escapeHtml(COMPANY_PRIMARY_URL)}">${escapeHtml(COMPANY_PRIMARY_URL)}</a></p>
+    </div>
+  `;
+}
+
 export function getOutreachConfig(): OutreachConfig {
   const configuredHost = process.env.OUTREACH_SMTP_HOST?.trim() ?? "";
   const user = process.env.OUTREACH_SMTP_USER?.trim() ?? "";
@@ -283,6 +319,100 @@ export async function sendOutreachTestEmail(to: string) {
     return { ok: true as const, skipped: false as const };
   } catch (error) {
     console.error("Error sending outreach test email:", error);
+    return { ok: false as const, skipped: false as const };
+  }
+}
+
+export async function sendOutreachPreviewEmail(to: string) {
+  const config = getOutreachConfig();
+
+  if (!config.host || !config.user || !config.pass) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const transporter = createOutreachTransporter(config);
+
+  if (!transporter) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const subject = "PolicyPack outreach preview: first 3 emails";
+  const text = [
+    "Hi Ahmed,",
+    "",
+    "This is the approved preview for the first 3 outreach emails.",
+    "",
+    "1) Munch Studio",
+    "Subject: Quick note on Munch Studio",
+    "",
+    "Hi there —",
+    "",
+    "I took a quick look at Munch Studio.",
+    "",
+    "You have a clear product, but your privacy, support, and contact surface feels more visible than your legal and billing clarity.",
+    "",
+    "I help founders clean up privacy, terms, and billing language before it slows down trust, launch readiness, or conversions.",
+    "",
+    "If useful, I can send you a short free 3-point legal-page audit for Munch Studio.",
+    "",
+    "Best,",
+    "Ahmed",
+    "PolicyPack Founder",
+    COMPANY_PRIMARY_URL,
+    "",
+    "---",
+    "",
+    "2) PostNitro",
+    "Subject: Quick note on PostNitro",
+    "",
+    "Hi there —",
+    "",
+    "I took a quick look at PostNitro.",
+    "",
+    "The product is clear, but the billing and cancellation expectations are not very obvious from the main site flow.",
+    "",
+    "I help founders clean up privacy, terms, and billing language before it slows down trust, launch readiness, or conversions.",
+    "",
+    "If useful, I can send you a short free 3-point legal-page audit for PostNitro.",
+    "",
+    "Best,",
+    "Ahmed",
+    "PolicyPack Founder",
+    COMPANY_PRIMARY_URL,
+    "",
+    "---",
+    "",
+    "3) Tugan.ai",
+    "Subject: Quick note on Tugan.ai",
+    "",
+    "Hi there —",
+    "",
+    "I took a quick look at Tugan.ai.",
+    "",
+    "You have a strong offer, but the public legal and billing surface looks lighter than the rest of the product experience.",
+    "",
+    "I help founders clean up privacy, terms, and billing language before it slows down trust, launch readiness, or conversions.",
+    "",
+    "If useful, I can send you a short free 3-point legal-page audit for Tugan.ai.",
+    "",
+    "Best,",
+    "Ahmed",
+    "PolicyPack Founder",
+    COMPANY_PRIMARY_URL,
+  ].join("\n");
+
+  try {
+    await transporter.sendMail({
+      from: config.from,
+      replyTo: config.replyTo,
+      to,
+      subject,
+      text,
+      html: buildOutreachPreviewHtml(),
+    });
+    return { ok: true as const, skipped: false as const };
+  } catch (error) {
+    console.error("Error sending outreach preview email:", error);
     return { ok: false as const, skipped: false as const };
   }
 }
