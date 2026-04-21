@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+import { auth } from "@/auth";
+import { isAdminEmailAllowed } from "@/lib/auth-env";
 import {
   exchangeLinkedInCodeForAccessToken,
   fetchLinkedInUserInfo,
@@ -10,11 +12,14 @@ import {
   LINKEDIN_MEMBER_SUB_COOKIE,
   LINKEDIN_OAUTH_STATE_COOKIE,
 } from "@/lib/linkedin";
+import { saveLinkedInConnection } from "@/lib/linkedin-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const session = await auth();
+  const sessionEmail = session?.user?.email ?? "";
   const url = new URL(request.url);
   const code = url.searchParams.get("code")?.trim() ?? "";
   const state = url.searchParams.get("state")?.trim() ?? "";
@@ -41,6 +46,17 @@ export async function GET(request: Request) {
     const token = await exchangeLinkedInCodeForAccessToken(code);
     const userInfo = await fetchLinkedInUserInfo(token.access_token);
     const expiresAt = Date.now() + token.expires_in * 1000;
+
+    await saveLinkedInConnection({
+      accessToken: token.access_token,
+      expiresAt,
+      memberSub: userInfo.sub,
+      memberName:
+        userInfo.name?.trim() || userInfo.given_name?.trim() || "LinkedIn member",
+      updatedBy:
+        session?.user?.id && isAdminEmailAllowed(sessionEmail) ? sessionEmail : null,
+      connectedAt: new Date().toISOString(),
+    });
 
     cookieStore.set(LINKEDIN_ACCESS_TOKEN_COOKIE, token.access_token, {
       httpOnly: true,
@@ -85,4 +101,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

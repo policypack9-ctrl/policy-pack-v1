@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
 import { getAuthBaseUrl, isAdminEmailAllowed } from "@/lib/auth-env";
 import {
   getLinkedInConfig,
   isLinkedInConfigured,
-  LINKEDIN_ACCESS_TOKEN_COOKIE,
-  LINKEDIN_EXPIRES_AT_COOKIE,
-  LINKEDIN_MEMBER_NAME_COOKIE,
-  LINKEDIN_MEMBER_SUB_COOKIE,
 } from "@/lib/linkedin";
+import { getStoredLinkedInConnection } from "@/lib/linkedin-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,17 +20,14 @@ export async function GET() {
   }
 
   const config = getLinkedInConfig();
-  const cookieStore = await cookies();
-  const memberSub = cookieStore.get(LINKEDIN_MEMBER_SUB_COOKIE)?.value ?? "";
-  const memberName = cookieStore.get(LINKEDIN_MEMBER_NAME_COOKIE)?.value ?? "";
-  const expiresAtRaw = cookieStore.get(LINKEDIN_EXPIRES_AT_COOKIE)?.value ?? "";
-  const expiresAt = Number(expiresAtRaw || "0");
+  const storedConnection = await getStoredLinkedInConnection();
+  const memberSub = storedConnection?.memberSub ?? "";
+  const memberName = storedConnection?.memberName ?? "";
+  const expiresAt = storedConnection?.expiresAt ?? 0;
 
   return NextResponse.json({
     configured: isLinkedInConfigured(),
-    connected: Boolean(
-      cookieStore.get(LINKEDIN_ACCESS_TOKEN_COOKIE)?.value && memberSub,
-    ),
+    connected: Boolean(storedConnection?.accessToken && memberSub),
     memberSub,
     memberName,
     expiresAt: expiresAt || null,
@@ -43,4 +36,3 @@ export async function GET() {
     redirectUri: config.redirectUri || null,
   });
 }
-

@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,10 +5,8 @@ import { auth } from "@/auth";
 import { getAuthBaseUrl, isAdminEmailAllowed } from "@/lib/auth-env";
 import {
   isLinkedInConfigured,
-  LINKEDIN_EXPIRES_AT_COOKIE,
-  LINKEDIN_MEMBER_NAME_COOKIE,
-  LINKEDIN_MEMBER_SUB_COOKIE,
 } from "@/lib/linkedin";
+import { getStoredLinkedInConnection } from "@/lib/linkedin-settings";
 import LinkedInPublishForm from "./publish-form";
 
 export const dynamic = "force-dynamic";
@@ -40,11 +37,10 @@ export default async function AdminLinkedInPage({
   const connected = readQueryValue(params.connected) === "1";
   const error = readQueryValue(params.error);
 
-  const cookieStore = await cookies();
-  const memberSub = cookieStore.get(LINKEDIN_MEMBER_SUB_COOKIE)?.value ?? "";
-  const memberName = cookieStore.get(LINKEDIN_MEMBER_NAME_COOKIE)?.value ?? "";
-  const expiresAtRaw = cookieStore.get(LINKEDIN_EXPIRES_AT_COOKIE)?.value ?? "";
-  const expiresAt = Number(expiresAtRaw || "0");
+  const storedConnection = await getStoredLinkedInConnection();
+  const memberSub = storedConnection?.memberSub ?? "";
+  const memberName = storedConnection?.memberName ?? "";
+  const expiresAt = storedConnection?.expiresAt ?? 0;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">

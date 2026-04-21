@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
 import { isAdminEmailAllowed } from "@/lib/auth-env";
 import {
   createLinkedInTextPost,
   isLinkedInConfigured,
-  LINKEDIN_ACCESS_TOKEN_COOKIE,
-  LINKEDIN_MEMBER_SUB_COOKIE,
 } from "@/lib/linkedin";
+import { getStoredLinkedInConnection } from "@/lib/linkedin-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,15 +30,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const cookieStore = await cookies();
-  const accessToken =
-    cookieStore.get(LINKEDIN_ACCESS_TOKEN_COOKIE)?.value?.trim() ?? "";
-  const memberSub =
-    cookieStore.get(LINKEDIN_MEMBER_SUB_COOKIE)?.value?.trim() ?? "";
+  const storedConnection = await getStoredLinkedInConnection();
+  const accessToken = storedConnection?.accessToken?.trim() ?? "";
+  const memberSub = storedConnection?.memberSub?.trim() ?? "";
 
   if (!accessToken || !memberSub) {
     return NextResponse.json(
       { error: "LinkedIn profile is not connected." },
+      { status: 409 },
+    );
+  }
+
+  if ((storedConnection?.expiresAt ?? 0) && Date.now() >= (storedConnection?.expiresAt ?? 0)) {
+    return NextResponse.json(
+      { error: "LinkedIn access token expired. Reconnect LinkedIn first." },
       { status: 409 },
     );
   }
