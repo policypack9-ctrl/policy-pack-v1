@@ -10,6 +10,7 @@ import {
   LINKEDIN_MEMBER_NAME_COOKIE,
   LINKEDIN_MEMBER_SUB_COOKIE,
 } from "@/lib/linkedin";
+import LinkedInPublishForm from "./publish-form";
 
 export const dynamic = "force-dynamic";
 
@@ -113,8 +114,9 @@ export default async function AdminLinkedInPage({
             Open connection status
           </Link>
         </div>
+
+        <LinkedInPublishForm disabled={!memberSub || !isLinkedInConfigured()} />
       </div>
     </main>
   );
 }
-

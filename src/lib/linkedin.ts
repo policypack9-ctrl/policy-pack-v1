@@ -22,6 +22,11 @@ type LinkedInUserInfo = {
   };
 };
 
+type LinkedInTextPostResponse = {
+  postId: string;
+  feedUrl: string | null;
+};
+
 export const LINKEDIN_ACCESS_TOKEN_COOKIE = "linkedin_access_token";
 export const LINKEDIN_EXPIRES_AT_COOKIE = "linkedin_access_token_expires_at";
 export const LINKEDIN_MEMBER_SUB_COOKIE = "linkedin_member_sub";
@@ -122,3 +127,59 @@ export async function fetchLinkedInUserInfo(accessToken: string) {
   return (await response.json()) as LinkedInUserInfo;
 }
 
+export async function createLinkedInTextPost(
+  accessToken: string,
+  memberSub: string,
+  commentary: string,
+): Promise<LinkedInTextPostResponse> {
+  const trimmedCommentary = commentary.trim();
+
+  if (!trimmedCommentary) {
+    throw new Error("Post content is required.");
+  }
+
+  if (trimmedCommentary.length > 3000) {
+    throw new Error("Post content must be 3000 characters or less.");
+  }
+
+  const response = await fetch("https://api.linkedin.com/v2/ugcPosts", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "X-Restli-Protocol-Version": "2.0.0",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      author: `urn:li:person:${memberSub}`,
+      lifecycleState: "PUBLISHED",
+      specificContent: {
+        "com.linkedin.ugc.ShareContent": {
+          shareCommentary: {
+            text: trimmedCommentary,
+          },
+          shareMediaCategory: "NONE",
+        },
+      },
+      visibility: {
+        "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+      },
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`LinkedIn publish failed: ${errorText}`);
+  }
+
+  const postId = response.headers.get("x-restli-id")?.trim() ?? "";
+
+  if (!postId) {
+    throw new Error("LinkedIn publish succeeded without a returned post id.");
+  }
+
+  return {
+    postId,
+    feedUrl: `https://www.linkedin.com/feed/update/${postId}/`,
+  };
+}
