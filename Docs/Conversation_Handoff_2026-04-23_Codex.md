@@ -94,6 +94,55 @@ Invoke-RestMethod -Method GET `
   -Headers @{ "x-healthcheck-secret" = "<HEALTHCHECK_SECRET>" }
 ```
 
+---
+
+## 9) Pre-Windows-Reinstall Checklist (Mandatory)
+
+Before installing a new Windows copy, confirm:
+
+1. GitHub sync is complete:
+   - `git status -sb` has no pending local commits.
+   - `git ls-remote origin refs/heads/main` has latest local hash.
+2. Backup all secrets outside this repo:
+   - Vercel env vars (especially `OUTREACH_SMTP_*`, `LINKEDIN_*`, `HEALTHCHECK_SECRET`)
+   - `.secrets/google-sheets-service-account.json`
+   - mailbox passwords used for `support@policypack.org` and `founder@policypack.org`
+3. Keep this handoff file:
+   - `Docs/Conversation_Handoff_2026-04-23_Codex.md`
+4. Keep active lead files:
+   - `Docs/Prospects_Batch_02_2026-04-18_Codex.tsv`
+   - `Docs/Prospects_Batch_03_2026-04-21_Codex.tsv`
+   - `Docs/Prospects_Batch_04_2026-04-21_Codex.tsv`
+   - `Docs/Prospects_Batch_05_2026-04-22_Codex.tsv`
+
+---
+
+## 10) End-of-Session Protocol (Persistent Rule)
+
+At the end of every session, assistant must:
+
+1. Summarize today:
+   - emails sent
+   - LinkedIn actions done
+   - sheet updates
+   - pending replies
+2. Ask this exact next-step question:
+   - `نكمّل إيه في الجلسة الجاية: Batch جديد، ولا مراجعة الردود، ولا Follow-up؟`
+
+This should be applied in every new chat after reading this file.
+
+---
+
+## 11) LinkedIn Auto Message Classification
+
+If sender is "The LinkedIn Team" and message is onboarding tips:
+
+- Type: System onboarding message (not lead, not sales opportunity).
+- Action:
+  1. No business reply.
+  2. Ignore or archive.
+  3. Do not add to leads sheet.
+
 اختبار preview:
 ```powershell
 Invoke-RestMethod -Method POST `
@@ -173,4 +222,3 @@ Docs/Conversation_Handoff_2026-04-23_Codex.md
 4) تحديث نقطة الوقوف الحالية
 5) تجهيز وإرسال أول دفعة اليوم
 ```
-
